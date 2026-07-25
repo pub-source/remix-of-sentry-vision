@@ -694,47 +694,12 @@ export default function Auth() {
 }
 
 function validatePasswordStrength(pw: string): string | null {
-  if (pw.length < 8) return 'Password must be at least 8 characters long.';
-  if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter.';
-  if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter.';
-  if (!/[0-9]/.test(pw)) return 'Password must contain at least one number.';
-  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain at least one special character.';
+  // Simplified for accessibility: minimum length only. Supabase server-side
+  // enforces its own minimum (default 6 chars); we surface a friendly message.
+  if (pw.length < 6) return 'Password must be at least 6 characters.';
   return null;
 }
 
-function passwordScore(pw: string): number {
-  let s = 0;
-  if (pw.length >= 8) s++;
-  if (/[A-Z]/.test(pw)) s++;
-  if (/[a-z]/.test(pw)) s++;
-  if (/[0-9]/.test(pw)) s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  return s;
-}
-
-function PasswordStrengthMeter({ password }: { password: string }) {
-  if (!password) return null;
-  const score = passwordScore(password);
-  const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
-  const colors = ['bg-destructive', 'bg-destructive', 'bg-amber-500', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-500'];
-  return (
-    <div className="flex items-center gap-2 pt-1" aria-live="polite">
-      <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className={`h-full ${colors[score]} transition-all`} style={{ width: `${(score / 5) * 100}%` }} />
-      </div>
-      <span className="text-[10px] text-muted-foreground w-16 text-right">{labels[score]}</span>
-    </div>
-  );
-}
-
-function PwReq({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <li className={`flex items-center gap-1.5 ${ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-      <span aria-hidden="true">{ok ? '✓' : '○'}</span>
-      <span>{label}</span>
-    </li>
-  );
-}
 
 // ---- Module-scope shared subcomponents ----
 // IMPORTANT: These MUST live outside the Auth component so React does not
