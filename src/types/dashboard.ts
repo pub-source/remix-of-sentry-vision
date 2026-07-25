@@ -72,4 +72,12 @@ export const DETECTABLE_OBJECTS = [
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush',
 ] as const;
 
-export const DEFAULT_PRIORITY_OBJECTS = ['person', 'knife', 'cell phone'];
+export const DEFAULT_PRIORITY_OBJECTS = [
+  'person',
+  'chair',
+  'book',
+  'potted plant',
+  'bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'wine glass',
+  // Screens are always tracked so fire-inside-TV/phone is flagged as false alarm
+  'tv', 'cell phone', 'laptop',
+];
