@@ -458,19 +458,19 @@ export default function Auth() {
   if (mode === 'login') {
     return (
       <PageWrapper>
-        <form onSubmit={handleSignIn} className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-foreground">Welcome Back</h2>
-            <p className="text-xs text-muted-foreground">Sign in to your account</p>
+        <form onSubmit={handleSignIn} className="bg-card rounded-xl border border-border shadow-sm p-8 space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+            <p className="text-base text-muted-foreground">Sign in to your account</p>
           </div>
           <InputField icon={Mail} label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="your@gmail.com" />
           <InputField icon={Lock} label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
           <ErrorMsg msg={error} />
           <PrimaryButton type="submit" disabled={submitting}>
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-5 h-5" />
             {submitting ? 'Signing in...' : 'Sign In'}
           </PrimaryButton>
-          <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors py-1">
+          <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="w-full text-base text-muted-foreground hover:text-primary transition-colors py-2">
             Forgot password?
           </button>
           <BackButton onClick={() => { clearState(); setMode('choose'); }} />
@@ -478,6 +478,7 @@ export default function Auth() {
       </PageWrapper>
     );
   }
+
 
   // Create Account
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.trim().toLowerCase().endsWith('@gmail.com');
