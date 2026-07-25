@@ -119,9 +119,19 @@
     @apply border-border;
   }
 
+  /* Elder-friendly base: bump root font-size so all rem-based UI scales up. */
+  html {
+    font-size: 18px;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  }
+
+  /* Minimum tap-target height on interactive elements for readability. */
+  button, [role="button"], input, select, textarea {
+    min-height: 40px;
   }
 
   code, .font-mono {
