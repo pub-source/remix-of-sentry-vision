@@ -13,6 +13,9 @@ interface FusedDetectionViewProps {
   interimTranscript: string;
   speechListening: boolean;
   onToggleSpeech: () => void;
+  fireBbox?: [number, number, number, number];
+  fireFrameWidth?: number;
+  fireFrameHeight?: number;
 }
 
 // Distress indicators from object/audio context
@@ -98,6 +101,9 @@ export default function FusedDetectionView({
   interimTranscript,
   speechListening,
   onToggleSpeech,
+  fireBbox,
+  fireFrameWidth,
+  fireFrameHeight,
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -168,7 +174,37 @@ export default function FusedDetectionView({
         ctx.fillText(labelText, dx + 5, dy - 5);
       });
 
-      // Activity bar — color changes with distress level
+      // Fire saliency box — draws a pulsing red highlight over the flame region
+      if (fireBbox) {
+        const [fx, fy, fw2, fh2] = fireBbox;
+        const srcW = fireFrameWidth || sourceCanvas?.width || w;
+        const srcH = fireFrameHeight || sourceCanvas?.height || h;
+        const sx = w / srcW;
+        const sy = h / srcH;
+        const dx = fx * sx;
+        const dy = fy * sy;
+        const dw = fw2 * sx;
+        const dh = fh2 * sy;
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+        ctx.save();
+        ctx.strokeStyle = '#ff2a2a';
+        ctx.shadowColor = '#ff2a2a';
+        ctx.shadowBlur = 20 * pulse + 8;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(dx, dy, dw, dh);
+        ctx.fillStyle = `rgba(255,42,42,${0.15 + 0.15 * pulse})`;
+        ctx.fillRect(dx, dy, dw, dh);
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        const flabel = 'FIRE';
+        const ftm = ctx.measureText(flabel);
+        ctx.fillStyle = '#ff2a2a';
+        ctx.fillRect(dx, dy - 18, ftm.width + 10, 18);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(flabel, dx + 5, dy - 5);
+        ctx.restore();
+      }
+
       const actBarH = 28;
       const barColor = distressLevel === 'critical' ? 'rgba(220,38,38,0.85)' : distressLevel === 'warning' ? 'rgba(234,179,8,0.85)' : 'rgba(0,0,0,0.75)';
       ctx.fillStyle = barColor;
@@ -198,7 +234,7 @@ export default function FusedDetectionView({
 
     render();
     return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, [active, sourceCanvas, objects, activity, attentionScore, distressLevel]);
+  }, [active, sourceCanvas, objects, activity, attentionScore, distressLevel, fireBbox, fireFrameWidth, fireFrameHeight]);
 
   const toggleFullscreen = useCallback(() => {
     const el = containerRef.current;

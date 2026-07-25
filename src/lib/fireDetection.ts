@@ -210,9 +210,14 @@ export function detectFire(
       };
     }
 
-    // Screen / device false alarm
+    // Screen / device false alarm — fire "inside" a TV/phone/laptop/monitor
+    // Trigger if the fire bbox mostly sits inside a screen OR the screen mostly
+    // sits inside the fire bbox (covers zoomed-in TVs that fill the frame).
     for (const obj of objects) {
-      if (SCREEN_LABELS.has(obj.label) && bboxOverlap(bbox, obj.bbox) > 0.6) {
+      if (!SCREEN_LABELS.has(obj.label)) continue;
+      const fireInsideScreen = bboxOverlap(bbox, obj.bbox);
+      const screenInsideFire = bboxOverlap(obj.bbox, bbox);
+      if (fireInsideScreen > 0.4 || screenInsideFire > 0.5) {
         return {
           ...baseResult,
           detected: false,

@@ -256,6 +256,9 @@ export default function Index() {
     smokeRatio: number;
     visibility: number;
     reason?: string;
+    bbox?: [number, number, number, number];
+    frameWidth?: number;
+    frameHeight?: number;
   }>({
     detected: false,
     fireDetected: false,
@@ -495,7 +498,10 @@ export default function Index() {
   }, []);
 
   const handleDetectFrame = useCallback(async (video: HTMLVideoElement): Promise<DetectedObject[]> => {
-    return detect(video, priorityObjects, minConfidence / 100);
+    // Always include screens so fire-inside-TV/phone can be flagged as false alarm
+    const forced = ['tv', 'cell phone', 'laptop'];
+    const merged = Array.from(new Set([...priorityObjects, ...forced]));
+    return detect(video, merged, minConfidence / 100);
   }, [detect, priorityObjects, minConfidence]);
 
   const handleFrameCapture = useCallback((canvas: HTMLCanvasElement) => {
@@ -533,6 +539,9 @@ export default function Index() {
           smokeRatio: result.smokeRatio,
           visibility: result.visibility,
           reason: result.rejectedReason,
+          bbox: result.bbox,
+          frameWidth: target.width,
+          frameHeight: target.height,
         });
         if (result.detected && Date.now() - fireCooldown.current > 3000) {
           fireCooldown.current = Date.now();
@@ -954,6 +963,9 @@ export default function Index() {
               interimTranscript={interimTranscript}
               speechListening={speechListening}
               onToggleSpeech={() => {}}
+              fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
+              fireFrameWidth={fireStatus.frameWidth}
+              fireFrameHeight={fireStatus.frameHeight}
             />
           </div>
 
