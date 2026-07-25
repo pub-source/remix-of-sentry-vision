@@ -101,6 +101,9 @@ export default function FusedDetectionView({
   interimTranscript,
   speechListening,
   onToggleSpeech,
+  fireBbox,
+  fireFrameWidth,
+  fireFrameHeight,
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
