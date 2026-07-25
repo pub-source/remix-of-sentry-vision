@@ -10,6 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Household from "./pages/Household";
 import Research from "./pages/Research";
 import NotFound from "./pages/NotFound";
+import RequireAuth from "./components/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -20,12 +21,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/auth" />} />
-          <Route path="/dashboard" element={<Index />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={<RequireAuth><Index /></RequireAuth>} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/join/:code" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/household" element={<Household />} />
+          <Route path="/household" element={<RequireAuth><Household /></RequireAuth>} />
           <Route path="/research" element={<Research />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
