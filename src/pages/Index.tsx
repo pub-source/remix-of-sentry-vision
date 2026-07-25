@@ -1336,6 +1336,8 @@ export default function Index() {
           try { localStorage.setItem(key, '1'); } catch { /* noop */ }
         }}
       />
+
+      <ExpertMode open={showExpert} onClose={() => setShowExpert(false)} />
     </div>
   );
 }
