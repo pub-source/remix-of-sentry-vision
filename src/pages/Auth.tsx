@@ -520,10 +520,10 @@ export default function Auth() {
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="ca-password" className="text-xs font-medium text-muted-foreground">Password</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-password" className="text-base font-medium text-foreground">Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-password"
               type={showPassword ? 'text' : 'password'}
@@ -532,29 +532,22 @@ export default function Auth() {
               onChange={e => setPassword(e.target.value)}
               required
               aria-required="true"
-              aria-describedby="ca-password-help"
-              placeholder="At least 8 characters"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              minLength={6}
+              placeholder="At least 6 characters"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-11 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
-          <PasswordStrengthMeter password={password} />
-          <ul id="ca-password-help" className="text-[10px] text-muted-foreground space-y-0.5 pl-1 pt-1">
-            <PwReq ok={password.length >= 8} label="At least 8 characters" />
-            <PwReq ok={/[A-Z]/.test(password)} label="One uppercase letter" />
-            <PwReq ok={/[a-z]/.test(password)} label="One lowercase letter" />
-            <PwReq ok={/[0-9]/.test(password)} label="One number" />
-            <PwReq ok={/[^A-Za-z0-9]/.test(password)} label="One special character" />
-          </ul>
         </div>
+
 
         <div className="space-y-1.5">
           <label htmlFor="ca-confirm" className="text-xs font-medium text-muted-foreground">Confirm Password</label>
