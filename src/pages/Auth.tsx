@@ -118,33 +118,44 @@ export default function Auth() {
     if (!trimmedEmail) { setError('Email is required.'); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) { setError('Please enter a valid email address.'); return; }
-    if (!password || password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (!trimmedEmail.toLowerCase().endsWith('@gmail.com')) {
+      setError('Only @gmail.com email addresses are allowed.');
+      return;
+    }
+    if (!password) { setError('Password is required.'); return; }
+    const pwIssue = validatePasswordStrength(password);
+    if (pwIssue) { setError(pwIssue); return; }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
+    if (!privacyConsent) {
+      setError('You must agree to the Data Privacy Act notice to create an account.');
+      return;
+    }
     setSubmitting(true);
+    // Note: Supabase securely hashes the password server-side (bcrypt) before storage.
     const { error: authError } = await signUp(trimmedEmail, password);
     if (authError) {
-      // Friendlier message for the common "already registered" case
-      const msg = /already registered|already exists/i.test(authError.message)
-        ? 'An account with this email already exists. Try signing in instead.'
-        : authError.message;
-      setError(msg);
+      setError(authError.message);
       setSubmitting(false);
       return;
     }
-    setSuccess('Account created! Redirecting to sign in...');
+    setSuccess('Account created successfully! Redirecting to sign in...');
     setSubmitting(false);
     setTimeout(() => {
       clearState();
       setMode('login');
-    }, 1500);
+    }, 1800);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!email.trim().toLowerCase().endsWith('@gmail.com')) {
+      setError('Only @gmail.com email addresses are allowed.');
+      return;
+    }
     setSubmitting(true);
     const { error: authError } = await signIn(email, password);
     if (authError) setError(authError.message);
@@ -468,11 +479,11 @@ export default function Auth() {
     );
   }
 
-  // Create Account — minimal requirements: valid email + ≥6 char password + confirm match
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const passwordValid = password.length >= 6;
+  // Create Account
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.trim().toLowerCase().endsWith('@gmail.com');
+  const passwordValid = !validatePasswordStrength(password) && password.length > 0;
   const confirmValid = confirmPassword.length > 0 && confirmPassword === password;
-  const canSubmitCreate = emailValid && passwordValid && confirmValid && !submitting && !success;
+  const canSubmitCreate = emailValid && passwordValid && confirmValid && privacyConsent && !submitting && !success;
 
   return (
     <PageWrapper>
@@ -522,8 +533,8 @@ export default function Auth() {
               required
               aria-required="true"
               aria-describedby="ca-password-help"
-              placeholder="At least 6 characters"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              placeholder="At least 8 characters"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
             <button
               type="button"
@@ -535,9 +546,14 @@ export default function Auth() {
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p id="ca-password-help" className="text-xs text-muted-foreground pl-1 pt-1">
-            Use at least 6 characters. Longer passwords are safer.
-          </p>
+          <PasswordStrengthMeter password={password} />
+          <ul id="ca-password-help" className="text-[10px] text-muted-foreground space-y-0.5 pl-1 pt-1">
+            <PwReq ok={password.length >= 8} label="At least 8 characters" />
+            <PwReq ok={/[A-Z]/.test(password)} label="One uppercase letter" />
+            <PwReq ok={/[a-z]/.test(password)} label="One lowercase letter" />
+            <PwReq ok={/[0-9]/.test(password)} label="One number" />
+            <PwReq ok={/[^A-Za-z0-9]/.test(password)} label="One special character" />
+          </ul>
         </div>
 
         <div className="space-y-1.5">
@@ -573,10 +589,27 @@ export default function Auth() {
 
         <ErrorMsg msg={error} />
         <SuccessMsg msg={success} />
-        <p className="text-xs text-muted-foreground leading-relaxed px-1">
-          By creating an account you agree to our data handling under the Data Privacy Act of 2012.{' '}
-          <button type="button" onClick={() => setShowPrivacyDialog(true)} className="text-primary underline underline-offset-2 hover:text-primary/80">Read notice</button>
-        </p>
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3">
+          <input
+            id="ca-privacy"
+            type="checkbox"
+            checked={privacyConsent}
+            onChange={e => setPrivacyConsent(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+          />
+          <label htmlFor="ca-privacy" className="text-[11px] leading-relaxed text-muted-foreground cursor-pointer">
+            I have read and agree to the collection, use, and processing of my personal
+            information (email, household data, detection logs, and audio/video snapshots)
+            in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173).{' '}
+            <button
+              type="button"
+              onClick={() => setShowPrivacyDialog(true)}
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              Read full notice
+            </button>
+          </label>
+        </div>
         <PrimaryButton type="submit" disabled={!canSubmitCreate} aria-label="Create Account">
           {submitting ? (
             <>
@@ -709,16 +742,16 @@ function PwReq({ ok, label }: { ok: boolean; label: string }) {
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-xl space-y-8">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-3">
-            <Shield className="w-9 h-9 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <div className="flex items-center justify-center gap-2.5">
+            <Shield className="w-6 h-6 text-primary" />
+            <h1 className="text-lg font-semibold text-foreground tracking-tight">
               MSDSystem
             </h1>
           </div>
-          <p className="text-base text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Multimodal Saliency Detection System
           </p>
         </div>

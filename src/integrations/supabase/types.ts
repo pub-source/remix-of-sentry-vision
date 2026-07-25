@@ -147,8 +147,6 @@ export type Database = {
           id: string
           label: string
           note: string | null
-          raw_scores: Json | null
-          sub_label: string | null
           submitted_by: string | null
           visual_context: Json | null
         }
@@ -161,8 +159,6 @@ export type Database = {
           id?: string
           label: string
           note?: string | null
-          raw_scores?: Json | null
-          sub_label?: string | null
           submitted_by?: string | null
           visual_context?: Json | null
         }
@@ -175,8 +171,6 @@ export type Database = {
           id?: string
           label?: string
           note?: string | null
-          raw_scores?: Json | null
-          sub_label?: string | null
           submitted_by?: string | null
           visual_context?: Json | null
         }
@@ -375,27 +369,6 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
       wake_words: {
         Row: {
           action_type: string
@@ -440,16 +413,9 @@ export type Database = {
     }
     Functions: {
       get_user_household_ids: { Args: { _user_id: string }; Returns: string[] }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -576,8 +542,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
+    Enums: {},
   },
 } as const
