@@ -1112,6 +1112,19 @@ export default function Index() {
                    !yamnet.ready ? 'Loading AudioSet model…' :
                    `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
                 </p>
+                {yamnet.distressScore >= 30 && (
+                  <DetectionFeedback
+                    householdId={householdId}
+                    eventType="audio_scream"
+                    confidence={yamnet.topScore}
+                    audioEvent={yamnet.topLabel}
+                    visualContext={{
+                      distressScore: yamnet.distressScore,
+                      topLabel: yamnet.topLabel,
+                      topScore: yamnet.topScore,
+                    }}
+                  />
+                )}
               </div>
               <div className={`rounded p-2 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
