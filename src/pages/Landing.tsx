@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Shield, Eye, Wifi, Bell, Cpu, Users, ArrowRight, CheckCircle2, Lock, Zap, MonitorSmartphone, Sun, Moon } from 'lucide-react';
+import { Shield, Eye, Wifi, Bell, Cpu, Users, ArrowRight, Lock, Zap, MonitorSmartphone, Sun, Moon, Sparkles, Database, Activity, Flame, Brain, Volume2, ChevronRight, Award, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const features = [
@@ -124,46 +124,97 @@ export default function Landing() {
       </nav>
 
       {/* Hero */}
-      <section className="relative hero-gradient">
-        <div className="max-w-6xl mx-auto px-6 py-24 md:py-32 text-center">
+      <section className="relative hero-gradient overflow-hidden">
+        {/* HUD scan grid backdrop */}
+        <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60 animate-pulse" />
+
+        <div className="relative max-w-6xl mx-auto px-6 py-24 md:py-32 text-center">
           <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0}>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-full mb-6">
-              <Shield className="w-3.5 h-3.5" />
-              Secure • Real-Time • Intelligent
+            <span className="inline-flex items-center gap-2 text-sm font-mono font-semibold bg-primary/10 border border-primary/30 text-primary px-4 py-2 rounded-full mb-8">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              LIVE · AI MONITORING · v2.1
             </span>
           </motion.div>
           <motion.h1
-            className="text-4xl md:text-6xl font-extrabold text-foreground leading-tight tracking-tight mb-6"
+            className="text-5xl md:text-6xl font-extrabold text-foreground leading-[1.05] tracking-tight mb-6"
             initial="hidden" animate="visible" variants={fadeIn} custom={1}
           >
-            Multimodal Saliency
+            Home security that
             <br />
-            <span className="text-primary">Detection System</span>
+            <span className="text-primary">actually sees, hears</span>
+            <br />
+            <span className="text-accent">and understands.</span>
           </motion.h1>
           <motion.p
-            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+            className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed"
             initial="hidden" animate="visible" variants={fadeIn} custom={2}
           >
-            Advanced real-time monitoring that combines object detection, audio analysis, and visual saliency
-            into one unified attention system — built for household safety and awareness.
+            A DOST-inspired multimodal AI that fuses vision, audio, and facial-expression signals to
+            catch fire, falls, screams, and family distress the second they happen — and gets smarter
+            with every 👍 you give it.
           </motion.p>
           <motion.div
-            className="flex items-center justify-center gap-4"
+            className="flex items-center justify-center gap-4 flex-wrap"
             initial="hidden" animate="visible" variants={fadeIn} custom={3}
           >
             <button
               onClick={() => navigate(user ? '/dashboard' : '/auth')}
-              className="inline-flex items-center gap-2 text-base font-semibold bg-primary text-primary-foreground px-8 py-3.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+              className="inline-flex items-center gap-2 text-lg font-semibold bg-primary text-primary-foreground px-8 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/30"
             >
               {user ? 'Open Dashboard' : 'Get Started Free'}
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => navigate('/expert')}
+              className="inline-flex items-center gap-2 text-lg font-semibold border-2 border-primary/40 text-primary px-8 py-4 rounded-xl hover:bg-primary/5 transition-all"
+            >
+              <Sparkles className="w-5 h-5" />
+              Enter Expert Mode
             </button>
           </motion.div>
+          <motion.p
+            className="mt-6 text-sm font-mono text-muted-foreground"
+            initial="hidden" animate="visible" variants={fadeIn} custom={4}
+          >
+            No credit card. Runs on your webcam. Thesis-grade research, home-grade UX.
+          </motion.p>
         </div>
       </section>
 
-      {/* Security Badges */}
+      {/* Detection triad — the "real deal" security company section */}
       <section className="border-y border-border bg-card">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <div className="text-center mb-10">
+            <p className="text-sm font-mono uppercase tracking-widest text-primary mb-2">THREE SENSES · ONE VERDICT</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-foreground">
+              What MSDSystem watches for
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: Flame, color: 'text-destructive', bg: 'bg-destructive/10', ring: 'border-destructive/30', title: 'Fire & Smoke', desc: 'Color signature + flame flicker + smoke coverage + visibility drop. Rejects TV fires, candles, and posters.' },
+              { icon: Brain, color: 'text-warning', bg: 'bg-warning/10', ring: 'border-warning/30', title: 'Facial Distress', desc: 'Pretrained FER model reads sad, fearful, angry, disgusted from every face — averaged over 5 frames.' },
+              { icon: Volume2, color: 'text-accent', bg: 'bg-accent/10', ring: 'border-accent/30', title: 'Audio Emergencies', desc: 'YAMNet AudioSet classifier catches screams, crying, glass break — even when the camera sees nothing.' },
+            ].map((b, i) => (
+              <motion.div
+                key={b.title}
+                className={`rounded-2xl border-2 ${b.ring} bg-background p-6 space-y-3`}
+                initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={i}
+              >
+                <div className={`w-12 h-12 rounded-xl ${b.bg} flex items-center justify-center`}>
+                  <b.icon className={`w-6 h-6 ${b.color}`} />
+                </div>
+                <h3 className="text-lg font-bold">{b.title}</h3>
+                <p className="text-base text-muted-foreground leading-relaxed">{b.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="border-b border-border bg-background">
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {securityBadges.map((badge, i) => (
@@ -175,11 +226,52 @@ export default function Landing() {
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mx-auto">
                   <badge.icon className="w-5 h-5 text-accent" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground">{badge.label}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{badge.description}</p>
+                <h3 className="text-base font-bold text-foreground">{badge.label}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{badge.description}</p>
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* THE SCIENCE — thesis credibility */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-mono uppercase tracking-widest text-accent mb-3">
+            <GraduationCap className="w-4 h-4" /> THE SCIENCE
+          </div>
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
+            Not a demo. A research-backed pipeline.
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Every detector is a real pretrained model with a published lineage — plus a client-side
+            adaptive threshold loop that learns from your household's feedback.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          {[
+            { title: 'face-api.js · TinyFaceDetector + FaceExpressionNet', body: 'Trained on FER+/AffectNet supersets. 7-class emotion probability → weighted distress score.' },
+            { title: 'YAMNet (Google)', body: 'MobileNet audio classifier trained on Google AudioSet (521 classes, 2M+ clips).' },
+            { title: 'COCO-SSD (MobileNet backbone)', body: 'Single-shot detector on 80 COCO object classes, quantised for browser inference.' },
+            { title: 'Adaptive threshold learning', body: 'Per-household 👍/👎 feedback tunes each detector confidence gate every 60s. Fewer false alarms over time — no server retraining.' },
+          ].map((s, i) => (
+            <motion.div
+              key={s.title}
+              className="rounded-2xl border border-border bg-card p-6 hover:border-primary/40 transition"
+              initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={i}
+            >
+              <div className="flex items-start gap-3 mb-2">
+                <Award className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <h3 className="text-lg font-bold">{s.title}</h3>
+              </div>
+              <p className="text-base text-muted-foreground leading-relaxed pl-8">{s.body}</p>
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-8 rounded-xl border border-dashed border-border bg-secondary/30 p-5 text-sm text-muted-foreground text-center">
+          <span className="font-semibold text-foreground">Honest accuracy note:</span> browser-side pretrained models
+          typically run at 70–90% on unseen home footage. The adaptive-threshold loop cuts <em>your</em> false-alarm
+          rate over time as you label detections. No AI vendor can honestly promise ±1% failure on live video.
         </div>
       </section>
 
