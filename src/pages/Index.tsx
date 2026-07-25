@@ -256,6 +256,9 @@ export default function Index() {
     smokeRatio: number;
     visibility: number;
     reason?: string;
+    bbox?: [number, number, number, number];
+    frameWidth?: number;
+    frameHeight?: number;
   }>({
     detected: false,
     fireDetected: false,
