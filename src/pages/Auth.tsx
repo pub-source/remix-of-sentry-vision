@@ -488,23 +488,23 @@ export default function Auth() {
 
   return (
     <PageWrapper>
-      <form onSubmit={handleCreateAccount} noValidate aria-busy={submitting} className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-foreground">Create Account</h2>
-          <p className="text-xs text-muted-foreground">Set up your admin account to get started</p>
+      <form onSubmit={handleCreateAccount} noValidate aria-busy={submitting} className="bg-card rounded-xl border border-border shadow-sm p-8 space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
+          <p className="text-base text-muted-foreground">Set up your admin account to get started</p>
         </div>
 
         {sessionStorage.getItem('pending_invite_code') && (
-          <div className="flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-lg px-3 py-2.5">
-            <span className="text-accent text-sm">✓</span>
-            <p className="text-xs text-accent font-medium">Joining with code: {sessionStorage.getItem('pending_invite_code')}</p>
+          <div className="flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-lg px-3 py-3">
+            <span className="text-accent text-base">✓</span>
+            <p className="text-base text-accent font-medium">Joining with code: {sessionStorage.getItem('pending_invite_code')}</p>
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <label htmlFor="ca-email" className="text-xs font-medium text-muted-foreground">Email</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-email" className="text-base font-medium text-foreground">Email</label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-email"
               type="email"
@@ -516,7 +516,7 @@ export default function Auth() {
               aria-required="true"
               aria-invalid={!!error}
               placeholder="your@gmail.com"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-3 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
           </div>
         </div>
@@ -549,11 +549,10 @@ export default function Auth() {
           </div>
         </div>
 
-
-        <div className="space-y-1.5">
-          <label htmlFor="ca-confirm" className="text-xs font-medium text-muted-foreground">Confirm Password</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-confirm" className="text-base font-medium text-foreground">Confirm Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-confirm"
               type={showConfirmPassword ? 'text' : 'password'}
@@ -564,37 +563,36 @@ export default function Auth() {
               aria-required="true"
               aria-invalid={!!confirmPassword && confirmPassword !== password}
               placeholder="Confirm your password"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-11 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(v => !v)}
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showConfirmPassword}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
-              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
           {confirmPassword && confirmPassword !== password && (
-            <p className="text-[10px] text-destructive pl-1">Passwords do not match.</p>
+            <p className="text-sm text-destructive pl-1">Passwords do not match.</p>
           )}
         </div>
 
         <ErrorMsg msg={error} />
         <SuccessMsg msg={success} />
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 p-4">
           <input
             id="ca-privacy"
             type="checkbox"
             checked={privacyConsent}
             onChange={e => setPrivacyConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            className="mt-1 h-5 w-5 rounded border-border accent-primary cursor-pointer"
           />
-          <label htmlFor="ca-privacy" className="text-[11px] leading-relaxed text-muted-foreground cursor-pointer">
-            I have read and agree to the collection, use, and processing of my personal
-            information (email, household data, detection logs, and audio/video snapshots)
-            in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173).{' '}
+          <label htmlFor="ca-privacy" className="text-sm leading-relaxed text-foreground cursor-pointer">
+            I agree to the collection, use, and processing of my personal
+            information under the Data Privacy Act of 2012 (RA 10173).{' '}
             <button
               type="button"
               onClick={() => setShowPrivacyDialog(true)}
@@ -607,26 +605,27 @@ export default function Auth() {
         <PrimaryButton type="submit" disabled={!canSubmitCreate} aria-label="Create Account">
           {submitting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
               <span>Creating account...</span>
             </>
           ) : success ? (
             <>
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-5 h-5" />
               <span>Account Created</span>
             </>
           ) : (
             <>
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-5 h-5" />
               <span>Create Account</span>
             </>
           )}
         </PrimaryButton>
-        <button type="button" onClick={() => { clearState(); setMode('login'); }} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors py-1">
+        <button type="button" onClick={() => { clearState(); setMode('login'); }} className="w-full text-base text-muted-foreground hover:text-primary transition-colors py-2">
           Already have an account? Sign in
         </button>
         <BackButton onClick={() => { clearState(); setMode('choose'); }} />
       </form>
+
       {showPrivacyDialog && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
