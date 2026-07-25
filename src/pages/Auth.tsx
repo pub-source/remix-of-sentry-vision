@@ -701,15 +701,15 @@ function validatePasswordStrength(pw: string): string | null {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-lg space-y-6">
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-2.5">
-            <Shield className="w-6 h-6 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground tracking-tight">
+          <div className="flex items-center justify-center gap-3">
+            <Shield className="w-9 h-9 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
               MSDSystem
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Multimodal Saliency Detection System
           </p>
         </div>
@@ -722,9 +722,9 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function ErrorMsg({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
-    <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-      <span className="text-destructive text-sm">⚠</span>
-      <p className="text-xs text-destructive">{msg}</p>
+    <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-3">
+      <span className="text-destructive text-lg">⚠</span>
+      <p className="text-base text-destructive">{msg}</p>
     </div>
   );
 }
@@ -732,9 +732,9 @@ function ErrorMsg({ msg }: { msg: string }) {
 function SuccessMsg({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
-    <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-lg px-3 py-2.5">
-      <span className="text-success text-sm">✓</span>
-      <p className="text-xs text-success">{msg}</p>
+    <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-lg px-3 py-3">
+      <span className="text-success text-lg">✓</span>
+      <p className="text-base text-success">{msg}</p>
     </div>
   );
 }
@@ -745,14 +745,14 @@ function InputField({ icon: Icon, label, ...props }: InputFieldProps) {
     props.autoComplete ??
     (props.type === 'password' ? 'current-password' : props.type === 'email' ? 'email' : 'off');
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="space-y-2">
+      <label className="text-base font-medium text-foreground">{label}</label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" />
         <input
           {...props}
           autoComplete={autoComplete}
-          className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+          className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-3 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
         />
       </div>
     </div>
@@ -763,11 +763,12 @@ function PrimaryButton({ children, ...props }: React.ButtonHTMLAttributes<HTMLBu
   return (
     <button
       {...props}
-      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-3 px-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+      className="w-full flex items-center justify-center gap-2 text-lg font-semibold py-4 px-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-sm"
     >
       {children}
     </button>
   );
+
 }
 
 function BackButton({ onClick, label = '← Back' }: { onClick: () => void; label?: string }) {
