@@ -458,19 +458,19 @@ export default function Auth() {
   if (mode === 'login') {
     return (
       <PageWrapper>
-        <form onSubmit={handleSignIn} className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-foreground">Welcome Back</h2>
-            <p className="text-xs text-muted-foreground">Sign in to your account</p>
+        <form onSubmit={handleSignIn} className="bg-card rounded-xl border border-border shadow-sm p-8 space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+            <p className="text-base text-muted-foreground">Sign in to your account</p>
           </div>
           <InputField icon={Mail} label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="your@gmail.com" />
           <InputField icon={Lock} label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
           <ErrorMsg msg={error} />
           <PrimaryButton type="submit" disabled={submitting}>
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-5 h-5" />
             {submitting ? 'Signing in...' : 'Sign In'}
           </PrimaryButton>
-          <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors py-1">
+          <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="w-full text-base text-muted-foreground hover:text-primary transition-colors py-2">
             Forgot password?
           </button>
           <BackButton onClick={() => { clearState(); setMode('choose'); }} />
@@ -478,6 +478,7 @@ export default function Auth() {
       </PageWrapper>
     );
   }
+
 
   // Create Account
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.trim().toLowerCase().endsWith('@gmail.com');
@@ -487,23 +488,23 @@ export default function Auth() {
 
   return (
     <PageWrapper>
-      <form onSubmit={handleCreateAccount} noValidate aria-busy={submitting} className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-foreground">Create Account</h2>
-          <p className="text-xs text-muted-foreground">Set up your admin account to get started</p>
+      <form onSubmit={handleCreateAccount} noValidate aria-busy={submitting} className="bg-card rounded-xl border border-border shadow-sm p-8 space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
+          <p className="text-base text-muted-foreground">Set up your admin account to get started</p>
         </div>
 
         {sessionStorage.getItem('pending_invite_code') && (
-          <div className="flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-lg px-3 py-2.5">
-            <span className="text-accent text-sm">✓</span>
-            <p className="text-xs text-accent font-medium">Joining with code: {sessionStorage.getItem('pending_invite_code')}</p>
+          <div className="flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-lg px-3 py-3">
+            <span className="text-accent text-base">✓</span>
+            <p className="text-base text-accent font-medium">Joining with code: {sessionStorage.getItem('pending_invite_code')}</p>
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <label htmlFor="ca-email" className="text-xs font-medium text-muted-foreground">Email</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-email" className="text-base font-medium text-foreground">Email</label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-email"
               type="email"
@@ -515,15 +516,15 @@ export default function Auth() {
               aria-required="true"
               aria-invalid={!!error}
               placeholder="your@gmail.com"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-3 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="ca-password" className="text-xs font-medium text-muted-foreground">Password</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-password" className="text-base font-medium text-foreground">Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-password"
               type={showPassword ? 'text' : 'password'}
@@ -532,34 +533,26 @@ export default function Auth() {
               onChange={e => setPassword(e.target.value)}
               required
               aria-required="true"
-              aria-describedby="ca-password-help"
-              placeholder="At least 8 characters"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              minLength={6}
+              placeholder="At least 6 characters"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-11 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
-          <PasswordStrengthMeter password={password} />
-          <ul id="ca-password-help" className="text-[10px] text-muted-foreground space-y-0.5 pl-1 pt-1">
-            <PwReq ok={password.length >= 8} label="At least 8 characters" />
-            <PwReq ok={/[A-Z]/.test(password)} label="One uppercase letter" />
-            <PwReq ok={/[a-z]/.test(password)} label="One lowercase letter" />
-            <PwReq ok={/[0-9]/.test(password)} label="One number" />
-            <PwReq ok={/[^A-Za-z0-9]/.test(password)} label="One special character" />
-          </ul>
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="ca-confirm" className="text-xs font-medium text-muted-foreground">Confirm Password</label>
+        <div className="space-y-2">
+          <label htmlFor="ca-confirm" className="text-base font-medium text-foreground">Confirm Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" aria-hidden="true" />
             <input
               id="ca-confirm"
               type={showConfirmPassword ? 'text' : 'password'}
@@ -570,37 +563,36 @@ export default function Auth() {
               aria-required="true"
               aria-invalid={!!confirmPassword && confirmPassword !== password}
               placeholder="Confirm your password"
-              className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-11 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(v => !v)}
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showConfirmPassword}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
-              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
           {confirmPassword && confirmPassword !== password && (
-            <p className="text-[10px] text-destructive pl-1">Passwords do not match.</p>
+            <p className="text-sm text-destructive pl-1">Passwords do not match.</p>
           )}
         </div>
 
         <ErrorMsg msg={error} />
         <SuccessMsg msg={success} />
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 p-4">
           <input
             id="ca-privacy"
             type="checkbox"
             checked={privacyConsent}
             onChange={e => setPrivacyConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            className="mt-1 h-5 w-5 rounded border-border accent-primary cursor-pointer"
           />
-          <label htmlFor="ca-privacy" className="text-[11px] leading-relaxed text-muted-foreground cursor-pointer">
-            I have read and agree to the collection, use, and processing of my personal
-            information (email, household data, detection logs, and audio/video snapshots)
-            in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173).{' '}
+          <label htmlFor="ca-privacy" className="text-sm leading-relaxed text-foreground cursor-pointer">
+            I agree to the collection, use, and processing of my personal
+            information under the Data Privacy Act of 2012 (RA 10173).{' '}
             <button
               type="button"
               onClick={() => setShowPrivacyDialog(true)}
@@ -613,26 +605,27 @@ export default function Auth() {
         <PrimaryButton type="submit" disabled={!canSubmitCreate} aria-label="Create Account">
           {submitting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
               <span>Creating account...</span>
             </>
           ) : success ? (
             <>
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-5 h-5" />
               <span>Account Created</span>
             </>
           ) : (
             <>
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-5 h-5" />
               <span>Create Account</span>
             </>
           )}
         </PrimaryButton>
-        <button type="button" onClick={() => { clearState(); setMode('login'); }} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors py-1">
+        <button type="button" onClick={() => { clearState(); setMode('login'); }} className="w-full text-base text-muted-foreground hover:text-primary transition-colors py-2">
           Already have an account? Sign in
         </button>
         <BackButton onClick={() => { clearState(); setMode('choose'); }} />
       </form>
+
       {showPrivacyDialog && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
@@ -694,47 +687,12 @@ export default function Auth() {
 }
 
 function validatePasswordStrength(pw: string): string | null {
-  if (pw.length < 8) return 'Password must be at least 8 characters long.';
-  if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter.';
-  if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter.';
-  if (!/[0-9]/.test(pw)) return 'Password must contain at least one number.';
-  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain at least one special character.';
+  // Simplified for accessibility: minimum length only. Supabase server-side
+  // enforces its own minimum (default 6 chars); we surface a friendly message.
+  if (pw.length < 6) return 'Password must be at least 6 characters.';
   return null;
 }
 
-function passwordScore(pw: string): number {
-  let s = 0;
-  if (pw.length >= 8) s++;
-  if (/[A-Z]/.test(pw)) s++;
-  if (/[a-z]/.test(pw)) s++;
-  if (/[0-9]/.test(pw)) s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  return s;
-}
-
-function PasswordStrengthMeter({ password }: { password: string }) {
-  if (!password) return null;
-  const score = passwordScore(password);
-  const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
-  const colors = ['bg-destructive', 'bg-destructive', 'bg-amber-500', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-500'];
-  return (
-    <div className="flex items-center gap-2 pt-1" aria-live="polite">
-      <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className={`h-full ${colors[score]} transition-all`} style={{ width: `${(score / 5) * 100}%` }} />
-      </div>
-      <span className="text-[10px] text-muted-foreground w-16 text-right">{labels[score]}</span>
-    </div>
-  );
-}
-
-function PwReq({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <li className={`flex items-center gap-1.5 ${ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-      <span aria-hidden="true">{ok ? '✓' : '○'}</span>
-      <span>{label}</span>
-    </li>
-  );
-}
 
 // ---- Module-scope shared subcomponents ----
 // IMPORTANT: These MUST live outside the Auth component so React does not
@@ -743,15 +701,15 @@ function PwReq({ ok, label }: { ok: boolean; label: string }) {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-lg space-y-6">
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-2.5">
-            <Shield className="w-6 h-6 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground tracking-tight">
+          <div className="flex items-center justify-center gap-3">
+            <Shield className="w-9 h-9 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
               MSDSystem
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Multimodal Saliency Detection System
           </p>
         </div>
@@ -764,9 +722,9 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function ErrorMsg({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
-    <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-      <span className="text-destructive text-sm">⚠</span>
-      <p className="text-xs text-destructive">{msg}</p>
+    <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-3">
+      <span className="text-destructive text-lg">⚠</span>
+      <p className="text-base text-destructive">{msg}</p>
     </div>
   );
 }
@@ -774,9 +732,9 @@ function ErrorMsg({ msg }: { msg: string }) {
 function SuccessMsg({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
-    <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-lg px-3 py-2.5">
-      <span className="text-success text-sm">✓</span>
-      <p className="text-xs text-success">{msg}</p>
+    <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-lg px-3 py-3">
+      <span className="text-success text-lg">✓</span>
+      <p className="text-base text-success">{msg}</p>
     </div>
   );
 }
@@ -787,14 +745,14 @@ function InputField({ icon: Icon, label, ...props }: InputFieldProps) {
     props.autoComplete ??
     (props.type === 'password' ? 'current-password' : props.type === 'email' ? 'email' : 'off');
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="space-y-2">
+      <label className="text-base font-medium text-foreground">{label}</label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60" />
         <input
           {...props}
           autoComplete={autoComplete}
-          className="w-full bg-secondary/60 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+          className="w-full bg-secondary/60 border border-border rounded-lg pl-11 pr-3 py-3.5 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
         />
       </div>
     </div>
@@ -805,11 +763,12 @@ function PrimaryButton({ children, ...props }: React.ButtonHTMLAttributes<HTMLBu
   return (
     <button
       {...props}
-      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-3 px-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+      className="w-full flex items-center justify-center gap-2 text-lg font-semibold py-4 px-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-sm"
     >
       {children}
     </button>
   );
+
 }
 
 function BackButton({ onClick, label = '← Back' }: { onClick: () => void; label?: string }) {

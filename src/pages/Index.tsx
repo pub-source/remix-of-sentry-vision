@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Moon, Sun, Home, LogOut, LogIn, Shield, Clock, Wifi, X, Flame, HelpCircle, Menu } from 'lucide-react';
+import { Moon, Sun, Home, LogOut, LogIn, Shield, Clock, Wifi, X, Flame, HelpCircle, Menu, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CameraFeed from '@/components/dashboard/CameraFeed';
 import FusedDetectionView from '@/components/dashboard/FusedDetectionView';
@@ -9,6 +9,7 @@ import AttentionGauge from '@/components/dashboard/AttentionGauge';
 import DetectionFeedback from '@/components/dashboard/DetectionFeedback';
 import ModelCachePanel from '@/components/dashboard/ModelCachePanel';
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
+import ExpertMode from '@/components/dashboard/ExpertMode';
 
 import { useCamera } from '@/hooks/useCamera';
 import { useAudioAnalysis } from '@/hooks/useAudioAnalysis';
@@ -130,6 +131,7 @@ export default function Index() {
 
   const [running, setRunning] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showExpert, setShowExpert] = useState(false);
   const [saliencyMode, setSaliencyMode] = useState<SaliencyMode>('sobel');
   const [threshold, setThreshold] = useState(15);
   const [showBoundingBoxes, setShowBoundingBoxes] = useState(true);
@@ -810,108 +812,108 @@ export default function Index() {
         </div>
       )}
       {/* Header */}
-      <header id="tour-header" className="border-b border-border bg-card/60 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-primary" />
-            <h1 className="text-sm font-semibold text-foreground tracking-tight">
-              MSDSystem
-            </h1>
-          </div>
-        </div>
+      <header id="tour-header" className="border-b border-border bg-card/60 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
+        {/* Left: Brand — clickable, goes to landing */}
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 group"
+          title="Back to home"
+        >
+          <Shield className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+          <h1 className="text-lg font-bold text-foreground tracking-tight group-hover:text-primary transition-colors">
+            MSDSystem
+          </h1>
+        </button>
 
-        {/* Center: Status */}
+        {/* Center: Status + Home */}
         <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
             running
               ? 'bg-success/10 text-success'
               : 'bg-muted text-muted-foreground'
           }`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${running ? 'bg-success animate-pulse' : 'bg-muted-foreground/50'}`} />
+            <div className={`w-2 h-2 rounded-full ${running ? 'bg-success animate-pulse' : 'bg-muted-foreground/50'}`} />
             {running ? 'Live' : 'Standby'}
           </div>
           {user && (
             <button
               onClick={() => navigate('/household')}
-              className="flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition-colors"
-              title="Open Household"
+              className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
+              title="Go to Household"
             >
-              <Home className="w-3 h-3" /> Household
+              <Home className="w-4 h-4" /> Home
             </button>
           )}
         </div>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1 text-[10px] text-muted-foreground mr-1">
-            <Clock className="w-3 h-3" />
+          <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground mr-1">
+            <Clock className="w-3.5 h-3.5" />
             <span className="font-mono">{new Date().toLocaleTimeString()}</span>
           </div>
+
+          <button
+            onClick={() => setShowExpert(true)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-accent bg-accent/10 hover:bg-accent/20 px-3 py-1.5 rounded-full transition-colors"
+            title="Expert Mode — how algorithms work"
+          >
+            <Sparkles className="w-4 h-4" /> Expert
+          </button>
 
           <button
             onClick={() => {
               document.documentElement.classList.toggle('dark');
               setDarkMode(prev => !prev);
             }}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
             title={darkMode ? 'Light mode' : 'Dark mode'}
           >
-            {darkMode ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+            {darkMode ? <Sun className="w-5 h-5 text-warning" /> : <Moon className="w-5 h-5 text-muted-foreground" />}
           </button>
 
           <button
             onClick={() => setShowTutorial(true)}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
             title="Replay tutorial"
           >
-            <HelpCircle className="w-4 h-4 text-muted-foreground" />
+            <HelpCircle className="w-5 h-5 text-muted-foreground" />
           </button>
 
           {user && (
             <>
-              <div className="hidden sm:block h-4 w-px bg-border" />
-              <span className="hidden sm:inline text-[11px] text-muted-foreground max-w-[140px] truncate">{user.email}</span>
+              <div className="hidden sm:block h-5 w-px bg-border" />
+              <span className="hidden sm:inline text-sm text-muted-foreground max-w-[160px] truncate">{user.email}</span>
               <button
                 onClick={signOut}
-                className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"
                 title="Sign Out"
               >
-                <LogOut className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                <LogOut className="w-5 h-5 text-muted-foreground hover:text-destructive" />
               </button>
             </>
           )}
-          {!user && !authLoading && (() => {
-            const guest = sessionStorage.getItem('guest_member');
-            if (guest) {
-              const { name, household } = JSON.parse(guest);
-              return (
-                <span className="text-[11px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-full">
-                  {name} • {household}
-                </span>
-              );
-            }
-            return (
-              <button
-                onClick={() => navigate('/auth')}
-                className="flex items-center gap-1 text-[11px] font-medium text-primary hover:bg-primary/10 px-2.5 py-1 rounded-lg transition-colors"
-              >
-                <LogIn className="w-3.5 h-3.5" /> Sign In
-              </button>
-            );
-          })()}
+          {!user && !authLoading && (
+            <button
+              onClick={() => navigate('/auth')}
+              className="flex items-center gap-1 text-sm font-medium text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <LogIn className="w-4 h-4" /> Sign In
+            </button>
+          )}
 
-          {/* Mobile hamburger to open sidebar drawer */}
+          {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors"
             title="Open controls"
             aria-label="Open controls"
           >
-            <Menu className="w-5 h-5 text-foreground" />
+            <Menu className="w-6 h-6 text-foreground" />
           </button>
         </div>
       </header>
+
 
       {/* Main content */}
       <div className="flex flex-col lg:flex-row h-[calc(100vh-49px)]">
@@ -1112,6 +1114,14 @@ export default function Index() {
                    !yamnet.ready ? 'Loading AudioSet model…' :
                    `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
                 </p>
+                {yamnet.distressScore >= 30 && (
+                  <DetectionFeedback
+                    householdId={householdId}
+                    eventType="audio_scream"
+                    confidence={yamnet.topScore}
+                    audioEvent={yamnet.topLabel}
+                  />
+                )}
               </div>
               <div className={`rounded p-2 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
@@ -1326,6 +1336,8 @@ export default function Index() {
           try { localStorage.setItem(key, '1'); } catch { /* noop */ }
         }}
       />
+
+      <ExpertMode open={showExpert} onClose={() => setShowExpert(false)} />
     </div>
   );
 }
