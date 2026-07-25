@@ -234,7 +234,7 @@ export default function FusedDetectionView({
 
     render();
     return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, [active, sourceCanvas, objects, activity, attentionScore, distressLevel]);
+  }, [active, sourceCanvas, objects, activity, attentionScore, distressLevel, fireBbox, fireFrameWidth, fireFrameHeight]);
 
   const toggleFullscreen = useCallback(() => {
     const el = containerRef.current;
