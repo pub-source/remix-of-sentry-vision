@@ -73,12 +73,12 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Eye className="w-4 h-4 text-primary-foreground" />
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+              <Eye className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground tracking-tight">MSDSystem</span>
+            <span className="text-xl font-bold text-foreground tracking-tight">MSDSystem</span>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -89,16 +89,16 @@ export default function Landing() {
                   return !prev;
                 });
               }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              className="p-2.5 rounded-xl hover:bg-muted transition-colors"
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              {darkMode ? <Sun className="w-4 h-4 text-foreground" /> : <Moon className="w-4 h-4 text-foreground" />}
+              {darkMode ? <Sun className="w-5 h-5 text-foreground" /> : <Moon className="w-5 h-5 text-foreground" />}
             </button>
             {!loading && (
               user ? (
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="text-sm font-semibold bg-primary text-primary-foreground px-5 py-2.5 rounded-lg hover:bg-primary/90 transition-colors"
+                  className="text-base font-semibold bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors"
                 >
                   Go to Dashboard
                 </button>
@@ -106,13 +106,13 @@ export default function Landing() {
                 <>
                   <button
                     onClick={() => navigate('/auth')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+                    className="text-base text-muted-foreground hover:text-foreground transition-colors px-4 py-2.5"
                   >
                     Sign In
                   </button>
                   <button
                     onClick={() => navigate('/auth')}
-                    className="text-sm font-semibold bg-primary text-primary-foreground px-5 py-2.5 rounded-lg hover:bg-primary/90 transition-colors"
+                    className="text-base font-semibold bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors"
                   >
                     Get Started
                   </button>
@@ -125,15 +125,15 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative hero-gradient">
-        <div className="max-w-6xl mx-auto px-6 py-24 md:py-32 text-center">
+        <div className="max-w-6xl mx-auto px-6 py-28 md:py-36 text-center">
           <motion.div initial="hidden" animate="visible" variants={fadeIn} custom={0}>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-full mb-6">
-              <Shield className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-2 text-base font-semibold bg-primary/10 text-primary px-4 py-2 rounded-full mb-8">
+              <Shield className="w-4 h-4" />
               Secure • Real-Time • Intelligent
             </span>
           </motion.div>
           <motion.h1
-            className="text-4xl md:text-6xl font-extrabold text-foreground leading-tight tracking-tight mb-6"
+            className="text-5xl md:text-7xl font-extrabold text-foreground leading-tight tracking-tight mb-8"
             initial="hidden" animate="visible" variants={fadeIn} custom={1}
           >
             Multimodal Saliency
@@ -141,7 +141,7 @@ export default function Landing() {
             <span className="text-primary">Detection System</span>
           </motion.h1>
           <motion.p
-            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+            className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-12 leading-relaxed"
             initial="hidden" animate="visible" variants={fadeIn} custom={2}
           >
             Advanced real-time monitoring that combines object detection, audio analysis, and visual saliency
@@ -153,10 +153,10 @@ export default function Landing() {
           >
             <button
               onClick={() => navigate(user ? '/dashboard' : '/auth')}
-              className="inline-flex items-center gap-2 text-base font-semibold bg-primary text-primary-foreground px-8 py-3.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+              className="inline-flex items-center gap-2 text-lg font-semibold bg-primary text-primary-foreground px-10 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
             >
               {user ? 'Open Dashboard' : 'Get Started Free'}
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-5 h-5" />
             </button>
           </motion.div>
         </div>
@@ -164,19 +164,19 @@ export default function Landing() {
 
       {/* Security Badges */}
       <section className="border-y border-border bg-card">
-        <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="max-w-6xl mx-auto px-6 py-14">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {securityBadges.map((badge, i) => (
               <motion.div
                 key={badge.label}
-                className="text-center space-y-2"
+                className="text-center space-y-3"
                 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={i}
               >
-                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mx-auto">
-                  <badge.icon className="w-5 h-5 text-accent" />
+                <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mx-auto">
+                  <badge.icon className="w-6 h-6 text-accent" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground">{badge.label}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{badge.description}</p>
+                <h3 className="text-base font-bold text-foreground">{badge.label}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{badge.description}</p>
               </motion.div>
             ))}
           </div>
@@ -184,13 +184,13 @@ export default function Landing() {
       </section>
 
       {/* Features Grid */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">
+      <section className="max-w-6xl mx-auto px-6 py-24">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-foreground mb-5">
             Everything You Need for
             <span className="text-primary"> Smart Monitoring</span>
           </h2>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+          <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
             A comprehensive suite of detection and analysis tools working together in real time.
           </p>
         </div>
@@ -198,14 +198,14 @@ export default function Landing() {
           {features.map((feature, i) => (
             <motion.div
               key={feature.title}
-              className="bg-card rounded-2xl border border-border p-6 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all group"
+              className="bg-card rounded-2xl border border-border p-7 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all group"
               initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={i}
             >
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
-                <feature.icon className="w-5 h-5 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
+                <feature.icon className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-base font-bold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-lg font-bold text-foreground mb-3">{feature.title}</h3>
+              <p className="text-base text-muted-foreground leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>
@@ -213,12 +213,12 @@ export default function Landing() {
 
       {/* How It Works */}
       <section className="bg-card border-y border-border">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">
+        <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-extrabold text-foreground mb-5">
               How It <span className="text-primary">Works</span>
             </h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
               Get up and running in minutes with a simple setup process.
             </p>
           </div>
@@ -229,11 +229,11 @@ export default function Landing() {
                 className="relative text-center"
                 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={i}
               >
-                <div className="text-5xl font-extrabold text-primary/10 mb-3">{step.step}</div>
-                <h3 className="text-base font-bold text-foreground mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+                <div className="text-6xl font-extrabold text-primary/10 mb-4">{step.step}</div>
+                <h3 className="text-lg font-bold text-foreground mb-3">{step.title}</h3>
+                <p className="text-base text-muted-foreground leading-relaxed">{step.description}</p>
                 {i < steps.length - 1 && (
-                  <ArrowRight className="hidden lg:block absolute -right-4 top-8 w-5 h-5 text-border" />
+                  <ArrowRight className="hidden lg:block absolute -right-4 top-8 w-6 h-6 text-border" />
                 )}
               </motion.div>
             ))}
@@ -242,37 +242,37 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
+      <section className="max-w-6xl mx-auto px-6 py-24 text-center">
         <motion.div
-          className="bg-primary/5 border border-primary/20 rounded-3xl p-12"
+          className="bg-primary/5 border border-primary/20 rounded-3xl p-14"
           initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} custom={0}
         >
-          <h2 className="text-3xl font-extrabold text-foreground mb-4">
+          <h2 className="text-4xl font-extrabold text-foreground mb-5">
             Ready to Secure Your Home?
           </h2>
-          <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
+          <p className="text-muted-foreground text-xl mb-10 max-w-2xl mx-auto">
             Start monitoring in minutes with our intelligent multimodal detection system.
           </p>
           <button
             onClick={() => navigate(user ? '/dashboard' : '/auth')}
-            className="inline-flex items-center gap-2 text-base font-semibold bg-primary text-primary-foreground px-8 py-3.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            className="inline-flex items-center gap-2 text-lg font-semibold bg-primary text-primary-foreground px-10 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
           >
             {user ? 'Open Dashboard' : 'Create Free Account'}
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-5 h-5" />
           </button>
         </motion.div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
+      <footer className="border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-              <Eye className="w-3 h-3 text-primary-foreground" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+              <Eye className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="text-sm font-semibold text-foreground">MSDSystem</span>
+            <span className="text-base font-semibold text-foreground">MSDSystem</span>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Multimodal Saliency Detection System. All rights reserved.
           </p>
         </div>
