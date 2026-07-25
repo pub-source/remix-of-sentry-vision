@@ -13,6 +13,9 @@ interface FusedDetectionViewProps {
   interimTranscript: string;
   speechListening: boolean;
   onToggleSpeech: () => void;
+  fireBbox?: [number, number, number, number];
+  fireFrameWidth?: number;
+  fireFrameHeight?: number;
 }
 
 // Distress indicators from object/audio context
