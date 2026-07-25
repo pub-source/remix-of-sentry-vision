@@ -963,6 +963,9 @@ export default function Index() {
               interimTranscript={interimTranscript}
               speechListening={speechListening}
               onToggleSpeech={() => {}}
+              fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
+              fireFrameWidth={fireStatus.frameWidth}
+              fireFrameHeight={fireStatus.frameHeight}
             />
           </div>
 
