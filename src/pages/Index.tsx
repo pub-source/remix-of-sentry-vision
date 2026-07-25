@@ -539,6 +539,9 @@ export default function Index() {
           smokeRatio: result.smokeRatio,
           visibility: result.visibility,
           reason: result.rejectedReason,
+          bbox: result.bbox,
+          frameWidth: target.width,
+          frameHeight: target.height,
         });
         if (result.detected && Date.now() - fireCooldown.current > 3000) {
           fireCooldown.current = Date.now();
