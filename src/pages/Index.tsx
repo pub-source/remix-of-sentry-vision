@@ -21,6 +21,7 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 import { useFaceDistress } from '@/hooks/useFaceDistress';
 import { useYamnet } from '@/hooks/useYamnet';
 import { detectFire, createFireState } from '@/lib/fireDetection';
+import type { SaliencyBreakdown } from '@/lib/fireDetection';
 import type { SaliencyMode, QualityMode, Alert, DetectedObject } from '@/types/dashboard';
 import { DEFAULT_PRIORITY_OBJECTS } from '@/types/dashboard';
 
@@ -259,6 +260,7 @@ export default function Index() {
     bbox?: [number, number, number, number];
     frameWidth?: number;
     frameHeight?: number;
+    saliency?: SaliencyBreakdown;
   }>({
     detected: false,
     fireDetected: false,
@@ -539,9 +541,10 @@ export default function Index() {
           smokeRatio: result.smokeRatio,
           visibility: result.visibility,
           reason: result.rejectedReason,
-          bbox: result.bbox,
+          bbox: result.smoothedBbox ?? result.bbox,
           frameWidth: target.width,
           frameHeight: target.height,
+          saliency: result.saliency,
         });
         if (result.detected && Date.now() - fireCooldown.current > 3000) {
           fireCooldown.current = Date.now();
@@ -1106,6 +1109,43 @@ export default function Index() {
                       ? `Smoke emergency - visibility ${fireStatus.visibility}/100`
                       : fireStatus.reason || 'No fire signature'}
                 </p>
+                {fireStatus.saliency && (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-mono text-foreground/70">Fire saliency</span>
+                      <span className={`text-[10px] font-mono font-bold ${fireStatus.saliency.total > 50 ? 'text-destructive' : fireStatus.saliency.total > 20 ? 'text-warning' : 'text-muted-foreground'}`}>
+                        {fireStatus.saliency.total}/100
+                      </span>
+                    </div>
+                    <div className="flex h-1.5 w-full overflow-hidden rounded bg-secondary/40">
+                      {([
+                        ['bg-destructive', fireStatus.saliency.fireColor],
+                        ['bg-warning', fireStatus.saliency.flicker],
+                        ['bg-muted-foreground', fireStatus.saliency.smoke],
+                        ['bg-primary', fireStatus.saliency.visibility],
+                      ] as const).map(([cls, v], i) => (
+                        <div key={i} className={cls} style={{ width: `${Math.max(0, v)}%` }} />
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 text-[8px] font-mono text-muted-foreground">
+                      <span>Fire color +{fireStatus.saliency.fireColor}</span>
+                      <span>Flicker +{fireStatus.saliency.flicker}</span>
+                      <span>Smoke +{fireStatus.saliency.smoke}</span>
+                      <span>Vis loss +{fireStatus.saliency.visibility}</span>
+                      <span className={fireStatus.saliency.screenSuppression < 0 ? 'text-destructive' : ''}>
+                        Screen flag {fireStatus.saliency.screenSuppression}
+                      </span>
+                      <span className={fireStatus.saliency.otherSuppression < 0 ? 'text-destructive' : ''}>
+                        Other filter {fireStatus.saliency.otherSuppression}
+                      </span>
+                    </div>
+                    {fireStatus.saliency.suppressionLabel && (
+                      <p className="text-[8px] font-mono text-destructive/80 italic">
+                        Suppressed: {fireStatus.saliency.suppressionLabel}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {fireStatus.detected && (
                   <DetectionFeedback
                     householdId={householdId}

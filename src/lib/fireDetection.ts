@@ -15,6 +15,18 @@
 
 import type { DetectedObject } from '@/types/dashboard';
 
+export interface SaliencyBreakdown {
+  fireColor: number;        // points from fire-colored pixel coverage
+  flicker: number;          // points from temporal flicker variance
+  smoke: number;            // points from smoke coverage
+  visibility: number;       // points from visibility loss
+  screenSuppression: number; // negative points from TV/phone/laptop flagging
+  otherSuppression: number;  // negative points from size/planar/static rejects
+  total: number;            // clamped 0..100 final fire saliency score
+  suppressed: boolean;
+  suppressionLabel?: string;
+}
+
 export interface FireDetectionResult {
   detected: boolean;             // real fire OR smoke-induced low-visibility emergency
   fireDetected: boolean;         // real fire signature confirmed
@@ -29,6 +41,9 @@ export interface FireDetectionResult {
   saturation: number;            // 0..1
   rejectedReason?: string;
   bbox?: [number, number, number, number];
+  /** Temporally smoothed bbox — stable across frames for overlay rendering */
+  smoothedBbox?: [number, number, number, number];
+  saliency: SaliencyBreakdown;
 }
 
 export interface FireDetectorState {
@@ -36,10 +51,19 @@ export interface FireDetectorState {
   smokeHistory: number[];        // recent smoke ratios (rising smoke trend)
   visibilityHistory: number[];   // recent visibility scores (drop trend)
   lastBbox: [number, number, number, number] | null;
+  smoothBbox: [number, number, number, number] | null; // EMA-smoothed bbox
+  missFrames: number;            // frames since last raw bbox (hold before clearing)
 }
 
 export function createFireState(): FireDetectorState {
-  return { history: [], smokeHistory: [], visibilityHistory: [], lastBbox: null };
+  return {
+    history: [],
+    smokeHistory: [],
+    visibilityHistory: [],
+    lastBbox: null,
+    smoothBbox: null,
+    missFrames: 0,
+  };
 }
 
 const SCREEN_LABELS = new Set(['tv', 'cell phone', 'laptop', 'monitor']);
@@ -52,6 +76,36 @@ const SMOKE_COVERAGE_HIGH = 0.18;     // ≥18% of frame
 const VISIBILITY_LOW = 45;            // visibility score (0..100)
 // Poster/wallpaper guard: fire bbox sitting in a very flat, low-edge region.
 const PLANAR_EDGE_DENSITY = 0.03;
+
+// Temporal smoothing: exponential moving average on the bbox, with a hold
+// window so a couple of dropped frames don't make the overlay flicker off.
+const BBOX_SMOOTHING = 0.35;   // weight of the newest measurement
+const BBOX_HOLD_FRAMES = 6;    // frames to keep the last box when detection drops
+
+function smoothBbox(
+  state: FireDetectorState,
+  raw: [number, number, number, number] | undefined,
+): [number, number, number, number] | undefined {
+  if (raw) {
+    state.missFrames = 0;
+    if (!state.smoothBbox) {
+      state.smoothBbox = [...raw] as [number, number, number, number];
+    } else {
+      const a = BBOX_SMOOTHING;
+      state.smoothBbox = state.smoothBbox.map(
+        (v, i) => v * (1 - a) + raw[i] * a,
+      ) as [number, number, number, number];
+    }
+    return state.smoothBbox.map(Math.round) as [number, number, number, number];
+  }
+
+  state.missFrames++;
+  if (state.smoothBbox && state.missFrames <= BBOX_HOLD_FRAMES) {
+    return state.smoothBbox.map(Math.round) as [number, number, number, number];
+  }
+  if (state.missFrames > BBOX_HOLD_FRAMES) state.smoothBbox = null;
+  return undefined;
+}
 
 function bboxOverlap(a: [number, number, number, number], b: [number, number, number, number]) {
   const [ax, ay, aw, ah] = a;
@@ -159,6 +213,31 @@ export function detectFire(
     state.lastBbox = bbox;
   }
 
+  const smoothedBbox = smoothBbox(state, bbox);
+
+  // ---- Saliency score breakdown (0..100) ----
+  const firePts = Math.min(40, (ratio / 0.05) * 40);
+  const flickerPts = Math.min(25, variance * 25000000);
+  const smokePts = Math.min(20, (smokeRatio / SMOKE_COVERAGE_HIGH) * 20);
+  const visPts = Math.min(15, ((100 - visibility) / 100) * 15);
+  const positive = firePts + flickerPts + smokePts + visPts;
+
+  const makeSaliency = (
+    screenSuppression: number,
+    otherSuppression: number,
+    suppressionLabel?: string,
+  ): SaliencyBreakdown => ({
+    fireColor: Math.round(firePts * 10) / 10,
+    flicker: Math.round(flickerPts * 10) / 10,
+    smoke: Math.round(smokePts * 10) / 10,
+    visibility: Math.round(visPts * 10) / 10,
+    screenSuppression: -Math.round(screenSuppression * 10) / 10,
+    otherSuppression: -Math.round(otherSuppression * 10) / 10,
+    total: Math.max(0, Math.round(positive - screenSuppression - otherSuppression)),
+    suppressed: screenSuppression + otherSuppression > 0,
+    suppressionLabel,
+  });
+
   const baseResult = {
     firePixelRatio: ratio,
     flickerScore: variance,
@@ -168,6 +247,7 @@ export function detectFire(
     edgeDensity,
     saturation: meanSat,
     bbox,
+    smoothedBbox,
   };
 
   // ---- Smoke-only emergency (no flames visible yet, but room is filling) ----
@@ -194,6 +274,7 @@ export function detectFire(
       rejectedReason: smokeEmergency
         ? `heavy smoke (${Math.round(smokeRatio * 100)}%) — visibility ${visibility}/100`
         : ratio === 0 ? undefined : 'too small (lighter/candle)',
+      saliency: makeSaliency(0, smokeEmergency ? 0 : firePts + flickerPts, smokeEmergency ? undefined : 'sub-threshold fire pixels'),
     };
   }
 
@@ -207,6 +288,7 @@ export function detectFire(
         smokeEmergency,
         confidence: smokeEmergency ? 0.6 : 0.2,
         rejectedReason: 'flame too small (likely lighter/candle)',
+        saliency: makeSaliency(0, firePts + flickerPts, 'flame too small (lighter/candle)'),
       };
     }
 
@@ -225,6 +307,7 @@ export function detectFire(
           smokeEmergency: false,
           confidence: 0,
           rejectedReason: `fire inside ${obj.label} screen — ignored`,
+          saliency: makeSaliency(positive, 0, `fire inside ${obj.label} screen`),
         };
       }
     }
@@ -239,6 +322,7 @@ export function detectFire(
         smokeEmergency: false,
         confidence: 0.15,
         rejectedReason: 'flat planar region (poster / wallpaper / advert)',
+        saliency: makeSaliency(0, positive, 'flat planar region (poster/wallpaper)'),
       };
     }
   }
@@ -251,6 +335,7 @@ export function detectFire(
       smokeEmergency,
       confidence: smokeEmergency ? 0.6 : 0.3,
       rejectedReason: 'no flicker — static red object',
+      saliency: makeSaliency(0, smokeEmergency ? firePts : firePts + flickerPts, 'no flicker — static red object'),
     };
   }
 
@@ -268,5 +353,6 @@ export function detectFire(
     fireDetected,
     smokeEmergency,
     confidence: conf,
+    saliency: makeSaliency(0, 0),
   };
 }
