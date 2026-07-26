@@ -21,6 +21,7 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 import { useFaceDistress } from '@/hooks/useFaceDistress';
 import { useYamnet } from '@/hooks/useYamnet';
 import { detectFire, createFireState } from '@/lib/fireDetection';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import type { SaliencyBreakdown } from '@/lib/fireDetection';
 import type { SaliencyMode, QualityMode, Alert, DetectedObject } from '@/types/dashboard';
 import { DEFAULT_PRIORITY_OBJECTS } from '@/types/dashboard';
