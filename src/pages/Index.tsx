@@ -21,6 +21,7 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 import { useFaceDistress } from '@/hooks/useFaceDistress';
 import { useYamnet } from '@/hooks/useYamnet';
 import { detectFire, createFireState } from '@/lib/fireDetection';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import type { SaliencyBreakdown } from '@/lib/fireDetection';
 import type { SaliencyMode, QualityMode, Alert, DetectedObject } from '@/types/dashboard';
 import { DEFAULT_PRIORITY_OBJECTS } from '@/types/dashboard';
@@ -131,6 +132,8 @@ export default function Index() {
   const [showEmergency, setShowEmergency] = useState(false);
 
   const [running, setRunning] = useState(false);
+  // Keep the device/tab awake while monitoring so detection isn't suspended
+  useWakeLock(running);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
   const [saliencyMode, setSaliencyMode] = useState<SaliencyMode>('sobel');
@@ -803,8 +806,16 @@ export default function Index() {
       {/* Floating Emergency Popup */}
       {showEmergency && (
         <div className="fixed bottom-4 right-4 z-50 w-80 bg-destructive/95 backdrop-blur-md text-destructive-foreground rounded-xl shadow-2xl border-2 border-destructive p-4 space-y-3 animate-in slide-in-from-bottom-5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-mono font-bold">EMERGENCY DETECTED</h3>
+            <button
+              onClick={() => setShowEmergency(false)}
+              aria-label="Close emergency alert"
+              title="Close"
+              className="shrink-0 rounded-full p-1 hover:bg-destructive-foreground/20 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           <p className="text-xs font-mono opacity-90">
             An emergency wake word was triggered. Household members notified.
