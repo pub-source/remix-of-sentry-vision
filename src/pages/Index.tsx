@@ -132,6 +132,8 @@ export default function Index() {
   const [showEmergency, setShowEmergency] = useState(false);
 
   const [running, setRunning] = useState(false);
+  // Keep the device/tab awake while monitoring so detection isn't suspended
+  useWakeLock(running);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
   const [saliencyMode, setSaliencyMode] = useState<SaliencyMode>('sobel');
