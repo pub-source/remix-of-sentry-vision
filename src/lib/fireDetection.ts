@@ -322,6 +322,7 @@ export function detectFire(
         smokeEmergency: false,
         confidence: 0.15,
         rejectedReason: 'flat planar region (poster / wallpaper / advert)',
+        saliency: makeSaliency(0, positive, 'flat planar region (poster/wallpaper)'),
       };
     }
   }
