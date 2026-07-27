@@ -120,7 +120,8 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 }
 
 export interface ScanOptions {
-  subnet: string;                 // e.g. "192.168.1"
+  subnet?: string;                // e.g. "192.168.1"
+  subnets?: string[];             // scan several /24s in one sweep
   from?: number;                  // default 1
   to?: number;                    // default 254
   ports?: number[];
@@ -134,9 +135,10 @@ export interface ScanOptions {
  * against the common camera snapshot paths.
  */
 export async function scanNetworkForCameras(opts: ScanOptions): Promise<DiscoveredCamera[]> {
-  const { subnet, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const { subnet, subnets, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : ['192.168.1']).filter(Boolean);
   const hosts: string[] = [];
-  for (let i = from; i <= to; i++) hosts.push(`${subnet}.${i}`);
+  for (const p of prefixes) for (let i = from; i <= to; i++) hosts.push(`${p}.${i}`);
 
   const results: DiscoveredCamera[] = [];
   const total = hosts.length;
