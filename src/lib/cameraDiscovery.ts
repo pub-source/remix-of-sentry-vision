@@ -74,28 +74,38 @@ export function probeImage(url: string, timeoutMs = 2500): Promise<boolean> {
   });
 }
 
-/** Best-effort guess of the local subnet prefix via WebRTC host candidates. */
-export async function guessLocalSubnet(): Promise<string> {
+/** Subnets almost every home Wi-Fi router hands out. */
+export const COMMON_SUBNETS = ['192.168.1', '192.168.0', '192.168.100', '10.0.0', '10.0.1', '172.16.0'];
+
+/** True when the page is https — browsers then block plain-http LAN probes. */
+export function isMixedContentBlocked(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol === 'https:';
+}
+
+/** All /24 prefixes seen in WebRTC host candidates (i.e. the Wi-Fi you're on). */
+export async function detectLocalSubnets(timeoutMs = 2000): Promise<string[]> {
+  const out = new Set<string>();
   try {
     const pc = new RTCPeerConnection({ iceServers: [] });
     pc.createDataChannel('probe');
-    const found = await new Promise<string | null>(resolve => {
-      const t = setTimeout(() => resolve(null), 1500);
+    await new Promise<void>(resolve => {
+      const t = setTimeout(resolve, timeoutMs);
       pc.onicecandidate = e => {
-        const c = e.candidate?.candidate;
-        if (!c) return;
-        const m = c.match(/(\d+\.\d+\.\d+)\.\d+/);
-        if (m && /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(m[1])) {
-          clearTimeout(t);
-          resolve(m[1]);
-        }
+        if (!e.candidate) { clearTimeout(t); resolve(); return; }
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+)\.\d+/);
+        if (m && /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(m[1])) out.add(m[1]);
       };
       pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {});
     });
     pc.close();
-    if (found) return found;
   } catch { /* ignore */ }
-  return '192.168.1';
+  return [...out];
+}
+
+/** Best-effort guess of the local subnet prefix via WebRTC host candidates. */
+export async function guessLocalSubnet(): Promise<string> {
+  const found = await detectLocalSubnets();
+  return found[0] ?? '192.168.1';
 }
 
 async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
@@ -110,7 +120,8 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 }
 
 export interface ScanOptions {
-  subnet: string;                 // e.g. "192.168.1"
+  subnet?: string;                // e.g. "192.168.1"
+  subnets?: string[];             // scan several /24s in one sweep
   from?: number;                  // default 1
   to?: number;                    // default 254
   ports?: number[];
@@ -124,9 +135,10 @@ export interface ScanOptions {
  * against the common camera snapshot paths.
  */
 export async function scanNetworkForCameras(opts: ScanOptions): Promise<DiscoveredCamera[]> {
-  const { subnet, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const { subnet, subnets, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : ['192.168.1']).filter(Boolean);
   const hosts: string[] = [];
-  for (let i = from; i <= to; i++) hosts.push(`${subnet}.${i}`);
+  for (const p of prefixes) for (let i = from; i <= to; i++) hosts.push(`${p}.${i}`);
 
   const results: DiscoveredCamera[] = [];
   const total = hosts.length;
