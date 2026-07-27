@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Radar, Video } from 'lucide-react';
+import { AlertTriangle, Loader2, Radar, Video } from 'lucide-react';
 import {
   scanNetworkForCameras,
-  guessLocalSubnet,
+  detectLocalSubnets,
+  isMixedContentBlocked,
+  COMMON_SUBNETS,
   type DiscoveredCamera,
 } from '@/lib/cameraDiscovery';
 
@@ -11,24 +13,36 @@ interface Props {
 }
 
 export default function NetworkCameraScanner({ onSelect }: Props) {
-  const [subnet, setSubnet] = useState('192.168.1');
+  const [subnets, setSubnets] = useState<string[]>(['192.168.1']);
+  const [selected, setSelected] = useState<string[]>(['192.168.1']);
+  const [extra, setExtra] = useState('');
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [found, setFound] = useState<DiscoveredCamera[]>([]);
   const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  const blocked = isMixedContentBlocked();
 
   useEffect(() => {
-    guessLocalSubnet().then(setSubnet);
+    detectLocalSubnets().then(detected => {
+      const all = Array.from(new Set([...detected, ...COMMON_SUBNETS]));
+      setSubnets(all);
+      setSelected(detected.length ? detected : ['192.168.1', '192.168.0']);
+    });
     return () => { abortRef.current.aborted = true; };
   }, []);
 
+  const toggle = (s: string) =>
+    setSelected(prev => (prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]));
+
   const startScan = async () => {
+    const list = Array.from(new Set([...selected, ...extra.split(',').map(s => s.trim()).filter(Boolean)]));
+    if (!list.length) return;
     abortRef.current = { aborted: false };
     setFound([]);
     setProgress(0);
     setScanning(true);
     await scanNetworkForCameras({
-      subnet,
+      subnets: list,
       signal: abortRef.current,
       onProgress: (done, total) => setProgress(Math.round((done / total) * 100)),
       onFound: cam => setFound(prev => [...prev, cam]),
@@ -44,17 +58,40 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
   return (
     <div className="space-y-2">
       <label className="text-[10px] font-mono text-muted-foreground uppercase flex items-center gap-1">
-        <Radar className="w-3 h-3 text-primary" /> Scan Wi-Fi network for cameras
+        <Radar className="w-3 h-3 text-primary" /> Scan your Wi-Fi for cameras
       </label>
+
+      {blocked && (
+        <p className="text-[9px] font-mono text-destructive flex items-start gap-1 bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5">
+          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+          This page is HTTPS, so the browser blocks plain-HTTP cameras on your LAN. Open the app over
+          http:// (or use the native/Capacitor build) for the scan and live feed to work.
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-1">
+        {subnets.map(s => (
+          <button
+            key={s}
+            onClick={() => toggle(s)}
+            className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
+              selected.includes(s)
+                ? 'bg-primary/20 border-primary text-primary'
+                : 'bg-secondary/30 border-border text-muted-foreground hover:border-primary/50'
+            }`}
+          >
+            {s}.x
+          </button>
+        ))}
+      </div>
 
       <div className="flex gap-1">
         <input
-          value={subnet}
-          onChange={e => setSubnet(e.target.value.replace(/[^0-9.]/g, ''))}
-          placeholder="192.168.1"
+          value={extra}
+          onChange={e => setExtra(e.target.value.replace(/[^0-9.,]/g, ''))}
+          placeholder="add subnet e.g. 192.168.2"
           className="flex-1 text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
         />
-        <span className="text-[11px] font-mono self-center text-muted-foreground">.1–254</span>
         <button
           onClick={scanning ? stopScan : startScan}
           className={`text-[10px] font-mono px-3 py-1.5 rounded border transition-all ${
@@ -73,7 +110,7 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
             <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-[9px] font-mono text-muted-foreground flex items-center gap-1">
-            <Loader2 className="w-3 h-3 animate-spin" /> Probing {subnet}.1–254 … {progress}%
+            <Loader2 className="w-3 h-3 animate-spin" /> Probing {selected.join(', ')} … {progress}%
           </p>
         </div>
       )}
@@ -120,12 +157,14 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
 
       {!scanning && found.length === 0 && progress > 0 && (
         <p className="text-[9px] font-mono text-muted-foreground italic">
-          Nothing answered on {subnet}.x. Check the subnet matches your Wi-Fi, or the camera only speaks RTSP — see docs/RTSP_GATEWAY_SETUP.md.
+          Nothing answered. Make sure your phone/PC is on the same Wi-Fi as the camera, try another
+          subnet above, or the camera may be RTSP-only — see docs/RTSP_GATEWAY_SETUP.md.
         </p>
       )}
 
       <p className="text-[9px] font-mono text-muted-foreground italic">
-        Scans your local network from this browser for cameras exposing an HTTP snapshot/MJPEG stream. RTSP-only cameras (V380, Hikvision, Dahua) still need a gateway.
+        Probes every address on the selected Wi-Fi subnets for cameras serving an HTTP snapshot/MJPEG
+        stream. RTSP-only cameras (V380, Hikvision, Dahua) still need a gateway.
       </p>
     </div>
   );
