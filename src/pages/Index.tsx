@@ -18,6 +18,8 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
+import NetworkCameraScanner from '@/components/dashboard/NetworkCameraScanner';
+
 import { useFaceDistress } from '@/hooks/useFaceDistress';
 import { useYamnet } from '@/hooks/useYamnet';
 import { detectFire, createFireState } from '@/lib/fireDetection';
