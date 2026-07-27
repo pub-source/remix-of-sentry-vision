@@ -732,7 +732,19 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
+            <NetworkCameraScanner
+              onSelect={async (url, kind) => {
+                setIpUrl(url);
+                setIpKind(kind);
+                const ok = await ipCam.connect({ url, kind });
+                if (ok) setShowIpDialog(false);
+              }}
+            />
+
+            <div className="h-px bg-border" />
+
             <div className="space-y-2">
+
               <label className="text-[10px] font-mono text-muted-foreground uppercase">Stream type</label>
               <div className="grid grid-cols-3 gap-1">
                 {(['hls', 'mjpeg', 'image'] as const).map(k => (
