@@ -34,15 +34,21 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
   const toggle = (s: string) =>
     setSelected(prev => (prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]));
 
-  const startScan = async () => {
-    const list = Array.from(new Set([...selected, ...extra.split(',').map(s => s.trim()).filter(Boolean)]));
-    if (!list.length) return;
+  const entries = extra.split(',').map(s => s.trim()).filter(Boolean);
+  const typedIps = entries.filter(e => /^\d{1,3}(\.\d{1,3}){3}$/.test(e));
+  const typedPrefixes = entries.filter(e => /^\d{1,3}(\.\d{1,3}){2}$/.test(e));
+
+  const startScan = async (ipsOnly = false) => {
+    const hostList = typedIps;
+    const list = ipsOnly ? [] : Array.from(new Set([...selected, ...typedPrefixes]));
+    if (!list.length && !hostList.length) return;
     abortRef.current = { aborted: false };
     setFound([]);
     setProgress(0);
     setScanning(true);
     await scanNetworkForCameras({
       subnets: list,
+      hosts: hostList,
       signal: abortRef.current,
       onProgress: (done, total) => setProgress(Math.round((done / total) * 100)),
       onFound: cam => setFound(prev => [...prev, cam]),
