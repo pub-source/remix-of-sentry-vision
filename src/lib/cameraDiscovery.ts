@@ -122,6 +122,7 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 export interface ScanOptions {
   subnet?: string;                // e.g. "192.168.1"
   subnets?: string[];             // scan several /24s in one sweep
+  hosts?: string[];               // explicit full IPs, e.g. ["192.168.18.93"]
   from?: number;                  // default 1
   to?: number;                    // default 254
   ports?: number[];
@@ -135,10 +136,12 @@ export interface ScanOptions {
  * against the common camera snapshot paths.
  */
 export async function scanNetworkForCameras(opts: ScanOptions): Promise<DiscoveredCamera[]> {
-  const { subnet, subnets, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
-  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : ['192.168.1']).filter(Boolean);
-  const hosts: string[] = [];
-  for (const p of prefixes) for (let i = from; i <= to; i++) hosts.push(`${p}.${i}`);
+  const { subnet, subnets, hosts: explicitHosts, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : []).filter(Boolean);
+  const hostSet = new Set<string>(explicitHosts ?? []);
+  if (!prefixes.length && !hostSet.size) prefixes.push('192.168.1');
+  for (const p of prefixes) for (let i = from; i <= to; i++) hostSet.add(`${p}.${i}`);
+  const hosts = [...hostSet];
 
   const results: DiscoveredCamera[] = [];
   const total = hosts.length;

@@ -34,15 +34,21 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
   const toggle = (s: string) =>
     setSelected(prev => (prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]));
 
-  const startScan = async () => {
-    const list = Array.from(new Set([...selected, ...extra.split(',').map(s => s.trim()).filter(Boolean)]));
-    if (!list.length) return;
+  const entries = extra.split(',').map(s => s.trim()).filter(Boolean);
+  const typedIps = entries.filter(e => /^\d{1,3}(\.\d{1,3}){3}$/.test(e));
+  const typedPrefixes = entries.filter(e => /^\d{1,3}(\.\d{1,3}){2}$/.test(e));
+
+  const startScan = async (ipsOnly = false) => {
+    const hostList = typedIps;
+    const list = ipsOnly ? [] : Array.from(new Set([...selected, ...typedPrefixes]));
+    if (!list.length && !hostList.length) return;
     abortRef.current = { aborted: false };
     setFound([]);
     setProgress(0);
     setScanning(true);
     await scanNetworkForCameras({
       subnets: list,
+      hosts: hostList,
       signal: abortRef.current,
       onProgress: (done, total) => setProgress(Math.round((done / total) * 100)),
       onFound: cam => setFound(prev => [...prev, cam]),
@@ -89,11 +95,11 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
         <input
           value={extra}
           onChange={e => setExtra(e.target.value.replace(/[^0-9.,]/g, ''))}
-          placeholder="add subnet e.g. 192.168.2"
+          placeholder="IP e.g. 192.168.18.93 or subnet 192.168.2"
           className="flex-1 text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <button
-          onClick={scanning ? stopScan : startScan}
+          onClick={() => (scanning ? stopScan() : startScan(false))}
           className={`text-[10px] font-mono px-3 py-1.5 rounded border transition-all ${
             scanning
               ? 'bg-destructive/20 border-destructive/50 text-destructive'
@@ -103,6 +109,17 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
           {scanning ? 'Stop' : 'Scan'}
         </button>
       </div>
+
+      {typedIps.length > 0 && !scanning && (
+        <button
+          onClick={() => startScan(true)}
+          className="w-full text-[10px] font-mono px-3 py-1.5 rounded border border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 transition-all"
+        >
+          Scan only {typedIps.join(', ')}
+        </button>
+      )}
+
+
 
       {scanning && (
         <div className="space-y-1">
