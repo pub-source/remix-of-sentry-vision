@@ -136,10 +136,12 @@ export interface ScanOptions {
  * against the common camera snapshot paths.
  */
 export async function scanNetworkForCameras(opts: ScanOptions): Promise<DiscoveredCamera[]> {
-  const { subnet, subnets, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
-  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : ['192.168.1']).filter(Boolean);
-  const hosts: string[] = [];
-  for (const p of prefixes) for (let i = from; i <= to; i++) hosts.push(`${p}.${i}`);
+  const { subnet, subnets, hosts: explicitHosts, from = 1, to = 254, ports = COMMON_PORTS, onProgress, onFound, signal } = opts;
+  const prefixes = (subnets?.length ? subnets : subnet ? [subnet] : []).filter(Boolean);
+  const hostSet = new Set<string>(explicitHosts ?? []);
+  if (!prefixes.length && !hostSet.size) prefixes.push('192.168.1');
+  for (const p of prefixes) for (let i = from; i <= to; i++) hostSet.add(`${p}.${i}`);
+  const hosts = [...hostSet];
 
   const results: DiscoveredCamera[] = [];
   const total = hosts.length;
