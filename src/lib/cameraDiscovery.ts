@@ -122,6 +122,7 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 export interface ScanOptions {
   subnet?: string;                // e.g. "192.168.1"
   subnets?: string[];             // scan several /24s in one sweep
+  hosts?: string[];               // explicit full IPs, e.g. ["192.168.18.93"]
   from?: number;                  // default 1
   to?: number;                    // default 254
   ports?: number[];
