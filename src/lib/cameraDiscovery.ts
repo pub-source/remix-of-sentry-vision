@@ -189,3 +189,48 @@ export async function scanNetworkForCameras(opts: ScanOptions): Promise<Discover
 
   return results;
 }
+
+/** Candidate stream URLs to try, in order, for a single camera IP. */
+export function candidateUrls(host: string, ports: number[] = COMMON_PORTS): { url: string; kind: DiscoveredCamera['kind'] }[] {
+  const out: { url: string; kind: DiscoveredCamera['kind'] }[] = [];
+  for (const port of ports) {
+    for (const { path, kind } of COMMON_PATHS) {
+      if (kind === 'hls') continue;
+      out.push({ url: `http://${host}:${port}${path}`, kind });
+    }
+  }
+  return out;
+}
+
+/**
+ * Tries every well-known snapshot/MJPEG URL on one camera IP and returns the
+ * first that actually decodes a frame in the browser.
+ */
+export async function findStreamForHost(
+  host: string,
+  onTry?: (url: string, index: number, total: number) => void,
+  signal?: { aborted: boolean },
+): Promise<{ url: string; kind: 'mjpeg' | 'image' } | null> {
+  const cands = candidateUrls(host);
+  for (let i = 0; i < cands.length; i++) {
+    if (signal?.aborted) return null;
+    const c = cands[i];
+    onTry?.(c.url, i + 1, cands.length);
+    if (await probeImage(c.url, 1800)) {
+      return { url: c.url, kind: c.kind === 'image' ? 'image' : 'mjpeg' };
+    }
+  }
+  return null;
+}
+
+/** Common RTSP URL templates by camera family (for the gateway config). */
+export function rtspTemplates(host: string, user = 'admin', pass = 'PASSWORD'): { label: string; url: string }[] {
+  return [
+    { label: 'V380 / generic Chinese cam', url: `rtsp://${user}:${pass}@${host}:554/live/ch00_0` },
+    { label: 'V380 sub-stream', url: `rtsp://${user}:${pass}@${host}:554/live/ch00_1` },
+    { label: 'Hikvision', url: `rtsp://${user}:${pass}@${host}:554/Streaming/Channels/101` },
+    { label: 'Dahua', url: `rtsp://${user}:${pass}@${host}:554/cam/realmonitor?channel=1&subtype=0` },
+    { label: 'Tapo / TP-Link', url: `rtsp://${user}:${pass}@${host}:554/stream1` },
+    { label: 'ONVIF generic', url: `rtsp://${user}:${pass}@${host}:554/onvif1` },
+  ];
+}
