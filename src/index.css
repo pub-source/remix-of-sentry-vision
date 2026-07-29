@@ -119,15 +119,44 @@
     @apply border-border;
   }
 
+  html {
+    font-size: 18px;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 800;
+  }
+
+  label, button, th {
+    font-weight: 700;
   }
 
   code, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
 }
+
+/* Elder-friendly readability: enforce larger, bolder minimums for tiny text */
+@layer utilities {
+  .text-\[6px\] { font-size: 11px !important; font-weight: 600; }
+  .text-\[7px\] { font-size: 12px !important; font-weight: 600; }
+  .text-\[8px\] { font-size: 13px !important; font-weight: 600; }
+  .text-\[9px\] { font-size: 14px !important; font-weight: 600; }
+  .text-\[10px\] { font-size: 15px !important; font-weight: 600; }
+  .text-\[11px\] { font-size: 16px !important; font-weight: 600; }
+  .text-\[12px\] { font-size: 17px !important; font-weight: 600; }
+  .text-xs { font-size: 0.85rem; font-weight: 600; }
+  .text-sm { font-size: 0.95rem; font-weight: 600; }
+  .text-base { font-weight: 500; }
+}
+
 
 @layer utilities {
   .panel-glow {
