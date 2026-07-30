@@ -143,19 +143,116 @@
   }
 }
 
-/* Elder-friendly readability: enforce larger, bolder minimums for tiny text */
+/* Elder-friendly readability: enforce larger, bolder minimums for tiny text.
+   Sizes are in rem so the accessibility font-size slider scales them too. */
 @layer utilities {
-  .text-\[6px\] { font-size: 11px !important; font-weight: 600; }
-  .text-\[7px\] { font-size: 12px !important; font-weight: 600; }
-  .text-\[8px\] { font-size: 13px !important; font-weight: 600; }
-  .text-\[9px\] { font-size: 14px !important; font-weight: 600; }
-  .text-\[10px\] { font-size: 15px !important; font-weight: 600; }
-  .text-\[11px\] { font-size: 16px !important; font-weight: 600; }
-  .text-\[12px\] { font-size: 17px !important; font-weight: 600; }
+  .text-\[6px\] { font-size: 0.61rem !important; font-weight: 600; }
+  .text-\[7px\] { font-size: 0.67rem !important; font-weight: 600; }
+  .text-\[8px\] { font-size: 0.72rem !important; font-weight: 600; }
+  .text-\[9px\] { font-size: 0.78rem !important; font-weight: 600; }
+  .text-\[10px\] { font-size: 0.83rem !important; font-weight: 600; }
+  .text-\[11px\] { font-size: 0.89rem !important; font-weight: 600; }
+  .text-\[12px\] { font-size: 0.94rem !important; font-weight: 600; }
   .text-xs { font-size: 0.85rem; font-weight: 600; }
   .text-sm { font-size: 0.95rem; font-weight: 600; }
   .text-base { font-weight: 500; }
 }
+
+/* ============ High-contrast theme ============ */
+.hc {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 220 100% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 92%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 18%;
+  --accent: 175 100% 20%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 36%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 145 100% 22%;
+  --success-foreground: 0 0% 100%;
+  --warning: 35 100% 30%;
+  --warning-foreground: 0 0% 100%;
+  --info: 220 100% 32%;
+  --info-foreground: 0 0% 100%;
+  --border: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 220 100% 32%;
+  --alert-high: 0 100% 36%;
+  --alert-medium: 35 100% 30%;
+  --alert-low: 220 100% 32%;
+}
+
+.hc.dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 5%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 200 100% 62%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 14%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 88%;
+  --accent: 165 100% 55%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 62%;
+  --destructive-foreground: 0 0% 0%;
+  --success: 145 100% 55%;
+  --success-foreground: 0 0% 0%;
+  --warning: 45 100% 58%;
+  --warning-foreground: 0 0% 0%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+}
+
+/* Extra contrast for interactive controls and alerts */
+.hc button,
+.hc [role='button'],
+.hc a[class*='rounded'],
+.hc input,
+.hc select,
+.hc textarea {
+  border-width: 2px !important;
+  border-style: solid;
+  border-color: hsl(var(--border));
+  font-weight: 800 !important;
+}
+
+.hc button:focus-visible,
+.hc a:focus-visible,
+.hc input:focus-visible,
+.hc [role='button']:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.hc [class*='bg-destructive'],
+.hc [class*='bg-success'],
+.hc [class*='bg-warning'],
+.hc [class*='bg-primary'],
+.hc [class*='bg-accent'] {
+  border-color: hsl(var(--foreground)) !important;
+}
+
+.hc .text-muted-foreground {
+  color: hsl(var(--foreground)) !important;
+}
+
+.hc .panel-glow,
+.hc .panel-glow-active {
+  box-shadow: 0 0 0 2px hsl(var(--border));
+}
+
 
 
 @layer utilities {
