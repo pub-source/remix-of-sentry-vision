@@ -38,4 +38,6 @@ import { installModelCache, prefetchModels, forceMemoryStrategy, whenCacheReady 
   }
 })();
 
+initAccessibility();
 createRoot(document.getElementById("root")!).render(<App />);
+
