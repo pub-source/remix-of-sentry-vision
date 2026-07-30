@@ -20,6 +20,8 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
 import NetworkCameraScanner from '@/components/dashboard/NetworkCameraScanner';
 import DirectCameraConnect from '@/components/dashboard/DirectCameraConnect';
+import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
+
 
 
 import { useFaceDistress } from '@/hooks/useFaceDistress';
@@ -923,7 +925,10 @@ export default function Index() {
             {darkMode ? <Sun className="w-5 h-5 text-warning" /> : <Moon className="w-5 h-5 text-muted-foreground" />}
           </button>
 
+          <AccessibilityPanel />
+
           <button
+
             onClick={() => setShowTutorial(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors"
             title="Replay tutorial"
