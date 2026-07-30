@@ -57,34 +57,64 @@ export default function DirectCameraConnect({ onConnect }: Props) {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-1">
-        <input
-          value={ip}
-          onChange={e => setIp(e.target.value.replace(/[^0-9.]/g, ''))}
-          placeholder="192.168.18.93"
-          className="col-span-3 text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <input
-          value={user}
-          onChange={e => setUser(e.target.value)}
-          placeholder="username"
-          className="text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <input
-          type="password"
-          value={pass}
-          onChange={e => setPass(e.target.value)}
-          placeholder="password"
-          className="text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <button
-          onClick={() => (busy ? (abortRef.current.aborted = true, setBusy(false)) : run())}
-          disabled={!validIp && !busy}
-          className="text-[10px] font-mono px-2 py-1.5 rounded border bg-primary text-primary-foreground border-primary hover:bg-primary/80 disabled:opacity-50 transition-all"
-        >
-          {busy ? 'Stop' : 'Connect'}
-        </button>
+      <div className="space-y-1.5">
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-mono uppercase text-muted-foreground">ip:</label>
+          <input
+            value={ip}
+            onChange={e => setIp(e.target.value.replace(/[^0-9.]/g, ''))}
+            placeholder=""
+            inputMode="decimal"
+            className="w-full text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-mono uppercase text-muted-foreground">device id:</label>
+          <input
+            value={deviceId}
+            onChange={e => setDeviceId(e.target.value.toUpperCase())}
+            placeholder=""
+            className="w-full text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-mono uppercase text-muted-foreground">mac address:</label>
+          <input
+            value={mac}
+            onChange={e => setMac(e.target.value.toUpperCase().replace(/[^0-9A-F:]/g, ''))}
+            placeholder=""
+            className="w-full text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 pt-1">
+          <input
+            value={user}
+            onChange={e => setUser(e.target.value)}
+            placeholder="username"
+            className="text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="password"
+            value={pass}
+            onChange={e => setPass(e.target.value)}
+            placeholder="password"
+            className="text-[11px] font-mono px-2 py-1.5 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={() => (busy ? (abortRef.current.aborted = true, setBusy(false)) : run())}
+            disabled={!validIp && !busy}
+            className="text-[10px] font-mono px-2 py-1.5 rounded border bg-primary text-primary-foreground border-primary hover:bg-primary/80 disabled:opacity-50 transition-all"
+          >
+            {busy ? 'Stop' : 'Connect'}
+          </button>
+        </div>
+        <p className="text-[9px] font-mono text-muted-foreground">
+          IP is required. Device ID and MAC are saved with the camera so the native (Capacitor) app can
+          re-find it on the Wi-Fi even if its IP changes.
+        </p>
       </div>
+
 
       {busy && tried && (
         <div className="space-y-1">
