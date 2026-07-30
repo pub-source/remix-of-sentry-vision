@@ -20,6 +20,8 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
 import NetworkCameraScanner from '@/components/dashboard/NetworkCameraScanner';
 import DirectCameraConnect from '@/components/dashboard/DirectCameraConnect';
+import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
+
 
 
 import { useFaceDistress } from '@/hooks/useFaceDistress';
