@@ -141,6 +141,9 @@ export default function FusedDetectionView({
         ctx.fillRect(0, 0, w, h);
       }
 
+      // High-contrast mode: thicker strokes, pure hues, solid label plates
+      const hc = document.documentElement.classList.contains('hc');
+
       // Draw bounding boxes with enhanced styling
       objects.forEach(obj => {
         const [bx, by, bw, bh] = obj.bbox;
@@ -151,27 +154,45 @@ export default function FusedDetectionView({
         const dw = bw * sx;
         const dh = bh * sy;
 
-        ctx.shadowColor = obj.confidence > 0.8 ? '#00e5ff' : obj.confidence > 0.5 ? '#ffab00' : '#ff1744';
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = ctx.shadowColor;
-        ctx.lineWidth = 2;
+        const boxColor = hc
+          ? (obj.confidence > 0.8 ? '#00ffff' : obj.confidence > 0.5 ? '#ffff00' : '#ff0000')
+          : (obj.confidence > 0.8 ? '#00e5ff' : obj.confidence > 0.5 ? '#ffab00' : '#ff1744');
+
+        if (hc) {
+          // black halo underneath so the box reads on any background
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 7;
+          ctx.strokeRect(dx, dy, dw, dh);
+        }
+
+        ctx.shadowColor = boxColor;
+        ctx.shadowBlur = hc ? 0 : 8;
+        ctx.strokeStyle = boxColor;
+        ctx.lineWidth = hc ? 4 : 2;
         ctx.strokeRect(dx, dy, dw, dh);
         ctx.shadowBlur = 0;
 
         const cornerLen = Math.min(dw, dh) * 0.2;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = hc ? 6 : 3;
         ctx.beginPath(); ctx.moveTo(dx, dy + cornerLen); ctx.lineTo(dx, dy); ctx.lineTo(dx + cornerLen, dy); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(dx + dw - cornerLen, dy); ctx.lineTo(dx + dw, dy); ctx.lineTo(dx + dw, dy + cornerLen); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(dx, dy + dh - cornerLen); ctx.lineTo(dx, dy + dh); ctx.lineTo(dx + cornerLen, dy + dh); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(dx + dw - cornerLen, dy + dh); ctx.lineTo(dx + dw, dy + dh); ctx.lineTo(dx + dw, dy + dh - cornerLen); ctx.stroke();
 
         const labelText = `${obj.label} ${(obj.confidence * 100).toFixed(0)}%`;
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        const labelSize = hc ? 16 : 11;
+        ctx.font = `bold ${labelSize}px "JetBrains Mono", monospace`;
         const tm = ctx.measureText(labelText);
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(dx, dy - 18, tm.width + 10, 18);
-        ctx.fillStyle = ctx.strokeStyle;
-        ctx.fillText(labelText, dx + 5, dy - 5);
+        const labelH = labelSize + 8;
+        ctx.fillStyle = hc ? '#000000' : 'rgba(0,0,0,0.8)';
+        ctx.fillRect(dx, dy - labelH, tm.width + 12, labelH);
+        if (hc) {
+          ctx.strokeStyle = boxColor;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(dx, dy - labelH, tm.width + 12, labelH);
+        }
+        ctx.fillStyle = boxColor;
+        ctx.fillText(labelText, dx + 6, dy - 6);
       });
 
       // Fire saliency box — draws a pulsing red highlight over the flame region
@@ -186,24 +207,35 @@ export default function FusedDetectionView({
         const dw = fw2 * sx;
         const dh = fh2 * sy;
         const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+        const fireColor = hc ? '#ff0000' : '#ff2a2a';
         ctx.save();
-        ctx.strokeStyle = '#ff2a2a';
-        ctx.shadowColor = '#ff2a2a';
-        ctx.shadowBlur = 20 * pulse + 8;
-        ctx.lineWidth = 3;
+        if (hc) {
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 9;
+          ctx.strokeRect(dx, dy, dw, dh);
+        }
+        ctx.strokeStyle = fireColor;
+        ctx.shadowColor = fireColor;
+        ctx.shadowBlur = hc ? 0 : 20 * pulse + 8;
+        ctx.lineWidth = hc ? 6 : 3;
         ctx.strokeRect(dx, dy, dw, dh);
-        ctx.fillStyle = `rgba(255,42,42,${0.15 + 0.15 * pulse})`;
+        ctx.fillStyle = hc
+          ? `rgba(255,0,0,${0.25 + 0.15 * pulse})`
+          : `rgba(255,42,42,${0.15 + 0.15 * pulse})`;
         ctx.fillRect(dx, dy, dw, dh);
         ctx.shadowBlur = 0;
-        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        const fSize = hc ? 18 : 12;
+        ctx.font = `bold ${fSize}px "JetBrains Mono", monospace`;
         const flabel = 'FIRE';
         const ftm = ctx.measureText(flabel);
-        ctx.fillStyle = '#ff2a2a';
-        ctx.fillRect(dx, dy - 18, ftm.width + 10, 18);
+        const fH = fSize + 8;
+        ctx.fillStyle = fireColor;
+        ctx.fillRect(dx, dy - fH, ftm.width + 12, fH);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(flabel, dx + 5, dy - 5);
+        ctx.fillText(flabel, dx + 6, dy - 6);
         ctx.restore();
       }
+
 
       const actBarH = 28;
       const barColor = distressLevel === 'critical' ? 'rgba(220,38,38,0.85)' : distressLevel === 'warning' ? 'rgba(234,179,8,0.85)' : 'rgba(0,0,0,0.75)';
