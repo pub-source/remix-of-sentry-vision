@@ -34,8 +34,16 @@ export default function DirectCameraConnect({ onConnect }: Props) {
     );
     setBusy(false);
     setTried(null);
-    if (hit) onConnect(hit.url, hit.kind);
-    else setFailed(true);
+    if (hit) {
+      // Persist identity so the native (Capacitor) build can re-find this camera by MAC/device id.
+      try {
+        const saved = JSON.parse(localStorage.getItem('safewatch-cameras') || '{}');
+        saved[ip.trim()] = { ip: ip.trim(), deviceId: deviceId.trim(), mac: mac.trim(), url: hit.url, kind: hit.kind };
+        localStorage.setItem('safewatch-cameras', JSON.stringify(saved));
+      } catch { /* ignore storage errors */ }
+      onConnect(hit.url, hit.kind);
+    } else setFailed(true);
+
   };
 
   const copy = (text: string) => {
