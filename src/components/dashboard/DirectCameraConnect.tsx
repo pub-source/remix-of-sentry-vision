@@ -8,8 +8,11 @@ interface Props {
 
 export default function DirectCameraConnect({ onConnect }: Props) {
   const [ip, setIp] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+  const [mac, setMac] = useState('');
   const [user, setUser] = useState('admin');
   const [pass, setPass] = useState('');
+
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState<{ url: string; i: number; total: number } | null>(null);
   const [failed, setFailed] = useState(false);
