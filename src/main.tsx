@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { initAccessibility } from "./hooks/useAccessibility";
+
 import { installModelCache, prefetchModels, forceMemoryStrategy, whenCacheReady } from "./lib/modelCache";
 
 // Install the ML model cache as early as possible so the very first
