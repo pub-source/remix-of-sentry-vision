@@ -18,8 +18,9 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
-import NetworkCameraScanner from '@/components/dashboard/NetworkCameraScanner';
+import AddDeviceWizard from '@/components/dashboard/AddDeviceWizard';
 import DirectCameraConnect from '@/components/dashboard/DirectCameraConnect';
+
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
 
 
