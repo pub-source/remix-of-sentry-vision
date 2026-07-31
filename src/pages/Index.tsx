@@ -18,8 +18,9 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
-import NetworkCameraScanner from '@/components/dashboard/NetworkCameraScanner';
+import AddDeviceWizard from '@/components/dashboard/AddDeviceWizard';
 import DirectCameraConnect from '@/components/dashboard/DirectCameraConnect';
+
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
 
 
@@ -640,7 +641,7 @@ export default function Index() {
           onClick={() => setShowIpDialog(false)}
         >
           <div
-            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4"
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -738,7 +739,7 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
-            <DirectCameraConnect
+            <AddDeviceWizard
               onConnect={async (url, kind) => {
                 setIpUrl(url);
                 setIpKind(kind);
@@ -749,14 +750,19 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
-            <NetworkCameraScanner
-              onSelect={async (url, kind) => {
+            <DirectCameraConnect
+              onConnect={async (url, kind) => {
                 setIpUrl(url);
                 setIpKind(kind);
                 const ok = await ipCam.connect({ url, kind });
                 if (ok) setShowIpDialog(false);
               }}
             />
+
+
+            <div className="h-px bg-border" />
+
+
 
 
             <div className="h-px bg-border" />
