@@ -641,7 +641,7 @@ export default function Index() {
           onClick={() => setShowIpDialog(false)}
         >
           <div
-            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4"
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
