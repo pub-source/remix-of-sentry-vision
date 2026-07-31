@@ -738,6 +738,17 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
+            <AddDeviceWizard
+              onConnect={async (url, kind) => {
+                setIpUrl(url);
+                setIpKind(kind);
+                const ok = await ipCam.connect({ url, kind });
+                if (ok) setShowIpDialog(false);
+              }}
+            />
+
+            <div className="h-px bg-border" />
+
             <DirectCameraConnect
               onConnect={async (url, kind) => {
                 setIpUrl(url);
@@ -746,6 +757,7 @@ export default function Index() {
                 if (ok) setShowIpDialog(false);
               }}
             />
+
 
             <div className="h-px bg-border" />
 
