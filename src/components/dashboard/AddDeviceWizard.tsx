@@ -19,7 +19,10 @@ type Step =
 
 interface BtDevice { name: string; id: string }
 
-const hasBluetooth = () => typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+const Box = ({ children }: { children: React.ReactNode }) => (
+  <div className="space-y-2 border border-border rounded-lg p-3 bg-secondary/20">{children}</div>
+);
+
 
 export default function AddDeviceWizard({ onConnect }: Props) {
   const [step, setStep] = useState<Step>('start');
