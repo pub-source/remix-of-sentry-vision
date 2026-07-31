@@ -40,25 +40,32 @@ export default function AddDeviceWizard({ onConnect }: Props) {
   const openBluetooth = async () => {
     setError('');
     setMode('bluetooth');
-    if (!hasBluetooth()) {
-      setError('Bluetooth is not available in this browser. Use the native app build (Capacitor) on your phone, or use "Manually add a device".');
+    const bt: any = (navigator as any).bluetooth;
+    if (!bt?.requestDevice) {
+      setError('Bluetooth pairing is not available here (browser preview). Continue with "Wi-Fi network connection" below, or use the native app on your phone.');
       setStep('manual');
       return;
     }
     setStep('bt-scan');
     try {
       // Cameras advertise as generic BLE peripherals; accept all so the CCTV shows up.
-      const d: any = await (navigator as any).bluetooth.requestDevice({
+      const d: any = await bt.requestDevice({
         acceptAllDevices: true,
         optionalServices: ['generic_access', '0000ffff-0000-1000-8000-00805f9b34fb'],
       });
       setDevice({ name: d.name || 'CCTV camera', id: d.id || '' });
       setStep('bt-found');
     } catch (e: any) {
-      setError(e?.message?.includes('cancel') ? 'Bluetooth pairing cancelled.' : (e?.message || 'No device selected.'));
-      setStep('start');
+      const msg = String(e?.message || e || '');
+      if (/cancel/i.test(msg) || e?.name === 'NotFoundError') {
+        setError('No camera picked. Power the camera on, put it in pairing mode, then tap "Add device" again — or use "Wi-Fi network connection".');
+      } else {
+        setError('Bluetooth is blocked in this preview window. Use "Wi-Fi network connection" below, or run the native app on your phone.');
+      }
+      setStep('manual');
     }
   };
+
 
   /** Step 3 — push the chosen Wi-Fi credentials into the camera, then look for its stream. */
   const provision = async () => {
