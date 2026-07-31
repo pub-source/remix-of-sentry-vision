@@ -107,9 +107,8 @@ export default function AddDeviceWizard({ onConnect }: Props) {
     }
   };
 
-  const Box = ({ children }: { children: React.ReactNode }) => (
-    <div className="space-y-2 border border-border rounded-lg p-3 bg-secondary/20">{children}</div>
-  );
+
+
 
   return (
     <div className="space-y-2">
