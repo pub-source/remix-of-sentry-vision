@@ -664,7 +664,7 @@ export default function Index() {
                 Pick a camera to stream into CAM 2. All detection runs on this feed.
               </p>
               {devices.length === 0 ? (
-                <p className="text-[10px] font-mono text-muted-foreground italic">
+                <p className="text-[10px] font-mono text-muted-foreground">
                   No built-in or USB webcam detected. Connect a CCTV/IP camera below, or grant camera permission and reload.
                 </p>
               ) : (
@@ -706,7 +706,7 @@ export default function Index() {
                   })}
                 </div>
               )}
-              <p className="text-[9px] font-mono text-muted-foreground italic">
+              <p className="text-[9px] font-mono text-muted-foreground">
                 Tip: start OBS Virtual Camera in OBS, then it will appear here as a source you can assign to CAM 2 for fused detection.
               </p>
             </div>
@@ -733,7 +733,7 @@ export default function Index() {
               {testVideoName && (
                 <p className="text-[9px] font-mono text-success">Ready: {testVideoName} — press Start Monitoring to play.</p>
               )}
-              <p className="text-[9px] font-mono text-muted-foreground italic">
+              <p className="text-[9px] font-mono text-muted-foreground">
                 The video is queued and only starts playing when you press Start Monitoring. Use it to validate fire / smoke / facial-distress logic without a live camera.
               </p>
             </div>
@@ -1151,7 +1151,7 @@ export default function Index() {
                       <div className="h-1.5 bg-secondary/50 rounded overflow-hidden relative">
                         <div className={`h-full ${r.color} rounded transition-all`} style={{ width: `${r.value}%` }} />
                       </div>
-                      <p className="text-[8px] font-mono text-muted-foreground italic">{r.explain}</p>
+                      <p className="text-[8px] font-mono text-muted-foreground">{r.explain}</p>
                     </div>
                   ))}
                   <div className="mt-2 flex items-center gap-3 bg-secondary/20 rounded p-2">
@@ -1179,7 +1179,7 @@ export default function Index() {
                     Fire {Math.round(fireStatus.confidence * 100)}% · Smoke {Math.round(fireStatus.smokeRatio * 100)}% · Vis {fireStatus.visibility}
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {fireStatus.fireDetected
                     ? 'Real fire signature (color + flicker)'
                     : fireStatus.smokeEmergency
@@ -1217,7 +1217,7 @@ export default function Index() {
                       </span>
                     </div>
                     {fireStatus.saliency.suppressionLabel && (
-                      <p className="text-[8px] font-mono text-destructive/80 italic">
+                      <p className="text-[8px] font-mono text-destructive/80">
                         Suppressed: {fireStatus.saliency.suppressionLabel}
                       </p>
                     )}
@@ -1238,7 +1238,7 @@ export default function Index() {
                     YAMNet Distress ({yamnet.distressScore}%)
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {yamnet.error ? yamnet.error :
                    !yamnet.ready ? 'Loading AudioSet model…' :
                    `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
@@ -1258,7 +1258,7 @@ export default function Index() {
                     Facial Distress ({faceDistress.distress.distressScore}%)
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {!faceDistress.ready ? 'Loading model…' :
                    faceDistress.error ? faceDistress.error :
                    !faceDistress.distress.hasFace ? 'No face detected' :

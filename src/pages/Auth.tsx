@@ -668,7 +668,7 @@ export default function Auth() {
                 <p className="text-foreground font-medium mb-1">Sharing</p>
                 <p>Your data is not sold or shared with third parties for advertising. It is only shared with members of your household as required by the service.</p>
               </div>
-              <p className="text-[10px] italic">
+              <p className="text-[10px]">
                 By checking the consent box, you acknowledge that you have read this notice and freely give your consent to the processing of your personal information for the purposes stated above.
               </p>
             </div>
