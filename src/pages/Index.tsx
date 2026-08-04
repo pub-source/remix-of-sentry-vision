@@ -862,7 +862,6 @@ export default function Index() {
               </button>
             </div>
 
-            </div>
           </div>
         </div>
       )}
