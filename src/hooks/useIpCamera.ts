@@ -24,8 +24,14 @@ export function useIpCamera() {
 
   const disconnect = useCallback(() => {
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-    if (videoRef.current) { videoRef.current.pause(); videoRef.current.src = ''; videoRef.current.srcObject = null; }
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.src = '';
+      videoRef.current.srcObject = null;
+      videoRef.current.remove();
+      videoRef.current = null;
+    }
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); clearTimeout(rafRef.current); rafRef.current = 0; }
     setStream(prev => { prev?.getTracks().forEach(t => t.stop()); return null; });
     setConnected(false);
     setError(null);
@@ -35,11 +41,14 @@ export function useIpCamera() {
     disconnect();
     setError(null);
 
-    // Create hidden video + canvas
+    // Hidden (but attached) video — detached elements get throttled/never paint
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
+    video.autoplay = true;
     video.crossOrigin = 'anonymous';
+    video.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none';
+    document.body.appendChild(video);
     videoRef.current = video;
 
     const canvas = document.createElement('canvas');
@@ -48,7 +57,7 @@ export function useIpCamera() {
     try {
       if (cfg.kind === 'hls') {
         if (Hls.isSupported()) {
-          const hls = new Hls();
+          const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 2 });
           hlsRef.current = hls;
           hls.loadSource(cfg.url);
           hls.attachMedia(video);
@@ -62,11 +71,42 @@ export function useIpCamera() {
           throw new Error('HLS not supported in this browser');
         }
         await video.play();
-        // Capture stream from the playing video
-        // @ts-expect-error captureStream exists in modern browsers
-        const ms: MediaStream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+
+        // Wait for real video dimensions before capturing, otherwise the
+        // resulting track is a black 0x0 / not-yet-decoded surface.
+        await new Promise<void>((res) => {
+          if (video.videoWidth > 0 && video.readyState >= 2) return res();
+          const done = () => { video.removeEventListener('loadeddata', done); video.removeEventListener('resize', done); res(); };
+          video.addEventListener('loadeddata', done);
+          video.addEventListener('resize', done);
+          setTimeout(done, 8000);
+        });
+
+        if (!video.videoWidth) throw new Error('Stream produced no video frames (codec may be H.265 — force H.264 on the camera)');
+
+        // Pump frames through a canvas: this works for MSE/hls.js in every
+        // browser, whereas video.captureStream() often yields a black track.
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas unavailable');
+        const draw = () => {
+          if (!canvasRef.current || !videoRef.current) return;
+          const v = videoRef.current;
+          if (v.readyState >= 2 && v.videoWidth) {
+            if (canvas.width !== v.videoWidth || canvas.height !== v.videoHeight) {
+              canvas.width = v.videoWidth;
+              canvas.height = v.videoHeight;
+            }
+            try { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); } catch { /* tainted */ }
+          }
+          rafRef.current = requestAnimationFrame(draw);
+        };
+        draw();
+        const ms = (canvas as HTMLCanvasElement & { captureStream: (fps?: number) => MediaStream }).captureStream(30);
         setStream(ms);
       } else if (cfg.kind === 'mjpeg' || cfg.kind === 'image') {
+
         // For MJPEG we draw into a canvas at ~10fps and captureStream from it
         canvas.width = 640;
         canvas.height = 480;
