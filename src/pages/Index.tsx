@@ -781,11 +781,12 @@ export default function Index() {
                 onChange={e => {
                   const v = e.target.value;
                   setIpUrl(v);
-                  if (/\.m3u8/i.test(v)) setIpKind('hls');
+                  if (/\.m3u8/i.test(v) || /:8888\//.test(v) || /\/$/.test(v.trim())) setIpKind('hls');
                   else if (/mjpe?g/i.test(v)) setIpKind('mjpeg');
                   else if (/\.jpe?g/i.test(v)) setIpKind('image');
                 }}
-                placeholder="http://192.168.18.10:8888/cam/index.m3u8"
+                placeholder="http://127.0.0.1:8888/camera/"
+
                 className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
