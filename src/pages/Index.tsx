@@ -745,122 +745,29 @@ export default function Index() {
                 setIpUrl(url);
                 setIpKind('hls');
                 const ok = await ipCam.connect({ url, kind: 'hls' });
-                if (ok) setShowIpDialog(false);
+                if (ok) {
+                  setShowIpDialog(false);
+                  if (!running) setTimeout(() => { void handleStart(); }, 300);
+                }
               }}
+              playbackError={ipCam.error}
+              playing={ipCam.connected}
             />
 
-            <div className="h-px bg-border" />
-
-            <div className="space-y-2">
-              <label className="text-[15px] font-semibold">Paste your stream link</label>
-              <p className="text-[14px] text-muted-foreground">
-                Already have a gateway running? Paste the playback URL from your MediaMTX / ffmpeg
-                gateway, e.g.
-                <code className="text-primary"> http://127.0.0.1:8888/camera/</code>
-              </p>
-            </div>
-
-            <div className="h-px bg-border" />
-
-
-
-            <div className="space-y-2">
-              <label className="text-[15px] font-semibold">Stream type</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['hls', 'mjpeg', 'image'] as const).map(k => (
-                  <button
-                    key={k}
-                    onClick={() => setIpKind(k)}
-                    className={`text-[15px] font-semibold py-2.5 rounded-lg border transition-all ${
-                      ipKind === k
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-secondary/30 border-border text-foreground/70 hover:border-primary/50'
-                    }`}
-                  >
-                    {k.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[14px] text-muted-foreground">
-                {ipKind === 'hls' && 'HLS .m3u8 from MediaMTX (:8888) or ffmpeg output'}
-                {ipKind === 'mjpeg' && 'MJPEG stream URL (e.g. go2rtc /api/stream.mjpeg)'}
-                {ipKind === 'image' && 'Snapshot URL polled at 10fps (e.g. /shot.jpg)'}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[15px] font-semibold">Stream link</label>
-              <input
-                type="url"
-                value={ipUrl}
-                onChange={e => {
-                  const v = e.target.value;
-                  setIpUrl(v);
-                  if (/\.m3u8/i.test(v) || /:8888\//.test(v) || /\/$/.test(v.trim())) setIpKind('hls');
-                  else if (/mjpe?g/i.test(v)) setIpKind('mjpeg');
-                  else if (/\.jpe?g/i.test(v)) setIpKind('image');
-                }}
-                placeholder="http://127.0.0.1:8888/camera/"
-
-                className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-
-            <p className="text-[10px] text-muted-foreground">
-              This IP camera will stream into CAM 2 and drive all detection.
-            </p>
-
-            {ipCam.error && (
-              <div className="space-y-1 text-[14px] text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded-lg">
-                <p className="font-semibold">Could not load the stream ({ipCam.error}).</p>
-                {location.protocol === 'https:' && /^http:\/\//i.test(ipUrl.trim()) && (
-                  <p>
-                    This page is served over HTTPS, so the browser blocks plain-HTTP streams — and{' '}
-                    <code>127.0.0.1</code> / <code>localhost</code> here means the preview server, not your PC.
-                    Open the app over <code>http://</code> on the same machine/Wi-Fi (or use the native build),
-                    or expose MediaMTX over HTTPS.
-                  </p>
-                )}
-                <p>Also make sure MediaMTX/ffmpeg is publishing that path and CORS is allowed.</p>
-              </div>
-            )}
             <p className="text-[14px] text-muted-foreground">
-              Browsers can't play raw RTSP. Publish it with <code>MediaMTX</code> / <code>ffmpeg</code> and paste the
-              HLS link (e.g. <code>http://127.0.0.1:8888/camera/</code>) — reachable from the device running this app.
+              The camera server publishes the stream through MediaMTX — the dashboard picks up the
+              HLS link automatically. This feed streams into CAM 2 and drives all detection.
             </p>
-
 
             <div className="flex gap-2">
               <button
                 onClick={() => setShowIpDialog(false)}
                 className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg border border-border hover:bg-muted transition-all"
               >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const raw = ipUrl.trim();
-                  if (!raw) return;
-                  // MediaMTX HLS paths like http://127.0.0.1:8888/camera/ serve index.m3u8
-                  const url =
-                    ipKind === 'hls' && !/\.m3u8/i.test(raw)
-                      ? `${raw.replace(/\/+$/, '')}/index.m3u8`
-                      : raw;
-                  const ok = await ipCam.connect({ url, kind: ipKind });
-                  if (ok) {
-                    setShowIpDialog(false);
-                    // Start the detection pipeline immediately on the new feed
-                    if (!running) setTimeout(() => { void handleStart(); }, 300);
-                  }
-                }}
-
-                disabled={!ipUrl.trim()}
-                className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
-              >
-                Connect
+                Close
               </button>
             </div>
+
 
           </div>
         </div>
