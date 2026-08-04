@@ -18,7 +18,6 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
-import OnvifRtspConnect from '@/components/dashboard/OnvifRtspConnect';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
