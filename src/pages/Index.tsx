@@ -814,10 +814,17 @@ export default function Index() {
               </button>
               <button
                 onClick={async () => {
-                  if (!ipUrl.trim()) return;
-                  const ok = await ipCam.connect({ url: ipUrl.trim(), kind: ipKind });
+                  const raw = ipUrl.trim();
+                  if (!raw) return;
+                  // MediaMTX HLS paths like http://127.0.0.1:8888/camera/ serve index.m3u8
+                  const url =
+                    ipKind === 'hls' && !/\.m3u8/i.test(raw)
+                      ? `${raw.replace(/\/+$/, '')}/index.m3u8`
+                      : raw;
+                  const ok = await ipCam.connect({ url, kind: ipKind });
                   if (ok) setShowIpDialog(false);
                 }}
+
                 disabled={!ipUrl.trim()}
                 className="flex-1 text-xs font-mono py-2 rounded bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
               >
