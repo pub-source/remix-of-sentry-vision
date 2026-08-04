@@ -797,13 +797,24 @@ export default function Index() {
             </p>
 
             {ipCam.error && (
-              <div className="text-[10px] font-mono text-destructive bg-destructive/10 px-2 py-1 rounded">
-                {ipCam.error}
+              <div className="space-y-1 text-[14px] text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded-lg">
+                <p className="font-semibold">Could not load the stream ({ipCam.error}).</p>
+                {location.protocol === 'https:' && /^http:\/\//i.test(ipUrl.trim()) && (
+                  <p>
+                    This page is served over HTTPS, so the browser blocks plain-HTTP streams — and{' '}
+                    <code>127.0.0.1</code> / <code>localhost</code> here means the preview server, not your PC.
+                    Open the app over <code>http://</code> on the same machine/Wi-Fi (or use the native build),
+                    or expose MediaMTX over HTTPS.
+                  </p>
+                )}
+                <p>Also make sure MediaMTX/ffmpeg is publishing that path and CORS is allowed.</p>
               </div>
             )}
-            <p className="text-[9px] font-mono text-muted-foreground">
-              Browsers can't play raw RTSP. Use an HLS gateway (e.g. <code>go2rtc</code>, <code>MediaMTX</code>) or your camera's MJPEG snapshot URL. The URL must be served over HTTPS and allow CORS.
+            <p className="text-[14px] text-muted-foreground">
+              Browsers can't play raw RTSP. Publish it with <code>MediaMTX</code> / <code>ffmpeg</code> and paste the
+              HLS link (e.g. <code>http://127.0.0.1:8888/camera/</code>) — reachable from the device running this app.
             </p>
+
 
             <div className="flex gap-2">
               <button
