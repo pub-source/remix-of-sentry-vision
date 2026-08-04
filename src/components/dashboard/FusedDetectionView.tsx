@@ -317,7 +317,7 @@ export default function FusedDetectionView({
             </div>
             <p className="text-[10px] font-mono text-foreground leading-tight">
               {transcript && <span>{transcript.split(' ').slice(-15).join(' ')} </span>}
-              {interimTranscript && <span className="text-muted-foreground italic">{interimTranscript}</span>}
+              {interimTranscript && <span className="text-muted-foreground">{interimTranscript}</span>}
             </p>
           </div>
         )}

@@ -10,6 +10,9 @@ export function useCamera() {
   ]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const streamsRef = useRef<MediaStream[]>([]);
+  // Slots fed by an external stream (IP/CCTV/test video). These must never be
+  // wiped by starting/stopping local webcams.
+  const externalSlotsRef = useRef<Set<number>>(new Set());
 
   const enumerateDevices = useCallback(async () => {
     try {
@@ -34,6 +37,10 @@ export function useCamera() {
     // Each camera gets its OWN device. If a slot has no real device, it stays
     // OFFLINE — cams work independently or together depending on what's available.
     for (let i = 0; i < 4; i++) {
+      if (externalSlotsRef.current.has(i + 1)) {
+        newCameras.push(null as unknown as CameraState); // placeholder, kept below
+        continue;
+      }
       const device = videoDevices[i];
       let stream: MediaStream | null = null;
 
@@ -63,8 +70,12 @@ export function useCamera() {
     }
 
     streamsRef.current = streams;
-    setCameras(newCameras);
-    return newCameras;
+    let merged: CameraState[] = newCameras;
+    setCameras(prev => {
+      merged = newCameras.map((c, i) => (c ? c : prev[i]));
+      return merged;
+    });
+    return newCameras.filter(Boolean);
   }, [enumerateDevices]);
 
   const stopCameras = useCallback(() => {
@@ -78,7 +89,9 @@ export function useCamera() {
       });
     });
     streamsRef.current = [];
-    setCameras(prev => prev.map(c => ({ ...c, active: false, stream: null, fps: 0, objects: [], saliencyScore: 0 })));
+    setCameras(prev => prev.map(c => externalSlotsRef.current.has(c.id)
+      ? { ...c, fps: 0 }
+      : { ...c, active: false, stream: null, fps: 0, objects: [], saliencyScore: 0 }));
   }, []);
 
   // Start a single, user-chosen webcam on a specific slot. Used when the
@@ -114,7 +127,8 @@ export function useCamera() {
     setCameras(prev => prev.map(c => c.id === id
       ? { ...c, stream, active: !!stream, label: label ?? (stream ? `IP Cam ${id}` : c.label), fps: 0 }
       : c));
-    if (stream) streamsRef.current.push(stream);
+    if (stream) externalSlotsRef.current.add(id);
+    else externalSlotsRef.current.delete(id);
   }, []);
 
   useEffect(() => {

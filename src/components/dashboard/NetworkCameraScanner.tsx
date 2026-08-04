@@ -173,13 +173,13 @@ export default function NetworkCameraScanner({ onSelect }: Props) {
       )}
 
       {!scanning && found.length === 0 && progress > 0 && (
-        <p className="text-[9px] font-mono text-muted-foreground italic">
+        <p className="text-[9px] font-mono text-muted-foreground">
           Nothing answered. Make sure your phone/PC is on the same Wi-Fi as the camera, try another
           subnet above, or the camera may be RTSP-only — see docs/RTSP_GATEWAY_SETUP.md.
         </p>
       )}
 
-      <p className="text-[9px] font-mono text-muted-foreground italic">
+      <p className="text-[9px] font-mono text-muted-foreground">
         Probes every address on the selected Wi-Fi subnets for cameras serving an HTTP snapshot/MJPEG
         stream. RTSP-only cameras (V380, Hikvision, Dahua) still need a gateway.
       </p>

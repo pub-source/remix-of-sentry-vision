@@ -654,7 +654,7 @@ export function ERDiagram() {
           <text x="30" y="198" className="fill-foreground text-[8px] font-mono">    email : text</text>
           <text x="30" y="214" className="fill-foreground text-[8px] font-mono">    encrypted_password</text>
           <text x="30" y="230" className="fill-foreground text-[8px] font-mono">    created_at : timestamptz</text>
-          <text x="30" y="250" className="fill-muted-foreground text-[7px] font-mono italic">    Managed by Auth service</text>
+          <text x="30" y="250" className="fill-muted-foreground text-[7px] font-mono">    Managed by Auth service</text>
 
           {/* ===== households ===== */}
           <rect x="320" y="20" width="210" height="155" rx="4" className="fill-primary/5 stroke-primary" strokeWidth="1.5"/>
@@ -666,7 +666,7 @@ export function ERDiagram() {
           <text x="330" y="104" className="fill-foreground text-[8px] font-mono">    invite_code : text (UNIQUE)</text>
           <text x="330" y="120" className="fill-accent text-[8px] font-mono">FK  created_by : uuid → auth.users</text>
           <text x="330" y="136" className="fill-foreground text-[8px] font-mono">    created_at : timestamptz</text>
-          <text x="330" y="165" className="fill-muted-foreground text-[7px] font-mono italic">    invite_code auto-generated</text>
+          <text x="330" y="165" className="fill-muted-foreground text-[7px] font-mono">    invite_code auto-generated</text>
 
           {/* ===== household_members ===== */}
           <rect x="300" y="240" width="250" height="175" rx="4" className="fill-accent/5 stroke-accent" strokeWidth="1.5"/>
@@ -680,7 +680,7 @@ export function ERDiagram() {
           <text x="310" y="356" className="fill-foreground text-[8px] font-mono">    phone_number : text</text>
           <text x="310" y="372" className="fill-foreground text-[8px] font-mono">    is_admin : boolean (default false)</text>
           <text x="310" y="388" className="fill-foreground text-[8px] font-mono">    created_at : timestamptz</text>
-          <text x="310" y="408" className="fill-muted-foreground text-[7px] font-mono italic">    UNIQUE(user_id, household_id)</text>
+          <text x="310" y="408" className="fill-muted-foreground text-[7px] font-mono">    UNIQUE(user_id, household_id)</text>
 
           {/* ===== wake_words ===== */}
           <rect x="640" y="20" width="230" height="150" rx="4" className="fill-warning/5 stroke-warning" strokeWidth="1.5"/>
@@ -748,7 +748,7 @@ export function ERDiagram() {
           <line x1="360" y1="455" x2="390" y2="455" className="stroke-foreground" strokeWidth="1.5"/>
           <text x="395" y="459" className="fill-foreground text-[8px] font-mono">1 ──┤{'<'} * = One-to-Many</text>
           <text x="580" y="459" className="fill-muted-foreground text-[8px] font-mono">Crow's foot notation</text>
-          <text x="740" y="459" className="fill-muted-foreground text-[8px] font-mono italic">RLS enabled on all tables</text>
+          <text x="740" y="459" className="fill-muted-foreground text-[8px] font-mono">RLS enabled on all tables</text>
         </svg>
       </div>
       <p className="text-[9px] font-mono text-muted-foreground mt-2">
@@ -969,7 +969,7 @@ export function ConceptualFrameworkDiagram() {
         </div>
 
         <div className="mt-4 pt-3 border-t border-dashed border-border">
-          <p className="text-[9px] font-mono text-muted-foreground text-center italic">
+          <p className="text-[9px] font-mono text-muted-foreground text-center">
             ↻ Continuous feedback loop — repeats every frame cycle (~30fps)
           </p>
         </div>

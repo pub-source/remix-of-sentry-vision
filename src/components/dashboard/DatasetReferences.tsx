@@ -30,7 +30,7 @@ export default function DatasetReferences() {
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-1.5 max-h-64 overflow-y-auto">
-          <p className="text-[9px] font-mono text-muted-foreground italic">
+          <p className="text-[9px] font-mono text-muted-foreground">
             Pretrained models inside this app (face-api, COCO-SSD) are trained on supersets of these public datasets. Fine-tuning targets for crying / shouting / distress.
           </p>
           {DATASET_REFERENCES.map(d => (
@@ -53,7 +53,7 @@ export default function DatasetReferences() {
                 <span className="text-[8px] font-mono text-muted-foreground shrink-0">{d.license}</span>
               </div>
               <p className="text-[8px] font-mono text-muted-foreground mt-0.5">{d.size}</p>
-              <p className="text-[8px] font-mono text-foreground/70 italic mt-0.5">{d.notes}</p>
+              <p className="text-[8px] font-mono text-foreground/70 mt-0.5">{d.notes}</p>
             </div>
           ))}
         </div>

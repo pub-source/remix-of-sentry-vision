@@ -664,7 +664,7 @@ export default function Index() {
                 Pick a camera to stream into CAM 2. All detection runs on this feed.
               </p>
               {devices.length === 0 ? (
-                <p className="text-[10px] font-mono text-muted-foreground italic">
+                <p className="text-[10px] font-mono text-muted-foreground">
                   No built-in or USB webcam detected. Connect a CCTV/IP camera below, or grant camera permission and reload.
                 </p>
               ) : (
@@ -706,7 +706,7 @@ export default function Index() {
                   })}
                 </div>
               )}
-              <p className="text-[9px] font-mono text-muted-foreground italic">
+              <p className="text-[9px] font-mono text-muted-foreground">
                 Tip: start OBS Virtual Camera in OBS, then it will appear here as a source you can assign to CAM 2 for fused detection.
               </p>
             </div>
@@ -733,7 +733,7 @@ export default function Index() {
               {testVideoName && (
                 <p className="text-[9px] font-mono text-success">Ready: {testVideoName} — press Start Monitoring to play.</p>
               )}
-              <p className="text-[9px] font-mono text-muted-foreground italic">
+              <p className="text-[9px] font-mono text-muted-foreground">
                 The video is queued and only starts playing when you press Start Monitoring. Use it to validate fire / smoke / facial-distress logic without a live camera.
               </p>
             </div>
@@ -834,7 +834,7 @@ export default function Index() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowIpDialog(false)}
-                className="flex-1 text-xs font-mono py-2 rounded border border-border hover:bg-muted transition-all"
+                className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg border border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
@@ -848,15 +848,20 @@ export default function Index() {
                       ? `${raw.replace(/\/+$/, '')}/index.m3u8`
                       : raw;
                   const ok = await ipCam.connect({ url, kind: ipKind });
-                  if (ok) setShowIpDialog(false);
+                  if (ok) {
+                    setShowIpDialog(false);
+                    // Start the detection pipeline immediately on the new feed
+                    if (!running) setTimeout(() => { void handleStart(); }, 300);
+                  }
                 }}
 
                 disabled={!ipUrl.trim()}
-                className="flex-1 text-xs font-mono py-2 rounded bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
+                className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
               >
                 Connect
               </button>
             </div>
+
           </div>
         </div>
       )}
@@ -1146,7 +1151,7 @@ export default function Index() {
                       <div className="h-1.5 bg-secondary/50 rounded overflow-hidden relative">
                         <div className={`h-full ${r.color} rounded transition-all`} style={{ width: `${r.value}%` }} />
                       </div>
-                      <p className="text-[8px] font-mono text-muted-foreground italic">{r.explain}</p>
+                      <p className="text-[8px] font-mono text-muted-foreground">{r.explain}</p>
                     </div>
                   ))}
                   <div className="mt-2 flex items-center gap-3 bg-secondary/20 rounded p-2">
@@ -1166,15 +1171,15 @@ export default function Index() {
             })()}
 
             {/* Fire + Face distress strip */}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className={`rounded p-2 border ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
+            <div className="mt-2 grid grid-cols-3 gap-2 items-start">
+              <div className={`rounded p-2 border col-span-2 ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Flame className={`w-3 h-3 ${fireStatus.detected ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
                   <span className="text-[9px] font-mono text-foreground/80">
                     Fire {Math.round(fireStatus.confidence * 100)}% · Smoke {Math.round(fireStatus.smokeRatio * 100)}% · Vis {fireStatus.visibility}
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {fireStatus.fireDetected
                     ? 'Real fire signature (color + flicker)'
                     : fireStatus.smokeEmergency
@@ -1212,7 +1217,7 @@ export default function Index() {
                       </span>
                     </div>
                     {fireStatus.saliency.suppressionLabel && (
-                      <p className="text-[8px] font-mono text-destructive/80 italic">
+                      <p className="text-[8px] font-mono text-destructive/80">
                         Suppressed: {fireStatus.saliency.suppressionLabel}
                       </p>
                     )}
@@ -1227,13 +1232,13 @@ export default function Index() {
                   />
                 )}
               </div>
-              <div className={`rounded p-2 border ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+              <div className={`rounded p-2 border col-span-1 ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="text-[9px] font-mono text-foreground/80">
                     YAMNet Distress ({yamnet.distressScore}%)
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {yamnet.error ? yamnet.error :
                    !yamnet.ready ? 'Loading AudioSet model…' :
                    `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
@@ -1247,13 +1252,13 @@ export default function Index() {
                   />
                 )}
               </div>
-              <div className={`rounded p-2 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+              <div className={`rounded p-2 border col-span-3 ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="text-[9px] font-mono text-foreground/80">
                     Facial Distress ({faceDistress.distress.distressScore}%)
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground italic">
+                <p className="text-[8px] font-mono text-muted-foreground">
                   {!faceDistress.ready ? 'Loading model…' :
                    faceDistress.error ? faceDistress.error :
                    !faceDistress.distress.hasFace ? 'No face detected' :
