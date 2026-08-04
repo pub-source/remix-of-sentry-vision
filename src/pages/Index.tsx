@@ -21,6 +21,8 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
+import CameraServerPanel from '@/components/dashboard/CameraServerPanel';
+
 
 
 
