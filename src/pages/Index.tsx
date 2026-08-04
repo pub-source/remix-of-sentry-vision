@@ -739,23 +739,16 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
-            <OnvifRtspConnect
-              onConnect={async (url, kind) => {
-                setIpUrl(url);
-                setIpKind(kind);
-                const ok = await ipCam.connect({ url, kind });
-                if (ok) setShowIpDialog(false);
-              }}
-            />
-
-
+            <div className="space-y-2">
+              <label className="text-[15px] font-semibold">Paste your stream link</label>
+              <p className="text-[14px] text-muted-foreground">
+                Paste the playback URL from your MediaMTX / ffmpeg gateway, e.g.
+                <code className="text-primary"> http://192.168.18.10:8888/cam/index.m3u8</code>
+              </p>
+            </div>
 
             <div className="h-px bg-border" />
 
-
-
-
-            <div className="h-px bg-border" />
 
             <div className="space-y-2">
 
