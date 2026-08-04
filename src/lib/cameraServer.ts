@@ -56,6 +56,24 @@ export const startMonitoring = (server: string, rtsp?: string) =>
 export const stopMonitoring = (server: string) =>
   req<{ success: boolean }>(`${base(server)}/stop-monitoring`, { method: 'POST' }, 10000);
 
+const HLS_PORT = '8888';
+
+/** Guarantee an HLS playlist URL that never points at the FastAPI API port. */
+function normalizeHls(raw: string, fallbackHost?: string) {
+  try {
+    const u = new URL(raw);
+    if (fallbackHost && /^(127\.0\.0\.1|localhost)$/i.test(u.hostname)) u.hostname = fallbackHost;
+    // The API (default :5000) is never the video stream.
+    if (u.port === '5000' || !u.port) u.port = HLS_PORT;
+    if (!/\.m3u8$/i.test(u.pathname)) {
+      u.pathname = `${u.pathname.replace(/\/+$/, '')}/index.m3u8`;
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 /**
  * Pick the stream URL that this device can actually reach: if the dashboard is
  * talking to a remote PC (not 127.0.0.1), prefer the LAN URL the server reports.
@@ -64,17 +82,16 @@ export function resolveStreamUrl(server: string, s: Pick<StartResult, 'stream' |
   const isLocal = /(^|\/\/)(127\.0\.0\.1|localhost)/i.test(server);
   const url = isLocal ? s.stream_local || s.stream : s.stream || s.stream_local;
   if (!url) return '';
-  if (isLocal) return url;
-  // Rewrite the host to the same host we reach the server on, as a safety net.
+  if (isLocal) return normalizeHls(url);
+  let serverHost: string | undefined;
   try {
-    const serverHost = new URL(base(server)).hostname;
-    const u = new URL(url);
-    if (/^(127\.0\.0\.1|localhost)$/i.test(u.hostname)) u.hostname = serverHost;
-    return u.toString();
+    serverHost = new URL(base(server)).hostname;
   } catch {
-    return url;
+    serverHost = undefined;
   }
+  return normalizeHls(url, serverHost);
 }
+
 
 export function connectionHint(server: string) {
   const httpsPage = typeof location !== 'undefined' && location.protocol === 'https:';
