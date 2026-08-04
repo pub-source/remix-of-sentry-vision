@@ -742,7 +742,7 @@ export default function Index() {
               <label className="text-[15px] font-semibold">Paste your stream link</label>
               <p className="text-[14px] text-muted-foreground">
                 Paste the playback URL from your MediaMTX / ffmpeg gateway, e.g.
-                <code className="text-primary"> http://192.168.18.10:8888/cam/index.m3u8</code>
+                <code className="text-primary"> http://127.0.0.1:8888/camera/</code>
               </p>
             </div>
 
