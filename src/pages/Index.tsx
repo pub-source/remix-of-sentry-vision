@@ -834,7 +834,7 @@ export default function Index() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowIpDialog(false)}
-                className="flex-1 text-xs font-mono py-2 rounded border border-border hover:bg-muted transition-all"
+                className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg border border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
@@ -848,14 +848,20 @@ export default function Index() {
                       ? `${raw.replace(/\/+$/, '')}/index.m3u8`
                       : raw;
                   const ok = await ipCam.connect({ url, kind: ipKind });
-                  if (ok) setShowIpDialog(false);
+                  if (ok) {
+                    setShowIpDialog(false);
+                    // Start the detection pipeline immediately on the new feed
+                    if (!running) setTimeout(() => { void handleStart(); }, 300);
+                  }
                 }}
 
                 disabled={!ipUrl.trim()}
-                className="flex-1 text-xs font-mono py-2 rounded bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
+                className="flex-1 text-[15px] font-semibold py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 transition-all disabled:opacity-50"
               >
                 Connect
               </button>
+            </div>
+
             </div>
           </div>
         </div>
