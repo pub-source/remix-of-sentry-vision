@@ -750,14 +750,13 @@ export default function Index() {
 
 
             <div className="space-y-2">
-
-              <label className="text-[10px] font-mono text-muted-foreground uppercase">Stream type</label>
-              <div className="grid grid-cols-3 gap-1">
+              <label className="text-[15px] font-semibold">Stream type</label>
+              <div className="grid grid-cols-3 gap-2">
                 {(['hls', 'mjpeg', 'image'] as const).map(k => (
                   <button
                     key={k}
                     onClick={() => setIpKind(k)}
-                    className={`text-[10px] font-mono py-1.5 rounded border transition-all ${
+                    className={`text-[15px] font-semibold py-2.5 rounded-lg border transition-all ${
                       ipKind === k
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-secondary/30 border-border text-foreground/70 hover:border-primary/50'
@@ -767,23 +766,30 @@ export default function Index() {
                   </button>
                 ))}
               </div>
-              <p className="text-[9px] font-mono text-muted-foreground italic">
-                {ipKind === 'hls' && 'HLS .m3u8 — most modern IP cams via gateway/converter'}
-                {ipKind === 'mjpeg' && 'MJPEG stream URL (e.g. /video, /mjpg/video.mjpg)'}
+              <p className="text-[14px] text-muted-foreground">
+                {ipKind === 'hls' && 'HLS .m3u8 from MediaMTX (:8888) or ffmpeg output'}
+                {ipKind === 'mjpeg' && 'MJPEG stream URL (e.g. go2rtc /api/stream.mjpeg)'}
                 {ipKind === 'image' && 'Snapshot URL polled at 10fps (e.g. /shot.jpg)'}
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-mono text-muted-foreground uppercase">Camera URL</label>
+              <label className="text-[15px] font-semibold">Stream link</label>
               <input
                 type="url"
                 value={ipUrl}
-                onChange={e => setIpUrl(e.target.value)}
-                placeholder={ipKind === 'hls' ? 'https://example.com/stream.m3u8' : 'http://192.168.1.50/video'}
-                className="w-full text-[11px] font-mono px-3 py-2 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={e => {
+                  const v = e.target.value;
+                  setIpUrl(v);
+                  if (/\.m3u8/i.test(v)) setIpKind('hls');
+                  else if (/mjpe?g/i.test(v)) setIpKind('mjpeg');
+                  else if (/\.jpe?g/i.test(v)) setIpKind('image');
+                }}
+                placeholder="http://192.168.18.10:8888/cam/index.m3u8"
+                className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
+
 
             <p className="text-[10px] text-muted-foreground">
               This IP camera will stream into CAM 2 and drive all detection.
