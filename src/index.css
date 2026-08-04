@@ -120,7 +120,7 @@
   }
 
   html {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   body {
@@ -150,15 +150,17 @@
 @layer utilities {
   .text-\[6px\], .text-\[7px\], .text-\[8px\], .text-\[9px\],
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\] {
-    font-size: 0.875rem !important; /* 14px */
+    font-size: 1rem !important; /* 16px */
     font-weight: 500;
   }
-  .text-\[14px\] { font-size: 0.875rem !important; }
-  .text-\[15px\] { font-size: 0.9375rem !important; }
-  .text-\[16px\] { font-size: 1rem !important; }
-  .text-xs { font-size: 0.875rem; font-weight: 500; }
-  .text-sm { font-size: 0.9375rem; font-weight: 500; }
-  .text-base { font-size: 1rem; font-weight: 500; }
+  .text-\[14px\] { font-size: 1rem !important; }
+  .text-\[15px\] { font-size: 1.0625rem !important; }
+  .text-\[16px\] { font-size: 1.125rem !important; }
+  .text-xs { font-size: 1rem; font-weight: 500; }
+  .text-sm { font-size: 1.0625rem; font-weight: 500; }
+  .text-base { font-size: 1.125rem; font-weight: 500; }
+  .text-lg { font-size: 1.3125rem; }
+  .text-xl { font-size: 1.5rem; }
 }
 
 
