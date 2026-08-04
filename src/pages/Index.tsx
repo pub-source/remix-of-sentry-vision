@@ -1171,8 +1171,8 @@ export default function Index() {
             })()}
 
             {/* Fire + Face distress strip */}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className={`rounded p-2 border ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
+            <div className="mt-2 grid grid-cols-3 gap-2 items-start">
+              <div className={`rounded p-2 border col-span-2 ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Flame className={`w-3 h-3 ${fireStatus.detected ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
                   <span className="text-[9px] font-mono text-foreground/80">
@@ -1232,7 +1232,7 @@ export default function Index() {
                   />
                 )}
               </div>
-              <div className={`rounded p-2 border ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+              <div className={`rounded p-2 border col-span-1 ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="text-[9px] font-mono text-foreground/80">
                     YAMNet Distress ({yamnet.distressScore}%)
