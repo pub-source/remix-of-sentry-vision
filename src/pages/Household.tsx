@@ -6,6 +6,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2, Plus, X, Check, Phone as PhoneIcon, Mail, MessageSquare, ChevronRight } from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
+import householdBg from '@/assets/household-bg.jpg';
+
 
 interface Household {
   id: string;
@@ -43,14 +45,15 @@ interface WakeWord {
 function HInput({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-[15px] font-semibold text-foreground/80">{label}</label>
       <input
         {...props}
-        className="w-full bg-secondary/60 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+        className="w-full bg-background/80 border border-border rounded-lg px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
       />
     </div>
   );
 }
+
 
 export default function HouseholdPage() {
   const { user, loading, signOut } = useAuth();
@@ -65,7 +68,9 @@ export default function HouseholdPage() {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [householdName, setHouseholdName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
+
   const [phoneNumber, setPhoneNumber] = useState('');
   const [formError, setFormError] = useState('');
 
@@ -94,11 +99,16 @@ export default function HouseholdPage() {
   const fetchHousehold = useCallback(async () => {
     if (!user) return;
     setLoadingData(true);
-    const { data: membership } = await supabase
+    // A user may end up in more than one household; always use the newest one
+    // (maybeSingle() would error out when several rows match).
+    const { data: memberships } = await supabase
       .from('household_members')
-      .select('household_id')
+      .select('household_id, created_at')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const membership = memberships?.[0];
+
 
     if (membership) {
       const { data: hh } = await supabase.from('households').select('*').eq('id', membership.household_id).single();
@@ -128,35 +138,38 @@ export default function HouseholdPage() {
 
   useEffect(() => { fetchHousehold(); }, [fetchHousehold]);
 
+  const fullName = `${firstName.trim()} ${surname.trim()}`.trim();
+
   const handleCreateHousehold = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-    if (!user || !displayName.trim() || !phoneNumber.trim() || !householdName.trim()) {
-      setFormError('All fields are required');
+    if (!user || !firstName.trim() || !surname.trim() || !phoneNumber.trim() || !householdName.trim()) {
+      setFormError('Please fill in the household name, your first name, surname and phone number.');
       return;
     }
-    const { data: hh, error: hhErr } = await supabase.from('households').insert({ name: householdName, created_by: user.id }).select().single();
-    if (hhErr || !hh) { setFormError(hhErr?.message || 'Failed'); return; }
-    const { error: memErr } = await supabase.from('household_members').insert({ household_id: hh.id, user_id: user.id, display_name: displayName, phone_number: phoneNumber, is_admin: true });
+    const { data: hh, error: hhErr } = await supabase.from('households').insert({ name: householdName.trim(), created_by: user.id }).select().single();
+    if (hhErr || !hh) { setFormError(hhErr?.message || 'Could not create the household. Please try again.'); return; }
+    const { error: memErr } = await supabase.from('household_members').insert({ household_id: hh.id, user_id: user.id, display_name: fullName, phone_number: phoneNumber, is_admin: true });
     if (memErr) { setFormError(memErr.message); return; }
     await supabase.from('wake_words').insert({ household_id: hh.id, phrase: '911', is_emergency: true, created_by: user.id, action_type: 'both' });
-    fetchHousehold();
+    await fetchHousehold();
   };
 
   const handleJoinHousehold = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     const normalizedCode = normalizeInviteCode(inviteCode);
-    if (!user || !displayName.trim() || !phoneNumber.trim() || normalizedCode.length !== 8) {
-      setFormError('All fields are required and invite code must be 8 characters');
+    if (!user || !firstName.trim() || !surname.trim() || !phoneNumber.trim() || normalizedCode.length !== 8) {
+      setFormError('All fields are required and the invite code must be 8 characters.');
       return;
     }
     const { data: hh } = await supabase.from('households').select('id').eq('invite_code', normalizedCode).maybeSingle();
     if (!hh) { setFormError('Invalid invite code'); return; }
-    const { error: memErr } = await supabase.from('household_members').insert({ household_id: hh.id, user_id: user.id, display_name: displayName, phone_number: phoneNumber, is_admin: false });
+    const { error: memErr } = await supabase.from('household_members').insert({ household_id: hh.id, user_id: user.id, display_name: fullName, phone_number: phoneNumber, is_admin: false });
     if (memErr) { setFormError(memErr.message); return; }
-    fetchHousehold();
+    await fetchHousehold();
   };
+
 
   const handleAddWakeWord = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,13 +245,21 @@ export default function HouseholdPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground relative">
+      {/* Friendly household background */}
+      <div
+        aria-hidden
+        className="fixed inset-0 -z-10 bg-cover bg-center"
+        style={{ backgroundImage: `url(${householdBg})` }}
+      />
+      <div aria-hidden className="fixed inset-0 -z-10 bg-background/80 backdrop-blur-[2px]" />
       {/* Header */}
-      <header id="hh-tour-header" className="border-b border-border bg-card/60 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
+      <header id="hh-tour-header" className="border-b border-border bg-card/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-primary" />
-          <h1 className="text-sm font-semibold text-foreground tracking-tight">Household</h1>
+          <h1 className="text-base font-semibold text-foreground tracking-tight">Household</h1>
         </div>
+
         <div className="flex items-center gap-3">
           <button onClick={() => setShowTutorial(true)} className="p-1 rounded hover:bg-muted transition-colors" title="Replay tutorial">
             <HelpCircle className="w-4 h-4 text-muted-foreground" />
@@ -264,7 +285,7 @@ export default function HouseholdPage() {
                 <button
                   key={m}
                   onClick={() => { setMode(m); setFormError(''); }}
-                  className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium py-3 transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-2 text-base font-semibold py-3.5 transition-all ${
                     mode === m
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-card text-muted-foreground hover:text-foreground'
@@ -277,10 +298,10 @@ export default function HouseholdPage() {
 
             <form
               onSubmit={mode === 'create' ? handleCreateHousehold : handleJoinHousehold}
-              id="hh-tour-form" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-4"
+              id="hh-tour-form" className="bg-card/95 rounded-xl border border-border shadow-sm p-6 space-y-4"
             >
               <div className="space-y-1">
-                <h2 className="text-base font-semibold text-foreground">
+                <h2 className="text-xl font-bold text-foreground">
                   {mode === 'create' ? 'New Household' : 'Join Existing'}
                 </h2>
                 <p className="text-xs text-muted-foreground">
@@ -294,8 +315,12 @@ export default function HouseholdPage() {
               {mode === 'join' && (
                 <HInput label="Invite Code" type="text" value={inviteCode} onChange={e => setInviteCode(normalizeInviteCode(e.target.value))} placeholder="abc12345" required autoComplete="off" />
               )}
-              <HInput label="Your Name" type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="John" required autoComplete="name" />
-              <HInput label="Phone Number" type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+1 555-123-4567" required autoComplete="tel" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <HInput label="First Name" type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="John" required autoComplete="given-name" />
+                <HInput label="Surname" type="text" value={surname} onChange={e => setSurname(e.target.value)} placeholder="Santos" required autoComplete="family-name" />
+              </div>
+              <HInput label="Phone Number" type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+63 917 123 4567" required autoComplete="tel" />
+
 
               {formError && (
                 <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
@@ -304,7 +329,7 @@ export default function HouseholdPage() {
                 </div>
               )}
 
-              <button type="submit" className="w-full flex items-center justify-center gap-2 text-sm font-medium py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm">
+              <button type="submit" className="w-full flex items-center justify-center gap-2 text-lg font-bold py-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm">
                 {mode === 'create' ? 'Create Household' : 'Join Household'}
                 <ChevronRight className="w-4 h-4" />
               </button>

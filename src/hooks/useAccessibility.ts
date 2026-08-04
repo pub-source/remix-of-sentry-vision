@@ -18,9 +18,10 @@ export function readHighContrast(): boolean {
 }
 
 export function applyFontScale(scale: number) {
-  // base is 18px (set in index.css); scale it proportionally
-  document.documentElement.style.fontSize = `${(18 * scale) / 100}px`;
+  // base is 16px (set in index.css); scale it proportionally
+  document.documentElement.style.fontSize = `${(16 * scale) / 100}px`;
 }
+
 
 export function applyHighContrast(on: boolean) {
   document.documentElement.classList.toggle('hc', on);
