@@ -738,15 +738,28 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
+            <CameraServerPanel
+              onStream={async (url) => {
+                setIpUrl(url);
+                setIpKind('hls');
+                const ok = await ipCam.connect({ url, kind: 'hls' });
+                if (ok) setShowIpDialog(false);
+              }}
+            />
+
+            <div className="h-px bg-border" />
+
             <div className="space-y-2">
               <label className="text-[15px] font-semibold">Paste your stream link</label>
               <p className="text-[14px] text-muted-foreground">
-                Paste the playback URL from your MediaMTX / ffmpeg gateway, e.g.
+                Already have a gateway running? Paste the playback URL from your MediaMTX / ffmpeg
+                gateway, e.g.
                 <code className="text-primary"> http://127.0.0.1:8888/camera/</code>
               </p>
             </div>
 
             <div className="h-px bg-border" />
+
 
 
             <div className="space-y-2">
