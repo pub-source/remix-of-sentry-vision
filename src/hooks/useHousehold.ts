@@ -30,14 +30,17 @@ export function useHousehold(userId: string | undefined) {
   const fetchData = useCallback(async () => {
     if (!userId) return;
 
-    const { data: membership } = await supabase
+    const { data: memberships } = await supabase
       .from('household_members')
-      .select('household_id')
+      .select('household_id, created_at')
       .eq('user_id', userId)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
+    const membership = memberships?.[0];
     if (!membership) return;
     setHouseholdId(membership.household_id);
+
 
     const [wwRes, memRes] = await Promise.all([
       supabase.from('wake_words').select('id, phrase, is_emergency, action_type').eq('household_id', membership.household_id),

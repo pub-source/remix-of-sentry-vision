@@ -18,8 +18,8 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
-import AddDeviceWizard from '@/components/dashboard/AddDeviceWizard';
-import DirectCameraConnect from '@/components/dashboard/DirectCameraConnect';
+import OnvifRtspConnect from '@/components/dashboard/OnvifRtspConnect';
+
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
 
@@ -739,7 +739,7 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
-            <AddDeviceWizard
+            <OnvifRtspConnect
               onConnect={async (url, kind) => {
                 setIpUrl(url);
                 setIpKind(kind);
@@ -748,16 +748,6 @@ export default function Index() {
               }}
             />
 
-            <div className="h-px bg-border" />
-
-            <DirectCameraConnect
-              onConnect={async (url, kind) => {
-                setIpUrl(url);
-                setIpKind(kind);
-                const ok = await ipCam.connect({ url, kind });
-                if (ok) setShowIpDialog(false);
-              }}
-            />
 
 
             <div className="h-px bg-border" />

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -120,14 +120,16 @@
   }
 
   html {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 1rem;
     font-weight: 500;
     letter-spacing: 0.01em;
+    line-height: 1.55;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -135,28 +137,30 @@
   }
 
   label, button, th {
-    font-weight: 700;
+    font-weight: 600;
   }
 
   code, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
-/* Elder-friendly readability: enforce larger, bolder minimums for tiny text.
+/* Readability for seniors and minors: every text size lands between 14px and 16px.
    Sizes are in rem so the accessibility font-size slider scales them too. */
 @layer utilities {
-  .text-\[6px\] { font-size: 0.61rem !important; font-weight: 600; }
-  .text-\[7px\] { font-size: 0.67rem !important; font-weight: 600; }
-  .text-\[8px\] { font-size: 0.72rem !important; font-weight: 600; }
-  .text-\[9px\] { font-size: 0.78rem !important; font-weight: 600; }
-  .text-\[10px\] { font-size: 0.83rem !important; font-weight: 600; }
-  .text-\[11px\] { font-size: 0.89rem !important; font-weight: 600; }
-  .text-\[12px\] { font-size: 0.94rem !important; font-weight: 600; }
-  .text-xs { font-size: 0.85rem; font-weight: 600; }
-  .text-sm { font-size: 0.95rem; font-weight: 600; }
-  .text-base { font-weight: 500; }
+  .text-\[6px\], .text-\[7px\], .text-\[8px\], .text-\[9px\],
+  .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\] {
+    font-size: 0.875rem !important; /* 14px */
+    font-weight: 500;
+  }
+  .text-\[14px\] { font-size: 0.875rem !important; }
+  .text-\[15px\] { font-size: 0.9375rem !important; }
+  .text-\[16px\] { font-size: 1rem !important; }
+  .text-xs { font-size: 0.875rem; font-weight: 500; }
+  .text-sm { font-size: 0.9375rem; font-weight: 500; }
+  .text-base { font-size: 1rem; font-weight: 500; }
 }
+
 
 /* ============ High-contrast theme ============ */
 .hc {
