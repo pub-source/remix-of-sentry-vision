@@ -9,6 +9,8 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Household from "./pages/Household";
 import Research from "./pages/Research";
+import Monitoring from "./pages/Monitoring";
+import Cameras from "./pages/Cameras";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/RequireAuth";
 
@@ -27,6 +29,8 @@ const App = () => (
           <Route path="/join/:code" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/household" element={<RequireAuth><Household /></RequireAuth>} />
+          <Route path="/monitoring" element={<RequireAuth><Monitoring /></RequireAuth>} />
+          <Route path="/cameras" element={<RequireAuth><Cameras /></RequireAuth>} />
           <Route path="/research" element={<Research />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

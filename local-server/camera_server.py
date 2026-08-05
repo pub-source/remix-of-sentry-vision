@@ -1,211 +1,407 @@
 """
-MSD Camera Server
-=================
-Local bridge that turns an RTSP CCTV stream into a browser-playable HLS stream.
+MSDSystem multi-camera bridge.
 
-    CCTV (RTSP)  ->  ffmpeg  ->  MediaMTX (rtsp://127.0.0.1:8554/camera)
-                                     |
-                                     +--> HLS  http://<this-pc>:8888/camera/index.m3u8
+Runs MediaMTX + one independent FFmpeg pipeline per CCTV camera:
 
-Run this on the SAME machine/Wi-Fi as the camera, then open the MSDSystem
-dashboard, press "Connect" and use the "Local camera server" panel.
+  RTSP camera  --ffmpeg--> MediaMTX (rtsp://127.0.0.1:8554/<path>)  --> HLS :8888
+               \--ffmpeg--> 5s WAV chunks --> Whisper --> audio distress events
 
-Setup
------
-    pip install fastapi uvicorn psutil
+Audio ALWAYS comes from the camera's own RTSP audio track. The laptop
+microphone is never used.
+
+Run:
+    pip install fastapi uvicorn faster-whisper
     python camera_server.py
-
-Then in the dashboard set the server URL to  http://127.0.0.1:5000
-(or http://<this-pc-ip>:5000 when the dashboard runs on another device).
 """
 
+from __future__ import annotations
+
 import os
+import re
+import json
+import queue
+import shutil
 import socket
 import signal
 import subprocess
+import tempfile
+import threading
 import time
-from typing import Optional
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
-import psutil
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import uvicorn
 
-# ==========================
-# CONFIGURATION (env-overridable)
-# ==========================
+API_PORT = int(os.environ.get("MSD_API_PORT", 5000))
+HLS_PORT = int(os.environ.get("MSD_HLS_PORT", 8888))
+RTSP_PORT = int(os.environ.get("MSD_RTSP_PORT", 8554))
+MAX_CAMERAS = 16
+AUDIO_CHUNK_SECONDS = 5
+WHISPER_MODEL = os.environ.get("MSD_WHISPER_MODEL", "base")
 
-MEDIAMTX_EXE = os.environ.get(
-    "MEDIAMTX_EXE", r"D:\sample test\mediamtx_v1.19.3_windows_amd64\mediamtx.exe"
-)
-FFMPEG_EXE = os.environ.get("FFMPEG_EXE", r"C:\ffmpeg\bin\ffmpeg.exe")
+DISTRESS_KEYWORDS = {
+    "help": 0.95, "help me": 0.98, "fire": 0.97, "emergency": 0.95,
+    "call 911": 0.98, "someone help": 0.97, "i fell": 0.93, "i can't breathe": 0.98,
+    "stop": 0.8, "get away": 0.9, "don't hurt me": 0.97, "please stop": 0.92,
+    "ambulance": 0.95, "police": 0.9, "i'm hurt": 0.95, "save me": 0.97,
+}
 
-CAMERA_RTSP = os.environ.get("CAMERA_RTSP", "rtsp://192.168.18.98:554/live/ch00_1")
-LOCAL_RTSP = os.environ.get("LOCAL_RTSP", "rtsp://127.0.0.1:8554/camera")
-HLS_PORT = int(os.environ.get("HLS_PORT", "8888"))
-STREAM_PATH = os.environ.get("STREAM_PATH", "camera")
-SERVER_PORT = int(os.environ.get("SERVER_PORT", "5000"))
-
-app = FastAPI(title="MSD Camera Server")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-mediamtx_process: Optional[subprocess.Popen] = None
-ffmpeg_process: Optional[subprocess.Popen] = None
-last_error: Optional[str] = None
-
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 def lan_ip() -> str:
-    """Best-effort local IP so a phone/tablet can reach the HLS stream."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
+        return s.getsockname()[0]
+    finally:
         s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
+
+def which(binary: str) -> bool:
+    return shutil.which(binary) is not None
 
 
-def hls_url(host: Optional[str] = None) -> str:
-    return f"http://{host or lan_ip()}:{HLS_PORT}/{STREAM_PATH}/index.m3u8"
-
-
-def process_running(name: str) -> bool:
-    for p in psutil.process_iter(["name"]):
+# --------------------------------------------------------------------------- #
+# Whisper (loaded lazily, shared across cameras, one worker thread)
+# --------------------------------------------------------------------------- #
+class WhisperEngine:
+    def __init__(self) -> None:
+        self.model = None
+        self.available = False
+        self.lock = threading.Lock()
         try:
-            if p.info["name"] and name.lower() in p.info["name"].lower():
-                return True
+            from faster_whisper import WhisperModel  # noqa: F401
+            self.available = True
         except Exception:
-            pass
-    return False
+            self.available = False
+
+    def load(self):
+        if self.model is not None:
+            return self.model
+        with self.lock:
+            if self.model is None:
+                from faster_whisper import WhisperModel
+                self.model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+        return self.model
+
+    def transcribe(self, wav_path: str) -> str:
+        if not self.available:
+            return ""
+        model = self.load()
+        with self.lock:
+            segments, _info = model.transcribe(wav_path, language="en", vad_filter=True)
+            return " ".join(seg.text.strip() for seg in segments).strip()
 
 
-def is_port_open(host: str, port: int) -> bool:
-    try:
-        with socket.create_connection((host, port), timeout=1):
-            return True
-    except Exception:
-        return False
+WHISPER = WhisperEngine()
 
 
-def wait_for_port(port: int, timeout: int = 15) -> bool:
-    start = time.time()
-    while time.time() - start < timeout:
-        if is_port_open("127.0.0.1", port):
-            return True
-        time.sleep(0.5)
-    return False
+def match_distress(transcript: str):
+    text = transcript.lower()
+    best, score = "", 0.0
+    for kw, conf in DISTRESS_KEYWORDS.items():
+        if kw in text and conf > score:
+            best, score = kw, conf
+    return best, score
+
+
+# --------------------------------------------------------------------------- #
+# One independent pipeline per camera
+# --------------------------------------------------------------------------- #
+@dataclass
+class Camera:
+    id: str
+    path: str
+    name: str
+    rtsp: str
+    enabled: bool = True
+
+    video_proc: Optional[subprocess.Popen] = None
+    audio_proc: Optional[subprocess.Popen] = None
+    audio_thread: Optional[threading.Thread] = None
+    stop_flag: threading.Event = field(default_factory=threading.Event)
+    restarts: int = 0
+    error: Optional[str] = None
+    events: List[dict] = field(default_factory=list)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    # ---- video: RTSP -> MediaMTX (copy, low CPU; transcode fallback) ------- #
+    def start_video(self):
+        if self.video_proc and self.video_proc.poll() is None:
+            return
+        target = f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}"
+        cmd = [
+            "ffmpeg", "-nostdin", "-loglevel", "error",
+            "-rtsp_transport", "tcp", "-stimeout", "5000000",
+            "-i", self.rtsp,
+            "-c:v", "copy", "-c:a", "aac", "-ar", "16000", "-ac", "1",
+            "-f", "rtsp", "-rtsp_transport", "tcp", target,
+        ]
+        self.video_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+    # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
+    def _audio_loop(self):
+        tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
+        try:
+            while not self.stop_flag.is_set():
+                wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
+                cmd = [
+                    "ffmpeg", "-nostdin", "-loglevel", "error",
+                    "-rtsp_transport", "tcp", "-i", self.rtsp,
+                    "-vn", "-ac", "1", "-ar", "16000",
+                    "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
+                ]
+                try:
+                    self.audio_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self.audio_proc.wait(timeout=AUDIO_CHUNK_SECONDS + 15)
+                except Exception:
+                    pass
+                if self.stop_flag.is_set():
+                    break
+                if os.path.exists(wav) and os.path.getsize(wav) > 4000:
+                    try:
+                        transcript = WHISPER.transcribe(wav)
+                    except Exception as exc:  # keep this camera alive
+                        transcript = ""
+                        self.error = f"whisper: {exc}"
+                    if transcript:
+                        keyword, confidence = match_distress(transcript)
+                        if keyword:
+                            with self.lock:
+                                self.events.append({
+                                    "camera_id": self.id,
+                                    "timestamp": now_iso(),
+                                    "transcript": transcript,
+                                    "keyword": keyword,
+                                    "confidence": confidence,
+                                })
+                                self.events = self.events[-200:]
+                try:
+                    os.remove(wav)
+                except OSError:
+                    pass
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def start(self):
+        self.stop_flag.clear()
+        self.error = None
+        self.start_video()
+        if WHISPER.available and (self.audio_thread is None or not self.audio_thread.is_alive()):
+            self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
+            self.audio_thread.start()
+
+    def stop(self):
+        self.stop_flag.set()
+        for proc in (self.video_proc, self.audio_proc):
+            if proc and proc.poll() is None:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                except Exception:
+                    proc.kill()
+        self.video_proc = None
+        self.audio_proc = None
+
+    def running(self) -> bool:
+        return bool(self.video_proc and self.video_proc.poll() is None)
+
+    def status(self, host: str) -> dict:
+        return {
+            "id": self.id,
+            "path": self.path,
+            "name": self.name,
+            "enabled": self.enabled,
+            "ffmpeg": self.running(),
+            "hls_ready": self.running(),
+            "stream": f"http://{host}:{HLS_PORT}/{self.path}/index.m3u8",
+            "stream_local": f"http://127.0.0.1:{HLS_PORT}/{self.path}/index.m3u8",
+            "restarts": self.restarts,
+            "error": self.error,
+        }
+
+
+CAMERAS: Dict[str, Camera] = {}
+CAM_LOCK = threading.Lock()
+MEDIAMTX: Optional[subprocess.Popen] = None
 
 
 def start_mediamtx():
-    global mediamtx_process
-    if process_running("mediamtx") or is_port_open("127.0.0.1", 8554):
+    global MEDIAMTX
+    if MEDIAMTX and MEDIAMTX.poll() is None:
         return
-    if not os.path.exists(MEDIAMTX_EXE):
-        raise RuntimeError(f"MediaMTX not found at {MEDIAMTX_EXE}")
-    mediamtx_process = subprocess.Popen([MEDIAMTX_EXE])
-    if not wait_for_port(8554):
-        raise RuntimeError("MediaMTX failed to start (port 8554 never opened)")
-
-
-def start_ffmpeg(source: str):
-    global ffmpeg_process
-    if ffmpeg_process is not None and ffmpeg_process.poll() is None:
+    if not which("mediamtx"):
         return
-    if not os.path.exists(FFMPEG_EXE):
-        raise RuntimeError(f"ffmpeg not found at {FFMPEG_EXE}")
-    cmd = [
-        FFMPEG_EXE,
-        "-rtsp_transport", "tcp",
-        "-i", source,
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-ar", "16000",
-        "-ac", "1",
-        "-f", "rtsp",
-        LOCAL_RTSP,
-    ]
-    ffmpeg_process = subprocess.Popen(cmd)
+    MEDIAMTX = subprocess.Popen(["mediamtx"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.5)
 
 
-def stop_process(proc: Optional[subprocess.Popen]):
-    if proc is None:
-        return
-    try:
-        proc.terminate()
-        proc.wait(timeout=5)
-    except Exception:
-        try:
-            proc.kill()
-        except Exception:
-            pass
+def watchdog():
+    """Restart only the camera that died — never touch the others."""
+    while True:
+        time.sleep(5)
+        with CAM_LOCK:
+            cams = list(CAMERAS.values())
+        for cam in cams:
+            if cam.enabled and not cam.stop_flag.is_set() and cam.video_proc and cam.video_proc.poll() is not None:
+                cam.restarts += 1
+                cam.error = "stream dropped — reconnecting"
+                try:
+                    cam.start_video()
+                except Exception as exc:
+                    cam.error = str(exc)
 
 
-class StartRequest(BaseModel):
-    rtsp: Optional[str] = None
-
-
-@app.get("/")
-def root():
-    return {"service": "camera_server", "status": "running", "version": 2}
+# --------------------------------------------------------------------------- #
+# API
+# --------------------------------------------------------------------------- #
+app = FastAPI(title="MSDSystem multi-camera bridge")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
 
 
 @app.get("/status")
 def status():
+    host = lan_ip()
+    with CAM_LOCK:
+        cams = [c.status(host) for c in CAMERAS.values()]
     return {
-        "mediamtx": process_running("mediamtx") or is_port_open("127.0.0.1", 8554),
-        "ffmpeg": ffmpeg_process is not None and ffmpeg_process.poll() is None,
-        "hls_ready": is_port_open("127.0.0.1", HLS_PORT),
-        "camera_rtsp": CAMERA_RTSP,
-        "stream": hls_url(),
-        "stream_local": hls_url("127.0.0.1"),
-        "lan_ip": lan_ip(),
-        "error": last_error,
+        "mediamtx": bool(MEDIAMTX and MEDIAMTX.poll() is None) or which("mediamtx"),
+        "hls_port": HLS_PORT,
+        "lan_ip": host,
+        "whisper": WHISPER.available,
+        "cameras": cams,
+        "error": None if which("ffmpeg") else "ffmpeg not found in PATH",
     }
 
 
-@app.post("/start-monitoring")
-def start_monitoring(body: StartRequest | None = None):
-    global CAMERA_RTSP, last_error
-    last_error = None
-    if body and body.rtsp:
-        CAMERA_RTSP = body.rtsp
+@app.post("/cameras/sync")
+async def sync(request: Request):
+    body = await request.json()
+    incoming = body.get("cameras", [])[:MAX_CAMERAS]
+    with CAM_LOCK:
+        keep = set()
+        for item in incoming:
+            cid = item["id"]
+            keep.add(cid)
+            path = re.sub(r"[^a-zA-Z0-9_-]", "-", item.get("path") or cid)
+            cam = CAMERAS.get(cid)
+            if cam is None:
+                CAMERAS[cid] = Camera(
+                    id=cid, path=path, name=item.get("name", cid),
+                    rtsp=item.get("rtsp", ""), enabled=bool(item.get("enabled", True)),
+                )
+            else:
+                changed = cam.rtsp != item.get("rtsp", "") or cam.path != path
+                cam.name = item.get("name", cam.name)
+                cam.rtsp = item.get("rtsp", cam.rtsp)
+                cam.path = path
+                cam.enabled = bool(item.get("enabled", True))
+                if changed and cam.running():
+                    cam.stop()
+                    cam.start()
+        for cid in list(CAMERAS):
+            if cid not in keep:
+                CAMERAS[cid].stop()
+                del CAMERAS[cid]
+    return {"success": True, "count": len(CAMERAS)}
+
+
+@app.post("/cameras/{camera_id}/start")
+def start_one(camera_id: str):
+    cam = CAMERAS.get(camera_id)
+    if not cam:
+        return {"success": False, "error": "unknown camera"}
+    start_mediamtx()
     try:
-        start_mediamtx()
-        start_ffmpeg(CAMERA_RTSP)
-        wait_for_port(HLS_PORT, timeout=10)
-    except Exception as exc:  # surfaced to the dashboard
-        last_error = str(exc)
-        return {"success": False, "error": last_error}
-    return {
-        "success": True,
-        "stream": hls_url(),
-        "stream_local": hls_url("127.0.0.1"),
-        "camera_rtsp": CAMERA_RTSP,
-        "message": "Monitoring started.",
-    }
+        cam.start()
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+    return {"success": True, "stream": cam.status(lan_ip())["stream"]}
 
 
-@app.post("/stop-monitoring")
-def stop_monitoring():
-    global mediamtx_process, ffmpeg_process
-    stop_process(ffmpeg_process)
-    stop_process(mediamtx_process)
-    ffmpeg_process = None
-    mediamtx_process = None
+@app.post("/cameras/{camera_id}/stop")
+def stop_one(camera_id: str):
+    cam = CAMERAS.get(camera_id)
+    if cam:
+        cam.stop()
     return {"success": True}
 
 
-if __name__ == "__main__":
-    import uvicorn
+@app.post("/start-all")
+def start_all():
+    start_mediamtx()
+    with CAM_LOCK:
+        cams = [c for c in CAMERAS.values() if c.enabled]
+    for cam in cams:
+        try:
+            cam.start()
+        except Exception as exc:
+            cam.error = str(exc)
+    return {"success": True, "started": len(cams)}
 
-    print(f"MSD Camera Server -> http://{lan_ip()}:{SERVER_PORT}")
-    print(f"HLS stream will be at {hls_url()}")
-    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT)
+
+@app.post("/stop-all")
+def stop_all():
+    with CAM_LOCK:
+        cams = list(CAMERAS.values())
+    for cam in cams:
+        cam.stop()
+    return {"success": True}
+
+
+@app.get("/cameras/{camera_id}/audio-events")
+def audio_events(camera_id: str, since: Optional[str] = None):
+    cam = CAMERAS.get(camera_id)
+    if not cam:
+        return {"events": []}
+    with cam.lock:
+        events = list(cam.events)
+    if since:
+        events = [e for e in events if e["timestamp"] > since]
+    return {"events": events}
+
+
+@app.post("/test-connection")
+async def test_connection(request: Request):
+    body = await request.json()
+    rtsp = body.get("rtsp", "")
+    if not rtsp:
+        return {"success": False, "error": "missing rtsp url"}
+    if not which("ffprobe"):
+        return {"success": False, "error": "ffprobe not installed"}
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-rtsp_transport", "tcp",
+             "-show_entries", "stream=codec_name,width,height",
+             "-of", "json", rtsp],
+            capture_output=True, text=True, timeout=20,
+        )
+        if out.returncode != 0:
+            return {"success": False, "error": out.stderr.strip()[:300] or "connection failed"}
+        return {"success": True, "info": out.stdout[:500]}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "timed out reaching camera"}
+
+
+def shutdown(*_args):
+    with CAM_LOCK:
+        for cam in CAMERAS.values():
+            cam.stop()
+    if MEDIAMTX and MEDIAMTX.poll() is None:
+        MEDIAMTX.terminate()
+    raise SystemExit(0)
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+    threading.Thread(target=watchdog, daemon=True).start()
+    start_mediamtx()
+    print(f"MSDSystem multi-camera bridge on http://0.0.0.0:{API_PORT} (HLS :{HLS_PORT})")
+    print(f"Whisper available: {WHISPER.available}")
+    uvicorn.run(app, host="0.0.0.0", port=API_PORT, log_level="warning")

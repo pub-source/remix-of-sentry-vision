@@ -837,6 +837,14 @@ export default function Index() {
               <Home className="w-4 h-4" /> Home
             </button>
           )}
+          <button
+            onClick={() => navigate('/monitoring')}
+            className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
+            title="Multi-camera monitoring"
+          >
+            <Wifi className="w-4 h-4" /> Cameras
+          </button>
+
         </div>
 
         {/* Right: Actions */}
