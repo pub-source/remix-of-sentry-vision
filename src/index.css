@@ -6,42 +6,45 @@
 
 @layer base {
   :root {
-    --background: 215 18% 91%;
-    --foreground: 220 18% 20%;
+    --background: 210 20% 97%;
+    --foreground: 220 30% 8%;
 
-    --card: 210 14% 95%;
-    --card-foreground: 220 18% 20%;
 
-    --popover: 210 14% 95%;
-    --popover-foreground: 220 18% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 8%;
 
-    --primary: 215 80% 48%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 8%;
+
+    --primary: 215 90% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 12% 86%;
-    --secondary-foreground: 220 18% 28%;
+    --secondary: 215 14% 88%;
+    --secondary-foreground: 220 30% 12%;
 
-    --muted: 215 12% 88%;
-    --muted-foreground: 215 10% 42%;
+    --muted: 215 14% 90%;
+    --muted-foreground: 218 22% 26%;
 
-    --accent: 170 60% 38%;
+    --accent: 170 80% 24%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 68% 48%;
+
+    --destructive: 0 80% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 55% 38%;
+    --success: 152 70% 26%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 85% 48%;
-    --warning-foreground: 220 18% 12%;
+    --warning: 33 95% 34%;
+    --warning-foreground: 0 0% 100%;
 
-    --info: 210 70% 50%;
+    --info: 212 85% 36%;
     --info-foreground: 0 0% 100%;
 
-    --border: 215 12% 82%;
-    --input: 215 12% 84%;
-    --ring: 215 80% 48%;
+    --border: 215 16% 62%;
+    --input: 215 16% 58%;
+    --ring: 215 90% 36%;
+
 
     --radius: 0.75rem;
 
@@ -61,42 +64,43 @@
   }
 
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 210 15% 88%;
+    --background: 222 24% 7%;
+    --foreground: 0 0% 100%;
 
-    --card: 220 18% 13%;
-    --card-foreground: 210 15% 88%;
+    --card: 222 22% 11%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 220 18% 13%;
-    --popover-foreground: 210 15% 88%;
+    --popover: 222 22% 11%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 215 80% 55%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 210 100% 66%;
+    --primary-foreground: 220 30% 8%;
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 210 12% 75%;
+    --secondary: 220 16% 20%;
+    --secondary-foreground: 0 0% 97%;
 
-    --muted: 220 15% 16%;
-    --muted-foreground: 215 10% 55%;
+    --muted: 220 16% 18%;
+    --muted-foreground: 215 18% 82%;
 
-    --accent: 170 60% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 168 80% 55%;
+    --accent-foreground: 220 30% 8%;
 
-    --destructive: 0 68% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 90% 66%;
+    --destructive-foreground: 220 30% 8%;
 
-    --success: 152 55% 45%;
-    --success-foreground: 0 0% 100%;
+    --success: 150 70% 55%;
+    --success-foreground: 220 30% 8%;
 
-    --warning: 38 85% 55%;
-    --warning-foreground: 220 18% 10%;
+    --warning: 42 100% 62%;
+    --warning-foreground: 220 30% 8%;
 
-    --info: 210 70% 58%;
-    --info-foreground: 0 0% 100%;
+    --info: 205 100% 68%;
+    --info-foreground: 220 30% 8%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 215 80% 55%;
+    --border: 220 14% 38%;
+    --input: 220 14% 40%;
+    --ring: 210 100% 66%;
+
 
     --panel-glow: 215 80% 55%;
     --alert-high: 0 68% 55%;
@@ -124,25 +128,34 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans;
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 1rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
+    font-weight: 600;
+    letter-spacing: 0.005em;
     line-height: 1.55;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: geometricPrecision;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-weight: 800;
+    font-weight: 900;
+    letter-spacing: -0.01em;
   }
 
   label, button, th {
-    font-weight: 600;
+    font-weight: 700;
+  }
+
+  p, span, div, li, td, a {
+    text-shadow: none;
   }
 
   code, .font-mono {
     font-family: 'Inter', system-ui, sans-serif;
   }
+
 }
 
 /* Readability for seniors and minors: every text size lands between 14px and 16px.
