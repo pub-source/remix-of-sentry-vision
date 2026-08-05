@@ -56,6 +56,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
   const runtimeRef = useRef<CameraRuntime>(emptyRuntime(camera.id));
 
   const [runtime, setRuntime] = useState<CameraRuntime>(() => emptyRuntime(camera.id));
+  const [nonce, setNonce] = useState(0);
   const face = useFaceDistress(camera.enabled && camera.aiEnabled);
 
   const patch = useCallback((p: Partial<CameraRuntime>) => {
@@ -145,7 +146,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
       const v = videoRef.current;
       if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
     };
-  }, [url, camera.enabled, patch]);
+  }, [url, camera.enabled, nonce, patch]);
 
   // ---- FPS counter ---------------------------------------------------------
   useEffect(() => {
@@ -277,10 +278,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
     hlsRef.current = null;
     retryRef.current = 0;
     patch({ status: 'connecting', error: null });
-    const v = videoRef.current;
-    if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
-    // effect re-attaches on next render tick
-    window.setTimeout(() => { if (videoRef.current) videoRef.current.load(); }, 100);
+    setNonce(n => n + 1);
   }, [patch]);
 
   return { videoRef, runtime, reconnect, streamUrl: url, faceReady: face.ready };
