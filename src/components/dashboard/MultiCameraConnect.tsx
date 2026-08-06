@@ -119,7 +119,7 @@ function SlotCard({
   const live = !!status?.ffmpeg && !!status?.hls_ready;
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/20 p-3 space-y-2.5">
+    <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-[15px] font-bold">
           <Server className="w-4 h-4 text-primary" /> CAM {slot.index} local server
@@ -246,7 +246,7 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
         <p className="text-[13px] text-muted-foreground break-all">API {server}</p>
       </div>
 
-      <div className={`grid gap-3 ${count === 1 ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
+      <div className={`grid gap-4 ${count === 1 ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
         {activeSlots.map(slot => (
           <SlotCard
             key={slot.index}

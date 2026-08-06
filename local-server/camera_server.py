@@ -27,6 +27,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -41,6 +42,9 @@ RTSP_PORT = int(os.environ.get("MSD_RTSP_PORT", 8554))
 MAX_CAMERAS = 16
 AUDIO_CHUNK_SECONDS = 5
 WHISPER_MODEL = os.environ.get("MSD_WHISPER_MODEL", "base")
+FFMPEG_EXE = os.environ.get("FFMPEG_EXE", "ffmpeg")
+FFPROBE_EXE = os.environ.get("FFPROBE_EXE", "ffprobe")
+MEDIAMTX_EXE = os.environ.get("MEDIAMTX_EXE", "mediamtx")
 
 DISTRESS_KEYWORDS = {
     "help": 0.95, "help me": 0.98, "fire": 0.97, "emergency": 0.95,
@@ -61,7 +65,7 @@ def lan_ip() -> str:
         s.close()
 
 def which(binary: str) -> bool:
-    return shutil.which(binary) is not None
+    return os.path.isfile(binary) or shutil.which(binary) is not None
 
 
 # --------------------------------------------------------------------------- #
@@ -127,6 +131,24 @@ class Camera:
     error: Optional[str] = None
     events: List[dict] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    stderr_lines: List[str] = field(default_factory=list)
+    started_at: float = 0.0
+
+    def _capture_video_errors(self, proc: subprocess.Popen):
+        if not proc.stderr:
+            return
+        try:
+            for raw in iter(proc.stderr.readline, b""):
+                line = raw.decode("utf-8", errors="replace").strip()
+                if line:
+                    with self.lock:
+                        self.stderr_lines = (self.stderr_lines + [line])[-8:]
+        except Exception:
+            pass
+
+    def last_video_error(self) -> str:
+        with self.lock:
+            return self.stderr_lines[-1] if self.stderr_lines else "RTSP stream ended"
 
     # ---- video: RTSP -> MediaMTX (copy, low CPU; transcode fallback) ------- #
     def start_video(self):
@@ -134,13 +156,20 @@ class Camera:
             return
         target = f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}"
         cmd = [
-            "ffmpeg", "-nostdin", "-loglevel", "error",
-            "-rtsp_transport", "tcp", "-stimeout", "5000000",
+            FFMPEG_EXE, "-nostdin", "-hide_banner", "-loglevel", "warning",
+            "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+            "-fflags", "+genpts+discardcorrupt", "-use_wallclock_as_timestamps", "1",
             "-i", self.rtsp,
+            "-map", "0:v:0", "-map", "0:a:0?",
             "-c:v", "copy", "-c:a", "aac", "-ar", "16000", "-ac", "1",
-            "-f", "rtsp", "-rtsp_transport", "tcp", target,
+            "-f", "rtsp", "-rtsp_transport", "tcp", "-muxdelay", "0.1", target,
         ]
+        with self.lock:
+            self.stderr_lines = []
+        self.error = None
+        self.started_at = time.time()
         self.video_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        threading.Thread(target=self._capture_video_errors, args=(self.video_proc,), daemon=True).start()
 
     # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
     def _audio_loop(self):
@@ -149,8 +178,8 @@ class Camera:
             while not self.stop_flag.is_set():
                 wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
                 cmd = [
-                    "ffmpeg", "-nostdin", "-loglevel", "error",
-                    "-rtsp_transport", "tcp", "-i", self.rtsp,
+                    FFMPEG_EXE, "-nostdin", "-loglevel", "error",
+                    "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
                     "-vn", "-ac", "1", "-ar", "16000",
                     "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
                 ]
@@ -209,6 +238,17 @@ class Camera:
     def running(self) -> bool:
         return bool(self.video_proc and self.video_proc.poll() is None)
 
+    def hls_ready(self) -> bool:
+        if not self.running():
+            return False
+        try:
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{HLS_PORT}/{self.path}/index.m3u8", timeout=1.5
+            ) as response:
+                return response.status == 200 and b"#EXTM3U" in response.read(128)
+        except Exception:
+            return False
+
     def status(self, host: str) -> dict:
         return {
             "id": self.id,
@@ -216,7 +256,7 @@ class Camera:
             "name": self.name,
             "enabled": self.enabled,
             "ffmpeg": self.running(),
-            "hls_ready": self.running(),
+            "hls_ready": self.hls_ready(),
             "stream": f"http://{host}:{HLS_PORT}/{self.path}/index.m3u8",
             "stream_local": f"http://127.0.0.1:{HLS_PORT}/{self.path}/index.m3u8",
             "restarts": self.restarts,
@@ -233,9 +273,9 @@ def start_mediamtx():
     global MEDIAMTX
     if MEDIAMTX and MEDIAMTX.poll() is None:
         return
-    if not which("mediamtx"):
+    if not which(MEDIAMTX_EXE):
         return
-    MEDIAMTX = subprocess.Popen(["mediamtx"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    MEDIAMTX = subprocess.Popen([MEDIAMTX_EXE], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.5)
 
 
@@ -248,8 +288,10 @@ def watchdog():
         for cam in cams:
             if cam.enabled and not cam.stop_flag.is_set() and cam.video_proc and cam.video_proc.poll() is not None:
                 cam.restarts += 1
-                cam.error = "stream dropped — reconnecting"
+                reason = cam.last_video_error()
+                cam.error = f"Stream disconnected: {reason}. Reconnecting…"
                 try:
+                    time.sleep(min(5, max(1, cam.restarts)))
                     cam.start_video()
                 except Exception as exc:
                     cam.error = str(exc)
@@ -270,12 +312,12 @@ def status():
     with CAM_LOCK:
         cams = [c.status(host) for c in CAMERAS.values()]
     return {
-        "mediamtx": bool(MEDIAMTX and MEDIAMTX.poll() is None) or which("mediamtx"),
+        "mediamtx": bool(MEDIAMTX and MEDIAMTX.poll() is None),
         "hls_port": HLS_PORT,
         "lan_ip": host,
         "whisper": WHISPER.available,
         "cameras": cams,
-        "error": None if which("ffmpeg") else "ffmpeg not found in PATH",
+        "error": None if which(FFMPEG_EXE) else "ffmpeg not found; set FFMPEG_EXE to its full path",
     }
 
 
@@ -319,6 +361,11 @@ def start_one(camera_id: str):
     start_mediamtx()
     try:
         cam.start()
+        deadline = time.time() + 8
+        while time.time() < deadline and cam.running() and not cam.hls_ready():
+            time.sleep(0.4)
+        if not cam.running():
+            return {"success": False, "error": cam.last_video_error()}
     except Exception as exc:
         return {"success": False, "error": str(exc)}
     return {"success": True, "stream": cam.status(lan_ip())["stream"]}
@@ -372,11 +419,11 @@ async def test_connection(request: Request):
     rtsp = body.get("rtsp", "")
     if not rtsp:
         return {"success": False, "error": "missing rtsp url"}
-    if not which("ffprobe"):
+    if not which(FFPROBE_EXE):
         return {"success": False, "error": "ffprobe not installed"}
     try:
         out = subprocess.run(
-            ["ffprobe", "-v", "error", "-rtsp_transport", "tcp",
+            [FFPROBE_EXE, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
              "-show_entries", "stream=codec_name,width,height",
              "-of", "json", rtsp],
             capture_output=True, text=True, timeout=20,

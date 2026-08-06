@@ -642,15 +642,15 @@ export default function Index() {
           onClick={() => setShowIpDialog(false)}
         >
           <div
-            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto overscroll-contain"
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-5xl p-6 md:p-8 space-y-5 max-h-[92vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Wifi className="w-4 h-4 text-primary" /> Connect CCTV / IP Camera
+              <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Wifi className="w-5 h-5 text-primary" /> Connect CCTV / IP Camera
               </h3>
-              <button onClick={() => setShowIpDialog(false)} className="p-1 rounded hover:bg-muted">
-                <X className="w-4 h-4 text-muted-foreground" />
+              <button onClick={() => setShowIpDialog(false)} className="p-2 rounded hover:bg-muted" aria-label="Close camera connection panel">
+                <X className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
 
