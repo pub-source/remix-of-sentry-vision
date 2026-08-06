@@ -7,6 +7,44 @@ import type { DetectedObject } from '@/types/dashboard';
 
 const MIN_CONFIDENCE = 0.2;
 
+type Box = [number, number, number, number];
+
+function iou(a: Box, b: Box) {
+  const x1 = Math.max(a[0], b[0]);
+  const y1 = Math.max(a[1], b[1]);
+  const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
+  const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
+  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  if (inter <= 0) return 0;
+  return inter / (a[2] * a[3] + b[2] * b[3] - inter);
+}
+
+/** Greedy non-maximum suppression, applied per class, plus cross-class
+ *  suppression of heavily overlapping duplicates (keeps the higher score). */
+function nms(dets: DetectedObject[], sameClassIou = 0.4, crossClassIou = 0.85): DetectedObject[] {
+  const sorted = [...dets].sort((a, b) => b.confidence - a.confidence);
+  const kept: DetectedObject[] = [];
+  for (const d of sorted) {
+    const dup = kept.some(k =>
+      iou(k.bbox, d.bbox) > (k.label === d.label ? sameClassIou : crossClassIou)
+    );
+    if (!dup) kept.push(d);
+  }
+  return kept;
+}
+
+/** Drop degenerate/implausible boxes (slivers, full-frame blobs). */
+function isPlausible(d: DetectedObject, w: number, h: number) {
+  const [, , bw, bh] = d.bbox;
+  if (bw < 8 || bh < 8) return false;
+  const area = (bw * bh) / (w * h || 1);
+  if (area > 0.97) return false;
+  const ratio = bw / bh;
+  if (ratio > 12 || ratio < 1 / 12) return false;
+  return true;
+}
+
+
 interface DetectionStats {
   totalDetected: number;
   filteredPriority: number;
