@@ -1,16 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Grid2x2, Grid3x3, Square, X, Settings2, Camera, Filter, Trash2 } from 'lucide-react';
+import { Shield, X, Camera, Filter, Trash2, Grid2x2, Square as SquareIcon, Columns2 } from 'lucide-react';
 import { useCameraRegistry } from '@/hooks/useCameraRegistry';
+import { useCameraSlots, slotCamera, slotSettings, type SlotCount } from '@/hooks/useCameraSlots';
 import CameraTile from '@/components/multicam/CameraTile';
-import type { DetectionEvent, GridLayout } from '@/types/multicam';
-
-const layoutClass: Record<GridLayout, string> = {
-  '1x1': 'grid-cols-1',
-  '2x2': 'grid-cols-1 md:grid-cols-2',
-  '3x3': 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
-  '4x4': 'grid-cols-2 xl:grid-cols-4',
-};
+import type { DetectionEvent } from '@/types/multicam';
 
 const typeIcon: Record<string, string> = {
   fire: '🔥', smoke: '💨', human: '🧍', object: '📦',
@@ -19,17 +13,20 @@ const typeIcon: Record<string, string> = {
 
 export default function Monitoring() {
   const navigate = useNavigate();
-  const { cameras, settings, events, updateSettings, addEvent, clearEvents } = useCameraRegistry();
+  const { settings, events, addEvent, clearEvents } = useCameraRegistry();
+  const { count, activeSlots, setCount } = useCameraSlots();
   const [focused, setFocused] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
 
-  const active = useMemo(() => cameras.filter(c => c.enabled), [cameras]);
-  const visible = focused ? active.filter(c => c.id === focused) : active;
+  const connected = useMemo(() => activeSlots.filter(s => s.ip.trim()), [activeSlots]);
+  const visible = focused ? connected.filter(s => `slot-${s.index}` === focused) : connected;
   const filtered = filter === 'all' ? events : events.filter(e => e.cameraId === filter);
   const alerts = filtered.filter(e => ['fire', 'smoke', 'face-distress', 'audio-distress'].includes(e.type));
 
   const handleEvent = (evt: Omit<DetectionEvent, 'id'>) =>
     addEvent({ ...evt, id: crypto.randomUUID() });
+
+  const gridClass = count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -40,28 +37,23 @@ export default function Monitoring() {
         </button>
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-semibold text-muted-foreground">
-            {active.length} camera{active.length === 1 ? '' : 's'} monitoring
+            {connected.length} camera{connected.length === 1 ? '' : 's'} monitoring
           </span>
           <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-            {(['1x1', '2x2', '3x3', '4x4'] as GridLayout[]).map(l => (
+            {([1, 2, 4] as SlotCount[]).map(n => (
               <button
-                key={l}
-                onClick={() => { updateSettings({ gridLayout: l }); setFocused(null); }}
-                className={`px-2.5 py-1 rounded text-[14px] font-semibold transition-colors ${
-                  settings.gridLayout === l && !focused ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                key={n}
+                onClick={() => { setCount(n); setFocused(null); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[14px] font-semibold transition-colors ${
+                  count === n && !focused ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
                 }`}
-                title={`${l} grid`}
+                title={`${n} camera layout`}
               >
-                {l === '1x1' ? <Square className="w-4 h-4" /> : l === '2x2' ? <Grid2x2 className="w-4 h-4" /> : l === '3x3' ? <Grid3x3 className="w-4 h-4" /> : l}
+                {n === 1 ? <SquareIcon className="w-4 h-4" /> : n === 2 ? <Columns2 className="w-4 h-4" /> : <Grid2x2 className="w-4 h-4" />}
+                {n}
               </button>
             ))}
           </div>
-          <button
-            onClick={() => navigate('/cameras')}
-            className="flex items-center gap-1.5 text-[15px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full"
-          >
-            <Settings2 className="w-4 h-4" /> Cameras
-          </button>
           <button
             onClick={() => navigate('/dashboard')}
             className="flex items-center gap-1.5 text-[15px] font-semibold text-accent bg-accent/10 hover:bg-accent/20 px-3 py-1.5 rounded-full"
@@ -81,26 +73,27 @@ export default function Monitoring() {
               <X className="w-4 h-4" /> Exit single-camera view
             </button>
           )}
-          {active.length === 0 ? (
+          {connected.length === 0 ? (
             <div className="border border-dashed border-border rounded-lg p-10 text-center">
-              <p className="text-[17px] font-semibold mb-2">No cameras enabled yet</p>
+              <p className="text-[17px] font-semibold mb-2">No cameras connected yet</p>
               <p className="text-[15px] text-muted-foreground mb-4">
-                Add your CCTV cameras to start independent multimodal detection on each feed.
+                Open Connect on the dashboard, choose 1, 2 or 4 cameras and type each camera's local
+                server IP address. Every feed runs its own saliency detection pipeline.
               </p>
               <button
-                onClick={() => navigate('/cameras')}
+                onClick={() => navigate('/dashboard')}
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[15px] font-bold"
               >
-                Add a camera
+                Go to Connect
               </button>
             </div>
           ) : (
-            <div className={`grid gap-4 ${focused ? 'grid-cols-1' : layoutClass[settings.gridLayout]}`}>
-              {visible.map(cam => (
+            <div className={`grid gap-4 ${focused ? 'grid-cols-1' : gridClass}`}>
+              {visible.map(slot => (
                 <CameraTile
-                  key={cam.id}
-                  camera={cam}
-                  settings={settings}
+                  key={slot.index}
+                  camera={slotCamera(slot)}
+                  settings={slotSettings(slot, settings)}
                   onEvent={handleEvent}
                   onExpand={id => setFocused(prev => (prev === id ? null : id))}
                 />
@@ -146,7 +139,9 @@ export default function Monitoring() {
                 className="flex-1 bg-background border border-border rounded px-2 py-1 text-[14px]"
               >
                 <option value="all">All cameras</option>
-                {cameras.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {activeSlots.map(s => (
+                  <option key={s.index} value={`slot-${s.index}`}>{s.name}</option>
+                ))}
               </select>
               <button onClick={clearEvents} className="p-1.5 rounded hover:bg-muted" title="Clear history">
                 <Trash2 className="w-4 h-4 text-muted-foreground" />
