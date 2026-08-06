@@ -960,6 +960,9 @@ export default function Index() {
               fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
               fireFrameWidth={fireStatus.frameWidth}
               fireFrameHeight={fireStatus.frameHeight}
+              cctvAudioEnabled={ipCam.audioEnabled}
+              cctvAudioAvailable={ipCam.connected}
+              onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
             />
           </div>
 
