@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Server, Play, Square, RefreshCw, CheckCircle2, XCircle, Loader2, Grid2x2, Square as SquareIcon, Columns2 } from 'lucide-react';
+import Hls from 'hls.js';
+import {
+  Play, Square, RefreshCw, CheckCircle2, XCircle, Loader2, Grid2x2,
+  Square as SquareIcon, Columns2, Brain, VideoOff,
+} from 'lucide-react';
 import {
   backendHint,
   getMultiStatus,
@@ -7,124 +11,182 @@ import {
   stopCamera,
   syncCameras,
   type BackendCameraStatus,
+  type BackendStatus,
 } from '@/lib/multiCamServer';
 import {
   useCameraSlots,
   slotPath,
   slotRtsp,
   loadServerHost,
-  saveServerHost,
   serverUrlFor,
   type CameraSlot,
   type SlotCount,
 } from '@/hooks/useCameraSlots';
 
 interface Props {
-  /** Called with a browser-playable HLS URL for camera 1 (drives the main dashboard). */
+  /** Called with the backend-reported HLS URL for camera 1 (drives the main dashboard). */
   onStream: (url: string) => void;
   playbackError?: string | null;
   playing?: boolean;
 }
 
 const Dot = ({ ok, label }: { ok: boolean; label: string }) => (
-  <span className="flex items-center gap-1.5 text-[14px]">
+  <span className="flex items-center gap-1.5 text-[14px] font-semibold">
     {ok ? <CheckCircle2 className="w-4 h-4 text-success" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}
     <span className={ok ? 'text-success' : 'text-muted-foreground'}>{label}</span>
   </span>
 );
 
+/** Small live HLS preview inside the card — uses ONLY the URL the backend returned. */
+function Preview({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !url) return;
+    let hls: Hls | null = null;
+    if (Hls.isSupported()) {
+      hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3 });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+      hls.on(Hls.Events.ERROR, (_e, d) => {
+        if (d.fatal && d.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      video.play().catch(() => {});
+    }
+    return () => {
+      hls?.destroy();
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [url]);
+
+  return (
+    <div className="relative aspect-video rounded-lg overflow-hidden bg-background border border-border">
+      <video ref={videoRef} muted playsInline autoPlay className="absolute inset-0 w-full h-full object-contain" />
+      {!url && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+          <VideoOff className="w-6 h-6" />
+          <span className="text-[14px] font-semibold">Offline</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SlotCard({
   slot,
   server,
+  serverOk,
+  mediamtx,
   onRename,
   onIp,
   onAi,
+  onConnected,
   onStream,
 }: {
   slot: CameraSlot;
   server: string;
+  serverOk: boolean;
+  mediamtx: boolean;
   onRename: (v: string) => void;
   onIp: (v: string) => void;
   onAi: (v: boolean) => void;
+  onConnected: (v: { connected: boolean; streamUrl: string }) => void;
   onStream?: (url: string) => void;
 }) {
   const [status, setStatus] = useState<BackendCameraStatus | null>(null);
   const [busy, setBusy] = useState<'' | 'check' | 'start' | 'stop'>('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const autoLoaded = useRef(false);
+  const pushedRef = useRef(false);
   const id = `slot-${slot.index}`;
-  const rtsp = slotRtsp(slot);
+
+  const apply = useCallback((c: BackendCameraStatus | null) => {
+    setStatus(c);
+    const url = c?.stream_local || c?.stream || '';
+    const live = !!c?.ffmpeg && !!c?.hls_ready && !!url;
+    onConnected({ connected: live, streamUrl: live ? url : '' });
+    if (live && !pushedRef.current) { pushedRef.current = true; onStream?.(url); }
+    if (!live) pushedRef.current = false;
+  }, [onConnected, onStream]);
 
   const check = useCallback(async (silent = true) => {
-    if (!server) return null;
     if (!silent) { setBusy('check'); setError(''); }
     try {
       const s = await getMultiStatus(server);
       const mine = s.cameras.find(c => c.id === id) ?? null;
-      setStatus(mine);
-      if (!silent) setMessage(mine ? `${slot.name} registered on the local server.` : 'Local server reachable — press Connect.');
+      apply(mine);
+      if (!silent) {
+        setMessage(
+          mine
+            ? `Camera ${mine.ffmpeg ? 'reachable' : 'not streaming'} · MediaMTX ${s.mediamtx ? 'running' : 'down'} · FFmpeg ${mine.ffmpeg ? 'running' : 'stopped'} · HLS ${mine.hls_ready ? 'ready' : 'missing'}`
+            : 'Local server reachable — press Connect to start this camera.',
+        );
+        if (mine?.error) setError(mine.error);
+      }
       return mine;
     } catch {
-      setStatus(null);
+      apply(null);
       if (!silent) {
         setMessage('');
-        setError(backendHint(server) || `Could not reach ${server}. Run camera_server.py on that PC.`);
+        setError(backendHint(server) || `Could not reach the local server at ${server}.`);
       }
       return null;
     } finally {
       if (!silent) setBusy('');
     }
-  }, [server, id, slot.name]);
+  }, [server, id, apply]);
 
+  // Auto-poll: when the backend reports ready, playback starts automatically.
   useEffect(() => {
-    if (!server || !slot.ip.trim()) return;
-    const t = window.setInterval(async () => {
-      const c = await check(true);
-      if (!c) { autoLoaded.current = false; return; }
-      if (c.hls_ready && c.ffmpeg && !autoLoaded.current) {
-        autoLoaded.current = true;
-        onStream?.(c.stream_local || c.stream);
-      }
-      if (!c.hls_ready) autoLoaded.current = false;
-    }, 2500);
+    if (!slot.ip.trim()) return;
+    const t = window.setInterval(() => { void check(true); }, 2500);
     return () => window.clearInterval(t);
-  }, [server, slot.ip, check, onStream]);
+  }, [slot.ip, check]);
 
-  const handleStart = async () => {
+  const handleConnect = async () => {
     if (!slot.ip.trim()) { setError('Enter the camera IP address first.'); return; }
-    setBusy('start'); setError(''); setMessage(`Starting ${slot.name}…`);
+    setBusy('start'); setError(''); setMessage(`Connecting ${slot.name}…`);
     try {
       await syncCameras(server, [{
-        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: rtsp,
+        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: slotRtsp(slot),
         enabled: true, aiEnabled: slot.aiEnabled, recording: false, createdAt: new Date().toISOString(),
       }]);
       const res = await startCamera(server, id);
-      if (!res.success) { setError(res.error || 'The local server could not start ffmpeg for this camera.'); return; }
-      if (res.stream) { autoLoaded.current = true; onStream?.(res.stream); }
-      setMessage(`Streaming ${slotPath(slot)} from ${slot.ip}.`);
+      if (!res.success) { setError(res.error || 'The local server could not start FFmpeg for this camera.'); return; }
+      if (res.stream) { pushedRef.current = true; onConnected({ connected: true, streamUrl: res.stream }); onStream?.(res.stream); }
+      setMessage(`Online — publishing ${slotPath(slot)} through MediaMTX.`);
       await check(true);
     } catch {
-      setError(backendHint(server) || `Could not reach ${server}.`);
+      setError(backendHint(server) || `Could not reach the local server at ${server}.`);
     } finally { setBusy(''); }
   };
 
-  const handleStop = async () => {
-    setBusy('stop'); autoLoaded.current = false;
-    try { await stopCamera(server, id); setMessage(`${slot.name} stopped.`); await check(true); }
-    catch { setError('Could not stop this camera on the local server.'); }
-    finally { setBusy(''); }
+  const handleDisconnect = async () => {
+    setBusy('stop'); pushedRef.current = false;
+    try {
+      await stopCamera(server, id);
+      apply(null);
+      setMessage(`${slot.name} disconnected.`);
+      setError('');
+    } catch {
+      setError('Could not stop this camera on the local server.');
+    } finally { setBusy(''); }
   };
 
   const live = !!status?.ffmpeg && !!status?.hls_ready;
+  const streamUrl = live ? (status?.stream_local || status?.stream || '') : '';
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
+    <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-[15px] font-bold">
-          <Server className="w-4 h-4 text-primary" /> CAM {slot.index} local server
-        </span>
-        <span className={`text-[13px] font-semibold px-2 py-0.5 rounded-full ${live ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}`}>
+        <span className="text-[16px] font-bold">CAM{slot.index}</span>
+        <span className={`text-[14px] font-bold px-2.5 py-0.5 rounded-full ${live ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}`}>
           {live ? 'Online' : 'Offline'}
         </span>
       </div>
@@ -135,6 +197,7 @@ function SlotCard({
           <input
             value={slot.name}
             onChange={e => onRename(e.target.value)}
+            placeholder="Front Door"
             className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -143,55 +206,60 @@ function SlotCard({
           <input
             value={slot.ip}
             onChange={e => onIp(e.target.value)}
-            placeholder="192.168.18.93"
+            placeholder="192.168.18.98"
             className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
       </div>
 
-      <p className="text-[13px] text-muted-foreground break-all">
-        Section <span className="font-semibold text-foreground">{slotPath(slot)}</span> · {rtsp || 'no camera IP yet'}
-      </p>
+      <Preview url={streamUrl} />
 
       <div className="flex flex-wrap items-center gap-2">
         <button
+          onClick={handleConnect}
+          disabled={busy !== ''}
+          className="flex-1 flex items-center justify-center gap-2 text-[15px] font-bold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+        >
+          {busy === 'start' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+          {busy === 'start' ? 'Connecting…' : 'Connect'}
+        </button>
+        <button
+          onClick={handleDisconnect}
+          disabled={busy !== '' || !live}
+          className="flex items-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
+        >
+          <Square className="w-4 h-4" /> Disconnect
+        </button>
+        <button
           onClick={() => check(false)}
-          disabled={busy !== '' || !server}
+          disabled={busy !== ''}
           className="flex items-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${busy === 'check' ? 'animate-spin' : ''}`} /> Check
         </button>
         <button
-          onClick={handleStart}
-          disabled={busy !== '' || !server}
-          className="flex-1 flex items-center justify-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+          onClick={() => onAi(!slot.aiEnabled)}
+          className={`flex items-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg border transition-colors ${
+            slot.aiEnabled ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'
+          }`}
+          title="AI detection only — this never stops the stream"
         >
-          {busy === 'start' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-          {busy === 'start' ? 'Starting…' : 'Connect'}
+          <Brain className="w-4 h-4" /> AI {slot.aiEnabled ? 'On' : 'Off'}
         </button>
-        <button
-          onClick={handleStop}
-          disabled={busy !== '' || !live}
-          className="flex items-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
-        >
-          <Square className="w-4 h-4" /> Stop
-        </button>
-        <label className="flex items-center gap-2 text-[14px] font-semibold">
-          <input type="checkbox" checked={slot.aiEnabled} onChange={e => onAi(e.target.checked)} />
-          AI detection
-        </label>
       </div>
 
-      {status && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-background/60 border border-border">
-          <Dot ok={status.ffmpeg} label="ffmpeg" />
-          <Dot ok={status.hls_ready} label="HLS" />
-          {status.error && <span className="text-[13px] text-destructive">{status.error}</span>}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-background/60 border border-border">
+        <Dot ok={serverOk && mediamtx} label="MediaMTX" />
+        <Dot ok={!!status?.ffmpeg} label="FFmpeg" />
+        <Dot ok={!!status?.hls_ready} label="HLS" />
+        <Dot ok={slot.aiEnabled} label="AI detection" />
+        <Dot ok={live} label="Camera" />
+      </div>
+
       {message && <p className="text-[14px] text-success break-all">{message}</p>}
+      {status?.error && <p className="text-[14px] text-destructive break-all">{status.error}</p>}
       {error && (
-        <p className="text-[14px] text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded-lg">{error}</p>
+        <p className="text-[14px] text-destructive bg-destructive/10 border border-destructive/30 px-3 py-2 rounded-lg break-all">{error}</p>
       )}
     </div>
   );
@@ -199,24 +267,32 @@ function SlotCard({
 
 export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) => {
   const { count, activeSlots, setCount, updateSlot } = useCameraSlots();
-  const [host, setHost] = useState(loadServerHost);
-  const server = serverUrlFor(host);
+  const [backend, setBackend] = useState<BackendStatus | null>(null);
+  const server = serverUrlFor(loadServerHost());
+
+  useEffect(() => {
+    const poll = async () => {
+      try { setBackend(await getMultiStatus(server)); } catch { setBackend(null); }
+    };
+    void poll();
+    const t = window.setInterval(poll, 4000);
+    return () => window.clearInterval(t);
+  }, [server]);
 
   return (
-    <div className="space-y-3">
-      <label className="text-[15px] font-semibold flex items-center gap-2">
-        <Server className="w-4 h-4 text-primary" /> Connect cameras
-      </label>
-      <p className="text-[14px] text-muted-foreground">
-        Choose how many cameras you want. Each camera gets its own local-server section (cam1, cam2,
-        …) — you only type its IP address, and every feed runs a fully independent saliency
-        detection pipeline.
-      </p>
+    <div className="space-y-4">
+      <div>
+        <label className="text-[16px] font-bold">Cameras</label>
+        <p className="text-[15px] text-muted-foreground">
+          Add up to 4 cameras. Type only a camera name and its IP address — the stream is set up for
+          you through MediaMTX, and each camera runs its own saliency detection pipeline.
+        </p>
+      </div>
 
       <div className="space-y-1">
-        <label className="text-[14px] font-semibold">Number of cameras</label>
-        <div className="flex items-center gap-2">
-          {([1, 2, 4] as SlotCount[]).map(n => (
+        <label className="text-[15px] font-semibold">Number of cameras</label>
+        <div className="flex flex-wrap items-center gap-2">
+          {([1, 2, 3, 4] as SlotCount[]).map(n => (
             <button
               key={n}
               onClick={() => setCount(n)}
@@ -229,21 +305,12 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
             </button>
           ))}
         </div>
-        <p className="text-[13px] text-muted-foreground">
-          Layout updates automatically: {count === 1 ? 'single view' : count === 2 ? '1 x 2 grid' : '2 x 2 grid'}.
-        </p>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[14px] font-semibold">Local server IP (PC running camera_server.py)</label>
-        <input
-          value={host}
-          onChange={e => setHost(e.target.value)}
-          onBlur={() => saveServerHost(host)}
-          placeholder="127.0.0.1"
-          className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <p className="text-[13px] text-muted-foreground break-all">API {server}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-secondary/30 border border-border">
+        <Dot ok={!!backend} label="Local server" />
+        <Dot ok={!!backend?.mediamtx} label="MediaMTX" />
+        <Dot ok={!!backend?.whisper} label="Audio (Whisper)" />
       </div>
 
       <div className={`grid gap-4 ${count === 1 ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
@@ -252,9 +319,12 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
             key={slot.index}
             slot={slot}
             server={server}
+            serverOk={!!backend}
+            mediamtx={!!backend?.mediamtx}
             onRename={v => updateSlot(slot.index, { name: v })}
             onIp={v => updateSlot(slot.index, { ip: v })}
             onAi={v => updateSlot(slot.index, { aiEnabled: v })}
+            onConnected={v => updateSlot(slot.index, v)}
             onStream={slot.index === 1 ? onStream : undefined}
           />
         ))}
