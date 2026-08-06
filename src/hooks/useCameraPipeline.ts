@@ -108,7 +108,18 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
       const t0 = performance.now();
 
       if (Hls.isSupported()) {
-        const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 2, manifestLoadingTimeOut: 8000 });
+        const hls = new Hls({
+          lowLatencyMode: false,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 8,
+          manifestLoadingTimeOut: 12000,
+          manifestLoadingMaxRetry: 6,
+          levelLoadingMaxRetry: 6,
+          fragLoadingMaxRetry: 8,
+          fragLoadingRetryDelay: 1000,
+          maxBufferLength: 12,
+          backBufferLength: 6,
+        });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
@@ -120,12 +131,17 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
         });
         hls.on(Hls.Events.ERROR, (_e, data) => {
           if (!data.fatal || cancelled) return;
-          // Fault tolerance: only THIS camera reconnects.
-          patch({ status: 'error', error: data.details || 'Stream error' });
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            patch({ status: 'connecting', error: 'Recovering video playback…' });
+            hls.recoverMediaError();
+            return;
+          }
+          // Fault tolerance: only THIS camera reconnects after HLS.js exhausts its own retries.
+          patch({ status: 'connecting', error: 'Waiting for camera stream…' });
           hls.destroy();
           hlsRef.current = null;
           retryRef.current += 1;
-          retryTimer = window.setTimeout(attach, Math.min(15000, 2000 * retryRef.current));
+          retryTimer = window.setTimeout(attach, Math.min(15000, 1500 * retryRef.current));
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
