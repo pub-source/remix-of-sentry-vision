@@ -104,13 +104,18 @@ function SlotCard({
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const pushedRef = useRef(false);
+  const lastRef = useRef('');
   const id = `slot-${slot.index}`;
 
   const apply = useCallback((c: BackendCameraStatus | null) => {
     setStatus(c);
     const url = c?.stream_local || c?.stream || '';
     const live = !!c?.ffmpeg && !!c?.hls_ready && !!url;
-    onConnected({ connected: live, streamUrl: live ? url : '' });
+    const key = `${live}|${live ? url : ''}`;
+    if (lastRef.current !== key) {
+      lastRef.current = key;
+      onConnected({ connected: live, streamUrl: live ? url : '' });
+    }
     if (live && !pushedRef.current) { pushedRef.current = true; onStream?.(url); }
     if (!live) pushedRef.current = false;
   }, [onConnected, onStream]);

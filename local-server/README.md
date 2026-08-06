@@ -3,7 +3,7 @@
 Bridges an RTSP CCTV into a browser-playable HLS stream for the MSDSystem dashboard.
 
 ```
-CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/camera/index.m3u8
+CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/cam1/index.m3u8
 ```
 
 ## 1. Install
