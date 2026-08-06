@@ -21,7 +21,7 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
-import CameraServerPanel from '@/components/dashboard/CameraServerPanel';
+import MultiCameraConnect from '@/components/dashboard/MultiCameraConnect';
 
 
 
@@ -740,7 +740,7 @@ export default function Index() {
 
             <div className="h-px bg-border" />
 
-            <CameraServerPanel
+            <MultiCameraConnect
               onStream={async (url) => {
                 setIpUrl(url);
                 setIpKind('hls');
