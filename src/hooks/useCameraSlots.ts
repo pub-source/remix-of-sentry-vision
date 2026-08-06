@@ -1,0 +1,112 @@
+import { useCallback, useEffect, useState } from 'react';
+import { DEFAULT_SETTINGS, type CameraConfig, type MultiCamSettings } from '@/types/multicam';
+
+export type SlotCount = 1 | 2 | 4;
+
+/** One camera slot: the user only ever types the camera's local-server IP. */
+export interface CameraSlot {
+  index: number;          // 1-based -> cam1, cam2, cam4...
+  name: string;
+  ip: string;             // e.g. 192.168.18.93
+  aiEnabled: boolean;
+}
+
+interface SlotState {
+  count: SlotCount;
+  slots: CameraSlot[];
+}
+
+const KEY = 'msd-camera-slots-v1';
+const EVT = 'msd-camera-slots-changed';
+
+export const makeSlot = (index: number): CameraSlot => ({
+  index,
+  name: `Camera ${index}`,
+  ip: '',
+  aiEnabled: true,
+});
+
+const normalize = (state: Partial<SlotState>): SlotState => {
+  const count = ([1, 2, 4] as SlotCount[]).includes(state.count as SlotCount)
+    ? (state.count as SlotCount)
+    : 1;
+  const existing = Array.isArray(state.slots) ? state.slots : [];
+  const slots = Array.from({ length: 4 }, (_, i) => ({
+    ...makeSlot(i + 1),
+    ...(existing.find(s => s?.index === i + 1) ?? {}),
+    index: i + 1,
+  }));
+  return { count, slots };
+};
+
+const load = (): SlotState => {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return normalize(raw ? JSON.parse(raw) : {});
+  } catch {
+    return normalize({});
+  }
+};
+
+const save = (s: SlotState) => {
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* quota */ }
+};
+
+/** Per-slot local server, so cam1/cam2/cam4 each run their own gateway. */
+export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
+export const slotServerUrl = (slot: CameraSlot) =>
+  slot.ip.trim() ? `http://${slot.ip.trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, '')}:5000` : '';
+export const slotHlsHost = (slot: CameraSlot) =>
+  slot.ip.trim() ? `http://${slot.ip.trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, '')}:8888` : '';
+
+/** Independent pipeline settings for one slot (its own MediaMTX + Whisper server). */
+export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => ({
+  ...base,
+  mediamtxHost: slotHlsHost(slot) || base.mediamtxHost,
+  pythonServer: slotServerUrl(slot) || base.pythonServer,
+});
+
+export const slotCamera = (slot: CameraSlot): CameraConfig => ({
+  id: `slot-${slot.index}`,
+  path: slotPath(slot),
+  name: slot.name || `Camera ${slot.index}`,
+  location: slot.ip ? `Local server ${slot.ip}` : '',
+  rtspUrl: '',
+  enabled: !!slot.ip.trim(),
+  aiEnabled: slot.aiEnabled,
+  recording: false,
+  createdAt: new Date(0).toISOString(),
+});
+
+export function useCameraSlots() {
+  const [state, setState] = useState<SlotState>(load);
+
+  useEffect(() => {
+    const sync = () => setState(load());
+    window.addEventListener(EVT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(EVT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  const commit = useCallback((next: SlotState) => {
+    save(next);
+    setState(next);
+    window.dispatchEvent(new Event(EVT));
+  }, []);
+
+  const setCount = useCallback((count: SlotCount) => {
+    commit({ ...load(), count });
+  }, [commit]);
+
+  const updateSlot = useCallback((index: number, patch: Partial<CameraSlot>) => {
+    const cur = load();
+    commit({ ...cur, slots: cur.slots.map(s => (s.index === index ? { ...s, ...patch } : s)) });
+  }, [commit]);
+
+  const activeSlots = state.slots.slice(0, state.count);
+
+  return { count: state.count, slots: state.slots, activeSlots, setCount, updateSlot };
+}
