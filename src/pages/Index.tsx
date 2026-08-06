@@ -746,7 +746,6 @@ export default function Index() {
                 setIpKind('hls');
                 const ok = await ipCam.connect({ url, kind: 'hls' });
                 if (ok) {
-                  setShowIpDialog(false);
                   if (!running) setTimeout(() => { void handleStart(); }, 300);
                 }
               }}
