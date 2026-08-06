@@ -1,18 +1,3 @@
-"""
-MSDSystem multi-camera bridge.
-
-Runs MediaMTX + one independent FFmpeg pipeline per CCTV camera:
-
-  RTSP camera  --ffmpeg--> MediaMTX (rtsp://127.0.0.1:8554/<path>)  --> HLS :8888
-               \--ffmpeg--> 5s WAV chunks --> Whisper --> audio distress events
-
-Audio ALWAYS comes from the camera's own RTSP audio track. The laptop
-microphone is never used.
-
-Run:
-    pip install fastapi uvicorn faster-whisper
-    python camera_server.py
-"""
 
 from __future__ import annotations
 
@@ -42,10 +27,17 @@ RTSP_PORT = int(os.environ.get("MSD_RTSP_PORT", 8554))
 MAX_CAMERAS = 16
 AUDIO_CHUNK_SECONDS = 5
 WHISPER_MODEL = os.environ.get("MSD_WHISPER_MODEL", "base")
-FFMPEG_EXE = os.environ.get("FFMPEG_EXE", "ffmpeg")
-FFPROBE_EXE = os.environ.get("FFPROBE_EXE", "ffprobe")
-MEDIAMTX_EXE = os.environ.get("MEDIAMTX_EXE", "mediamtx")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+FFMPEG_EXE = os.environ.get(
+    "FFMPEG_EXE",
+    os.path.join(BASE_DIR, "ffmpeg.exe")
+)
+FFPROBE_EXE = os.environ.get("FFPROBE_EXE", "ffprobe")
+MEDIAMTX_EXE = os.environ.get(
+    "MEDIAMTX_EXE",
+    os.path.join(BASE_DIR, "mediamtx.exe")
+)
 DISTRESS_KEYWORDS = {
     "help": 0.95, "help me": 0.98, "fire": 0.97, "emergency": 0.95,
     "call 911": 0.98, "someone help": 0.97, "i fell": 0.93, "i can't breathe": 0.98,
@@ -141,8 +133,9 @@ class Camera:
             for raw in iter(proc.stderr.readline, b""):
                 line = raw.decode("utf-8", errors="replace").strip()
                 if line:
+                    print(f"[FFmpeg] {line}", flush=True)
                     with self.lock:
-                        self.stderr_lines = (self.stderr_lines + [line])[-8:]
+                        self.stderr_lines = (self.stderr_lines + [line])[-50:]
         except Exception:
             pass
 
@@ -154,22 +147,53 @@ class Camera:
     def start_video(self):
         if self.video_proc and self.video_proc.poll() is None:
             return
+
         target = f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}"
+
         cmd = [
-            FFMPEG_EXE, "-nostdin", "-hide_banner", "-loglevel", "warning",
-            "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
-            "-fflags", "+genpts+discardcorrupt", "-use_wallclock_as_timestamps", "1",
+            FFMPEG_EXE,
+            "-nostdin",
+            "-hide_banner",
+            "-loglevel", "warning",
+            "-rtsp_transport", "tcp",
             "-i", self.rtsp,
-            "-map", "0:v:0", "-map", "0:a:0?",
-            "-c:v", "copy", "-c:a", "aac", "-ar", "16000", "-ac", "1",
-            "-f", "rtsp", "-rtsp_transport", "tcp", "-muxdelay", "0.1", target,
+            "-map", "0:v:0",
+            "-map", "0:a:0?",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-ar", "16000",
+            "-ac", "1",
+            "-f", "rtsp",
+            f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}",
         ]
+
+        print("\n========== FFMPEG COMMAND ==========")
+        print(" ".join(cmd))
+        print("===================================\n")
+
         with self.lock:
             self.stderr_lines = []
+
         self.error = None
         self.started_at = time.time()
-        self.video_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        threading.Thread(target=self._capture_video_errors, args=(self.video_proc,), daemon=True).start()
+
+        self.video_proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+
+        def _wait_ffmpeg():
+            code = self.video_proc.wait()
+            print(f"FFmpeg exited with code {code}", flush=True)
+
+        threading.Thread(target=_wait_ffmpeg, daemon=True).start()
+
+        threading.Thread(
+            target=self._capture_video_errors,
+            args=(self.video_proc,),
+            daemon=True,
+        ).start()
 
     # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
     def _audio_loop(self):
