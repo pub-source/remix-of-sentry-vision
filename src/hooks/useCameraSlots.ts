@@ -52,26 +52,34 @@ const save = (s: SlotState) => {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* quota */ }
 };
 
-/** Per-slot local server, so cam1/cam2/cam4 each run their own gateway. */
-export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
-export const slotServerUrl = (slot: CameraSlot) =>
-  slot.ip.trim() ? `http://${slot.ip.trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, '')}:5000` : '';
-export const slotHlsHost = (slot: CameraSlot) =>
-  slot.ip.trim() ? `http://${slot.ip.trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, '')}:8888` : '';
+const HOST_KEY = 'msd-slot-server-host';
+const cleanHost = (v: string) =>
+  v.trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, '');
 
-/** Independent pipeline settings for one slot (its own MediaMTX + Whisper server). */
-export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => ({
-  ...base,
-  mediamtxHost: slotHlsHost(slot) || base.mediamtxHost,
-  pythonServer: slotServerUrl(slot) || base.pythonServer,
-});
+export const loadServerHost = () => localStorage.getItem(HOST_KEY) || '127.0.0.1';
+export const saveServerHost = (v: string) => localStorage.setItem(HOST_KEY, cleanHost(v) || '127.0.0.1');
+export const serverUrlFor = (host: string) => `http://${cleanHost(host) || '127.0.0.1'}:5000`;
+export const hlsHostFor = (host: string) => `http://${cleanHost(host) || '127.0.0.1'}:8888`;
+
+/** Each slot publishes its own MediaMTX section: cam1, cam2, cam4. */
+export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
+
+/** RTSP derived from the camera IP the user typed. */
+export const slotRtsp = (slot: CameraSlot) =>
+  cleanHost(slot.ip) ? `rtsp://${cleanHost(slot.ip)}:554/live/ch00_1` : '';
+
+/** Independent pipeline settings for one slot (its own section + audio events). */
+export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => {
+  const host = loadServerHost();
+  return { ...base, mediamtxHost: hlsHostFor(host), pythonServer: serverUrlFor(host) };
+};
 
 export const slotCamera = (slot: CameraSlot): CameraConfig => ({
   id: `slot-${slot.index}`,
   path: slotPath(slot),
   name: slot.name || `Camera ${slot.index}`,
-  location: slot.ip ? `Local server ${slot.ip}` : '',
-  rtspUrl: '',
+  location: slot.ip ? `Camera IP ${slot.ip}` : '',
+  rtspUrl: slotRtsp(slot),
   enabled: !!slot.ip.trim(),
   aiEnabled: slot.aiEnabled,
   recording: false,
