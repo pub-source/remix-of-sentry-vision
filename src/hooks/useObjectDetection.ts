@@ -63,6 +63,7 @@ export function useObjectDetection() {
     modelError: null,
   });
   const detectingRef = useRef(false);
+  const prevDetsRef = useRef<DetectedObject[]>([]);
 
   const loadModel = useCallback(async () => {
     if (modelRef.current || stats.modelLoading) return;
