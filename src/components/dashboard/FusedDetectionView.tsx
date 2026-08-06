@@ -107,6 +107,9 @@ export default function FusedDetectionView({
   fireBbox,
   fireFrameWidth,
   fireFrameHeight,
+  cctvAudioEnabled = false,
+  cctvAudioAvailable = false,
+  onToggleCctvAudio,
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
