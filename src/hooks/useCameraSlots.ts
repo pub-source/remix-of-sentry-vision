@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_SETTINGS, type CameraConfig, type MultiCamSettings } from '@/types/multicam';
 
-export type SlotCount = 1 | 2 | 4;
+export type SlotCount = 1 | 2 | 3 | 4;
 
 /** One camera slot: the user only ever types the camera's local-server IP. */
 export interface CameraSlot {
@@ -9,6 +9,10 @@ export interface CameraSlot {
   name: string;
   ip: string;             // e.g. 192.168.18.93
   aiEnabled: boolean;
+  /** HLS URL reported by the backend after Connect. */
+  streamUrl?: string;
+  /** True once the backend confirmed ffmpeg + HLS for this slot. */
+  connected?: boolean;
 }
 
 interface SlotState {
@@ -24,10 +28,12 @@ export const makeSlot = (index: number): CameraSlot => ({
   name: `Camera ${index}`,
   ip: '',
   aiEnabled: true,
+  streamUrl: '',
+  connected: false,
 });
 
 const normalize = (state: Partial<SlotState>): SlotState => {
-  const count = ([1, 2, 4] as SlotCount[]).includes(state.count as SlotCount)
+  const count = ([1, 2, 3, 4] as SlotCount[]).includes(state.count as SlotCount)
     ? (state.count as SlotCount)
     : 1;
   const existing = Array.isArray(state.slots) ? state.slots : [];
@@ -80,7 +86,8 @@ export const slotCamera = (slot: CameraSlot): CameraConfig => ({
   name: slot.name || `Camera ${slot.index}`,
   location: slot.ip ? `Camera IP ${slot.ip}` : '',
   rtspUrl: slotRtsp(slot),
-  enabled: !!slot.ip.trim(),
+  streamUrl: slot.streamUrl || '',
+  enabled: !!slot.ip.trim() && !!slot.connected,
   aiEnabled: slot.aiEnabled,
   recording: false,
   createdAt: new Date(0).toISOString(),

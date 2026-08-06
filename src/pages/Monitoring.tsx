@@ -18,7 +18,7 @@ export default function Monitoring() {
   const [focused, setFocused] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
 
-  const connected = useMemo(() => activeSlots.filter(s => s.ip.trim()), [activeSlots]);
+  const connected = useMemo(() => activeSlots.filter(s => s.ip.trim() && s.connected), [activeSlots]);
   const visible = focused ? connected.filter(s => `slot-${s.index}` === focused) : connected;
   const filtered = filter === 'all' ? events : events.filter(e => e.cameraId === filter);
   const alerts = filtered.filter(e => ['fire', 'smoke', 'face-distress', 'audio-distress'].includes(e.type));
@@ -40,7 +40,7 @@ export default function Monitoring() {
             {connected.length} camera{connected.length === 1 ? '' : 's'} monitoring
           </span>
           <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-            {([1, 2, 4] as SlotCount[]).map(n => (
+            {([1, 2, 3, 4] as SlotCount[]).map(n => (
               <button
                 key={n}
                 onClick={() => { setCount(n); setFocused(null); }}
