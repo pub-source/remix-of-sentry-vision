@@ -6,6 +6,7 @@ import {
   getStatus,
   startMonitoring,
   stopMonitoring,
+  resolveStreamUrl,
 } from '@/lib/cameraServer';
 import {
   useCameraSlots,
@@ -49,7 +50,9 @@ function SlotCard({
   const [message, setMessage] = useState('');
   const autoLoaded = useRef(false);
   const server = slotServerUrl(slot);
-  const hls = slotHlsHost(slot) ? `${slotHlsHost(slot)}/${slotPath(slot)}/index.m3u8` : '';
+  const defaultHls = slotHlsHost(slot) ? `${slotHlsHost(slot)}/${slotPath(slot)}/index.m3u8` : '';
+  const [streamUrl, setStreamUrl] = useState('');
+  const hls = streamUrl || defaultHls;
 
   const check = useCallback(async (silent = true) => {
     if (!server) return null;
@@ -57,6 +60,8 @@ function SlotCard({
     try {
       const s = await getStatus(server);
       setStatus(s);
+      const resolved = resolveStreamUrl(server, s);
+      if (resolved) setStreamUrl(resolved);
       if (!silent) setMessage(`Connected to ${slot.name} local server.`);
       return s;
     } catch {
@@ -91,9 +96,11 @@ function SlotCard({
     try {
       const res = await startMonitoring(server);
       if (!res.success) { setError(res.error || 'The local server could not start MediaMTX/ffmpeg.'); return; }
-      setMessage(`Streaming: ${hls}`);
+      const resolved = resolveStreamUrl(server, res);
+      if (resolved) setStreamUrl(resolved);
+      setMessage(`Streaming: ${resolved || hls}`);
       autoLoaded.current = true;
-      if (hls) onStream?.(hls);
+      if (resolved || hls) onStream?.(resolved || hls);
       await check(true);
     } catch {
       setError(connectionHint(server) || `Could not reach ${server}.`);
