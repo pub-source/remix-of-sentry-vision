@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { DetectedObject, AudioFeatures } from '@/types/dashboard';
-import { Maximize2, Minimize2, Mic, MicOff } from 'lucide-react';
+import { Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 
 interface FusedDetectionViewProps {
   sourceCanvas: HTMLCanvasElement | null;
@@ -16,6 +16,9 @@ interface FusedDetectionViewProps {
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
+  cctvAudioEnabled?: boolean;
+  cctvAudioAvailable?: boolean;
+  onToggleCctvAudio?: () => void;
 }
 
 // Distress indicators from object/audio context
