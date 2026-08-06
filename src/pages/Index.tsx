@@ -833,7 +833,7 @@ export default function Index() {
               className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
               title="Go to Household"
             >
-              <Home className="w-4 h-4" /> Home
+              <Home className="w-4 h-4" /> <span className="hidden sm:inline">Home</span>
             </button>
           )}
           <button
@@ -841,7 +841,7 @@ export default function Index() {
             className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
             title="Multi-camera monitoring"
           >
-            <Wifi className="w-4 h-4" /> Cameras
+            <Wifi className="w-4 h-4" /> <span className="hidden sm:inline">Cameras</span>
           </button>
 
         </div>
@@ -858,7 +858,7 @@ export default function Index() {
             className="flex items-center gap-1.5 text-sm font-semibold text-accent bg-accent/10 hover:bg-accent/20 px-3 py-1.5 rounded-full transition-colors"
             title="Expert Mode — how algorithms work"
           >
-            <Sparkles className="w-4 h-4" /> Expert
+            <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Expert</span>
           </button>
 
           <button
