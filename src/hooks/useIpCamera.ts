@@ -46,6 +46,7 @@ export function useIpCamera() {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); clearTimeout(rafRef.current); rafRef.current = 0; }
     setStream(prev => { prev?.getTracks().forEach(t => t.stop()); return null; });
     setConnected(false);
+    setAudioEnabledState(false);
     setError(null);
   }, []);
 
@@ -162,5 +163,5 @@ export function useIpCamera() {
     }
   }, [disconnect]);
 
-  return { connect, disconnect, stream, connected, error };
+  return { connect, disconnect, stream, connected, error, audioEnabled, setAudioEnabled };
 }
