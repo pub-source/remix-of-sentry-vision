@@ -17,10 +17,22 @@ export function useIpCamera() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
+  const [audioEnabled, setAudioEnabledState] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number>(0);
+
+  /** Unmute/mute the hidden CCTV video element so the operator can hear the camera. */
+  const setAudioEnabled = useCallback((on: boolean) => {
+    const v = videoRef.current;
+    if (v) {
+      v.muted = !on;
+      v.volume = on ? 1 : 0;
+      if (on) v.play().catch(() => {});
+    }
+    setAudioEnabledState(on);
+  }, []);
 
   const disconnect = useCallback(() => {
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
