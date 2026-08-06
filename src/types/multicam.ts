@@ -12,6 +12,8 @@ export interface CameraConfig {
   name: string;
   location: string;
   rtspUrl: string;
+  /** HLS URL returned by the backend (authoritative). */
+  streamUrl?: string;
   enabled: boolean;
   /** AI detection on/off for this camera (independent pipeline). */
   aiEnabled: boolean;
@@ -83,6 +85,8 @@ export const DEFAULT_SETTINGS: MultiCamSettings = {
 };
 
 export function hlsUrlFor(camera: CameraConfig, settings: MultiCamSettings) {
+  // Always prefer the HLS URL the backend reported for this camera.
+  if (camera.streamUrl?.trim()) return camera.streamUrl.trim();
   const host = settings.mediamtxHost.trim().replace(/\/+$/, '');
   return `${host}/${camera.path.replace(/^\/+|\/+$/g, '')}/index.m3u8`;
 }
