@@ -7,6 +7,44 @@ import type { DetectedObject } from '@/types/dashboard';
 
 const MIN_CONFIDENCE = 0.2;
 
+type Box = [number, number, number, number];
+
+function iou(a: Box, b: Box) {
+  const x1 = Math.max(a[0], b[0]);
+  const y1 = Math.max(a[1], b[1]);
+  const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
+  const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
+  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  if (inter <= 0) return 0;
+  return inter / (a[2] * a[3] + b[2] * b[3] - inter);
+}
+
+/** Greedy non-maximum suppression, applied per class, plus cross-class
+ *  suppression of heavily overlapping duplicates (keeps the higher score). */
+function nms(dets: DetectedObject[], sameClassIou = 0.4, crossClassIou = 0.85): DetectedObject[] {
+  const sorted = [...dets].sort((a, b) => b.confidence - a.confidence);
+  const kept: DetectedObject[] = [];
+  for (const d of sorted) {
+    const dup = kept.some(k =>
+      iou(k.bbox, d.bbox) > (k.label === d.label ? sameClassIou : crossClassIou)
+    );
+    if (!dup) kept.push(d);
+  }
+  return kept;
+}
+
+/** Drop degenerate/implausible boxes (slivers, full-frame blobs). */
+function isPlausible(d: DetectedObject, w: number, h: number) {
+  const [, , bw, bh] = d.bbox;
+  if (bw < 8 || bh < 8) return false;
+  const area = (bw * bh) / (w * h || 1);
+  if (area > 0.97) return false;
+  const ratio = bw / bh;
+  if (ratio > 12 || ratio < 1 / 12) return false;
+  return true;
+}
+
+
 interface DetectionStats {
   totalDetected: number;
   filteredPriority: number;
@@ -25,6 +63,7 @@ export function useObjectDetection() {
     modelError: null,
   });
   const detectingRef = useRef(false);
+  const prevDetsRef = useRef<DetectedObject[]>([]);
 
   const loadModel = useCallback(async () => {
     if (modelRef.current || stats.modelLoading) return;
@@ -55,30 +94,49 @@ export function useObjectDetection() {
 
     detectingRef.current = true;
     try {
-      const predictions = await model.detect(source, 80, minConfidence);
+      const predictions = await model.detect(source, 40, Math.max(0.05, minConfidence * 0.6));
       const totalDetected = predictions.length;
 
-      console.log('[ObjectDetection] Detected class names:', predictions.map(p => p.class));
+      const w = 'videoWidth' in source ? source.videoWidth : source.width;
+      const h = 'videoHeight' in source ? source.videoHeight : source.height;
 
-      // Filter to only priority objects with sufficient confidence (empty array = all)
-      const filtered = predictions.filter(p =>
-        p.score >= minConfidence &&
-        (priorityObjects.length === 0 || priorityObjects.includes(p.class))
-      );
+      // 1. Confidence + priority-class filter
+      let dets: DetectedObject[] = predictions
+        .filter(p =>
+          p.score >= minConfidence &&
+          (priorityObjects.length === 0 || priorityObjects.includes(p.class))
+        )
+        .map(p => ({
+          label: p.class,
+          confidence: p.score,
+          bbox: [p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]] as [number, number, number, number],
+        }));
 
-      console.log('[ObjectDetection] Filtered priority objects:', filtered.map(p => `${p.class}(${(p.score * 100).toFixed(0)}%)`));
+      // 2. Geometry sanity + non-maximum suppression (removes duplicate/nested boxes)
+      dets = nms(dets.filter(d => isPlausible(d, w, h)));
 
-      setStats(prev => ({
-        ...prev,
+      // 3. Temporal gating + box smoothing: a box must either be confident or
+      //    have been seen in the previous frame, and its position is smoothed
+      //    with an EMA so the overlay does not jitter.
+      const prev = prevDetsRef.current;
+      const stable: DetectedObject[] = [];
+      for (const d of dets) {
+        const match = prev.find(p => p.label === d.label && iou(p.bbox, d.bbox) > 0.3);
+        if (!match && d.confidence < 0.55) continue; // unconfirmed, low-confidence → skip
+        const bbox: Box = match
+          ? (d.bbox.map((v, i) => match.bbox[i] * 0.45 + v * 0.55) as Box)
+          : d.bbox;
+        stable.push({ ...d, bbox });
+      }
+      prevDetsRef.current = dets;
+
+      setStats(prev2 => ({
+        ...prev2,
         totalDetected,
-        filteredPriority: filtered.length,
+        filteredPriority: stable.length,
       }));
 
-      return filtered.map(p => ({
-        label: p.class,
-        confidence: p.score,
-        bbox: [p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]] as [number, number, number, number],
-      }));
+      return stable;
     } catch (err) {
       console.error('[ObjectDetection] Detection error:', err);
       return [];

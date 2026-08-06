@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { DetectedObject, AudioFeatures } from '@/types/dashboard';
-import { Maximize2, Minimize2, Mic, MicOff } from 'lucide-react';
+import { Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 
 interface FusedDetectionViewProps {
   sourceCanvas: HTMLCanvasElement | null;
@@ -16,6 +16,9 @@ interface FusedDetectionViewProps {
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
+  cctvAudioEnabled?: boolean;
+  cctvAudioAvailable?: boolean;
+  onToggleCctvAudio?: () => void;
 }
 
 // Distress indicators from object/audio context
@@ -104,6 +107,9 @@ export default function FusedDetectionView({
   fireBbox,
   fireFrameWidth,
   fireFrameHeight,
+  cctvAudioEnabled = false,
+  cctvAudioAvailable = false,
+  onToggleCctvAudio,
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -335,6 +341,28 @@ export default function FusedDetectionView({
         title={isFullscreen ? 'Exit fullscreen' : 'Fit to screen'}
       >
         {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-primary" /> : <Maximize2 className="w-3.5 h-3.5 text-primary" />}
+      </button>
+
+      {/* CCTV speaker toggle — hear the camera's own audio */}
+      <button
+        onClick={() => onToggleCctvAudio?.()}
+        disabled={!cctvAudioAvailable}
+        className={`absolute bottom-2 right-[4.5rem] z-20 p-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+          cctvAudioEnabled
+            ? 'bg-primary/20 border-primary/60'
+            : 'bg-background/70 border-border hover:border-primary/50'
+        }`}
+        title={
+          !cctvAudioAvailable
+            ? 'Connect a CCTV stream to hear its audio'
+            : cctvAudioEnabled ? 'CCTV speaker ON — click to mute' : 'CCTV speaker OFF — click to listen'
+        }
+        aria-label="Toggle CCTV speaker"
+        aria-pressed={cctvAudioEnabled}
+      >
+        {cctvAudioEnabled
+          ? <Volume2 className="w-3.5 h-3.5 text-primary animate-pulse" />
+          : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
       </button>
 
       {/* Mic indicator (always visible, always on when system running) */}

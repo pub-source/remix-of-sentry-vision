@@ -154,7 +154,7 @@ export default function Index() {
   const [heatmapOpacity, setHeatmapOpacity] = useState(50);
   const [simulationMode, setSimulationMode] = useState(false);
   const [priorityObjects, setPriorityObjects] = useState<string[]>(DEFAULT_PRIORITY_OBJECTS);
-  const [minConfidence, setMinConfidence] = useState(20); // percentage 0-100
+  const [minConfidence, setMinConfidence] = useState(45); // percentage 0-100
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [errors] = useState<string[]>([]);
   const [attentionScore, setAttentionScore] = useState(0);
@@ -804,7 +804,7 @@ export default function Index() {
         </div>
       )}
       {/* Header */}
-      <header id="tour-header" className="border-b border-border bg-card/60 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
+      <header id="tour-header" className="border-b border-border bg-card/60 backdrop-blur-sm px-2 sm:px-4 py-2 sm:py-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         {/* Left: Brand — clickable, goes to landing */}
         <button
           onClick={() => navigate('/')}
@@ -833,7 +833,7 @@ export default function Index() {
               className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
               title="Go to Household"
             >
-              <Home className="w-4 h-4" /> Home
+              <Home className="w-4 h-4" /> <span className="hidden sm:inline">Home</span>
             </button>
           )}
           <button
@@ -841,7 +841,7 @@ export default function Index() {
             className="flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-colors"
             title="Multi-camera monitoring"
           >
-            <Wifi className="w-4 h-4" /> Cameras
+            <Wifi className="w-4 h-4" /> <span className="hidden sm:inline">Cameras</span>
           </button>
 
         </div>
@@ -858,7 +858,7 @@ export default function Index() {
             className="flex items-center gap-1.5 text-sm font-semibold text-accent bg-accent/10 hover:bg-accent/20 px-3 py-1.5 rounded-full transition-colors"
             title="Expert Mode — how algorithms work"
           >
-            <Sparkles className="w-4 h-4" /> Expert
+            <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Expert</span>
           </button>
 
           <button
@@ -919,9 +919,9 @@ export default function Index() {
 
 
       {/* Main content */}
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-49px)]">
+      <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-57px)] min-h-[calc(100vh-57px)]">
         {/* Left: Specialized camera grid + fusion */}
-         <div className="flex-1 p-2 flex flex-col gap-2 overflow-y-auto">
+         <div className="flex-1 min-w-0 p-2 flex flex-col gap-2 lg:overflow-y-auto">
           {/* Live camera view */}
           <div id="tour-cams">
             {/* CAM 1 kept hidden as the detection source pipeline */}
@@ -960,6 +960,9 @@ export default function Index() {
               fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
               fireFrameWidth={fireStatus.frameWidth}
               fireFrameHeight={fireStatus.frameHeight}
+              cctvAudioEnabled={ipCam.audioEnabled}
+              cctvAudioAvailable={ipCam.connected}
+              onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
             />
           </div>
 
@@ -1269,7 +1272,7 @@ export default function Index() {
         {/* Right sidebar — drawer on mobile, fixed panel on lg+ */}
         <div
           id="tour-sidebar"
-          className={`${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 fixed lg:static right-0 top-0 lg:top-auto z-50 lg:z-auto h-full lg:h-auto w-72 max-w-[90vw] border-l border-border p-2 space-y-2 overflow-y-auto bg-card lg:bg-transparent transition-transform duration-200 ease-out`}
+          className={`${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 fixed lg:static right-0 top-0 lg:top-auto z-50 lg:z-auto h-full lg:h-auto w-72 lg:w-72 xl:w-80 lg:shrink-0 max-w-[90vw] border-l border-border p-2 space-y-2 overflow-y-auto bg-card lg:bg-transparent transition-transform duration-200 ease-out`}
         >
           <button
             onClick={() => setSidebarOpen(false)}
