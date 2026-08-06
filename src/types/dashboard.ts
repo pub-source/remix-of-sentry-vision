@@ -72,6 +72,18 @@ export const DETECTABLE_OBJECTS = [
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush',
 ] as const;
 
+// Indoor-only subset — the object picker is narrowed to things that actually
+// appear inside a home (no vehicles, animals, sports or outdoor street items).
+export const INDOOR_OBJECTS = [
+  'person',
+  'chair', 'couch', 'bed', 'dining table', 'potted plant', 'toilet', 'sink',
+  'tv', 'laptop', 'cell phone', 'remote', 'keyboard', 'mouse',
+  'bottle', 'cup', 'wine glass', 'fork', 'knife', 'spoon', 'bowl',
+  'microwave', 'oven', 'toaster', 'refrigerator',
+  'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush',
+  'backpack', 'handbag', 'umbrella', 'suitcase',
+] as const;
+
 export const DEFAULT_PRIORITY_OBJECTS = [
   'person',
   'chair',
