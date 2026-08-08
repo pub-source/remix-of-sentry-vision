@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Accessibility, Contrast, Minus, Plus, RotateCcw, X } from 'lucide-react';
+import { Accessibility, Contrast, Minus, Plus, RotateCcw, Volume2, X } from 'lucide-react';
 import { DEFAULT_SCALE, MAX_SCALE, MIN_SCALE, useAccessibility } from '@/hooks/useAccessibility';
+import { speak } from '@/lib/speech';
 
 export default function AccessibilityPanel() {
   const [open, setOpen] = useState(false);
-  const { fontScale, setFontScale, highContrast, setHighContrast, reset } = useAccessibility();
+  const { fontScale, setFontScale, highContrast, setHighContrast, voiceGuide, setVoiceGuide, reset } =
+    useAccessibility();
 
   return (
     <>
