@@ -577,8 +577,8 @@ export default function HouseholdPage() {
             selector: '#hh-tour-header',
             placement: 'bottom',
             title: 'Household Setup',
-            body: 'Hi, I am Elmer. A household lets multiple people share the same monitoring, alerts, and wake words. Let me show you how to set one up.',
-            narration: 'Hi, I am Elmer. This is the household setup page. Let me walk you through it.',
+            body: 'Hi, I am MSDS. A household lets multiple people share the same monitoring, alerts, and wake words. Let me show you how to set one up.',
+            narration: 'Hi, I am MSDS. This is the household setup page. Let me walk you through it.',
           },
           {
             selector: '#hh-tour-mode',
@@ -599,8 +599,8 @@ export default function HouseholdPage() {
             selector: '#hh-tour-header',
             placement: 'bottom',
             title: 'Household Dashboard',
-            body: 'Hi, I am Elmer. This is where you manage your household: invite people, review members, and configure the phrases that trigger alerts.',
-            narration: 'Hi, I am Elmer. This is your household management page.',
+            body: 'Hi, I am MSDS. This is where you manage your household: invite people, review members, and configure the phrases that trigger alerts.',
+            narration: 'Hi, I am MSDS. This is your household management page.',
           },
           {
             selector: '#hh-tour-invite',

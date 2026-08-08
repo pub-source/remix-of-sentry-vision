@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Accessibility, Contrast, Minus, Plus, RotateCcw, X } from 'lucide-react';
+import { Accessibility, Contrast, Minus, Plus, RotateCcw, Volume2, X } from 'lucide-react';
 import { DEFAULT_SCALE, MAX_SCALE, MIN_SCALE, useAccessibility } from '@/hooks/useAccessibility';
+import { speak } from '@/lib/speech';
 
 export default function AccessibilityPanel() {
   const [open, setOpen] = useState(false);
-  const { fontScale, setFontScale, highContrast, setHighContrast, reset } = useAccessibility();
+  const { fontScale, setFontScale, highContrast, setHighContrast, voiceGuide, setVoiceGuide, reset } =
+    useAccessibility();
 
   return (
     <>
@@ -115,6 +117,38 @@ export default function AccessibilityPanel() {
               <p className="text-base text-muted-foreground font-semibold">
                 Boosts contrast on buttons, alerts and the camera bounding-box overlays.
               </p>
+            </div>
+
+            {/* Talking accessibility — screen-reader style voice for blind users */}
+            <div className="space-y-2 border-t-2 border-border pt-4">
+              <button
+                onClick={() => setVoiceGuide(!voiceGuide)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  voiceGuide
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background border-border hover:border-primary'
+                }`}
+                aria-pressed={voiceGuide}
+              >
+                <span className="flex items-center gap-2 text-lg font-bold">
+                  <Volume2 className="w-5 h-5" /> Talking mode (for blind users)
+                </span>
+                <span className="text-base font-bold">{voiceGuide ? 'ON' : 'OFF'}</span>
+              </button>
+              <p className="text-base text-muted-foreground font-semibold">
+                MSDS reads every button, slider and alert out loud as you move with Tab or the mouse.
+                Press Escape any time to stop the voice.
+              </p>
+              <button
+                onClick={() =>
+                  speak(
+                    'This is the MSDS voice. I will read the screen out loud so you can use the system without seeing it.',
+                  )
+                }
+                className="text-base font-semibold text-primary flex items-center gap-1.5 hover:underline"
+              >
+                <Volume2 className="w-4 h-4" /> Hear the voice
+              </button>
             </div>
           </div>
         </div>

@@ -18,6 +18,10 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
+import { announce } from '@/lib/voiceGuide';
+import { useCctvSpeech } from '@/hooks/useCctvSpeech';
+import { useCctvTalk } from '@/hooks/useCctvTalk';
+import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
@@ -196,6 +200,16 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
 
+  // Audio in/out always goes through the CCTV, never the laptop mic:
+  //  - listening: Whisper transcripts of the camera's RTSP audio
+  //  - talking:   push-to-talk from the laptop mic out of the camera speaker
+  const cctvServer = serverUrlFor(loadServerHost());
+  const cctvSpeech = useCctvSpeech(cctvServer, 'cam1', running && ipCam.connected);
+  const cctvTalk = useCctvTalk(cctvServer, 'cam1');
+  const listenTranscript = ipCam.connected ? cctvSpeech.transcript : transcript;
+  const listenInterim = ipCam.connected ? '' : interimTranscript;
+  const listening = ipCam.connected ? cctvSpeech.listening : speechListening;
+
   // Test video upload — feeds an uploaded video file into a slot as a MediaStream
   const testVideoRef = useRef<HTMLVideoElement | null>(null);
   const [testVideoName, setTestVideoName] = useState<string>('');
@@ -303,6 +317,9 @@ export default function Index() {
       cameraId,
       snapshotId,
     }, ...prev].slice(0, 200));
+    // Talking accessibility: read important events out loud for blind users.
+    if (severity === 'critical' || severity === 'high') announce(`Alert. ${message}`, true);
+    else announce(message);
   }, []);
 
   const lastMatchedPhraseRef = useRef<string>('');
@@ -311,7 +328,7 @@ export default function Index() {
   // Low-latency wake word detection — checks both transcript and interim
   useEffect(() => {
     if (!running) return;
-    const combinedText = `${transcript} ${interimTranscript}`.trim();
+    const combinedText = `${listenTranscript} ${listenInterim}`.trim();
     if (!combinedText) return;
     
     const match = checkForWakeWord(combinedText);
@@ -327,7 +344,7 @@ export default function Index() {
         logAlert('emergency_trigger', `Emergency phrase triggered: "${match.phrase}"`);
       }
     }
-  }, [transcript, interimTranscript, running, checkForWakeWord, addAlert, logAlert, logNotification]);
+  }, [listenTranscript, listenInterim, running, checkForWakeWord, addAlert, logAlert, logNotification]);
 
   const handleStart = useCallback(async () => {
     const detected = await enumerateDevices();
@@ -355,7 +372,9 @@ export default function Index() {
       await startPendingTestVideo();
     }
     loadModel(); // Start loading COCO-SSD model
-    if (speechSupported) startSpeech();
+    // Wake words come from the CCTV's own audio when a camera stream is live;
+    // the laptop microphone is only a fallback when no CCTV is connected.
+    if (speechSupported && !ipCam.connected) startSpeech();
     await startAudio().catch((err) => {
       console.warn('[handleStart] Audio failed to start:', err);
     });
@@ -953,10 +972,14 @@ export default function Index() {
               attentionScore={attentionScore}
               saliencyScore={globalSaliencyScore}
               active={running}
-              transcript={transcript}
-              interimTranscript={interimTranscript}
-              speechListening={speechListening}
+              transcript={listenTranscript}
+              interimTranscript={listenInterim}
+              speechListening={listening}
               onToggleSpeech={() => {}}
+              talking={cctvTalk.talking}
+              talkError={cctvTalk.error}
+              onTalkStart={cctvTalk.startTalk}
+              onTalkStop={cctvTalk.stopTalk}
               fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
               fireFrameWidth={fireStatus.frameWidth}
               fireFrameHeight={fireStatus.frameHeight}

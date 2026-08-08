@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -435,6 +435,48 @@ def audio_events(camera_id: str, since: Optional[str] = None):
     if since:
         events = [e for e in events if e["timestamp"] > since]
     return {"events": events}
+
+
+@app.post("/cameras/{camera_id}/talk")
+async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
+    """Push-to-talk: send laptop microphone audio out of the CCTV speaker.
+
+    The clip is transcoded to the codec ONVIF back-channel cameras expect
+    (G.711 mu-law, 8 kHz mono) and pushed to the camera's RTSP audio path.
+    """
+    cam = CAMERAS.get(camera_id)
+    if not cam:
+        return {"success": False, "error": "camera not connected"}
+    if not which(FFMPEG_EXE):
+        return {"success": False, "error": "ffmpeg not installed"}
+    data = await audio.read()
+    if not data:
+        return {"success": False, "error": "empty audio"}
+
+    tmp = os.path.join(tempfile.gettempdir(), f"msds_talk_{camera_id}.webm")
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+
+    # Most V380 / ONVIF cameras expose the back-channel on the same RTSP url.
+    target = cam.rtsp
+    try:
+        out = subprocess.run(
+            [FFMPEG_EXE, "-hide_banner", "-loglevel", "error", "-re", "-i", tmp,
+             "-vn", "-acodec", "pcm_mulaw", "-ar", "8000", "-ac", "1",
+             "-f", "rtsp", "-rtsp_transport", "tcp", target],
+            capture_output=True, text=True, timeout=30,
+        )
+        if out.returncode != 0:
+            return {"success": False,
+                    "error": (out.stderr.strip()[:300] or "camera rejected the audio back-channel")}
+        return {"success": True}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "timed out sending audio to the camera"}
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 @app.post("/test-connection")
