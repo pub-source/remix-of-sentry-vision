@@ -34,8 +34,8 @@ function labelOf(el: Element): string {
   if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
     const labelEl = node.id ? document.querySelector(`label[for="${CSS.escape(node.id)}"]`) : null;
     const base = labelEl?.textContent?.trim() || node.placeholder || node.name || 'input';
-    if (node.type === 'range') return `${base}, slider, value ${node.value}`;
-    if (node.type === 'checkbox') return `${base}, ${node.checked ? 'checked' : 'not checked'}`;
+    if (node instanceof HTMLInputElement && node.type === 'range') return `${base}, slider, value ${node.value}`;
+    if (node instanceof HTMLInputElement && node.type === 'checkbox') return `${base}, ${node.checked ? 'checked' : 'not checked'}`;
     return `${base}, ${node.value ? `contains ${node.value}` : 'empty'}`;
   }
   const img = node.querySelector('img[alt]');
