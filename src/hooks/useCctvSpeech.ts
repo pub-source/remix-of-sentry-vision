@@ -19,8 +19,9 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
 
     const tick = async () => {
       try {
-        const events = await getAudioEvents(server, cameraId, sinceRef.current);
-        if (cancelled || !events?.length) return;
+        const res = await getAudioEvents(server, cameraId, sinceRef.current);
+        const events = res?.events ?? [];
+        if (cancelled || !events.length) return;
         sinceRef.current = events[events.length - 1].timestamp;
         const text = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
         if (text) setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
