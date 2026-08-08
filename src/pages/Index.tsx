@@ -18,6 +18,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/hooks/useAuth';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
+import { announce } from '@/lib/voiceGuide';
 import { useCctvSpeech } from '@/hooks/useCctvSpeech';
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
@@ -316,6 +317,9 @@ export default function Index() {
       cameraId,
       snapshotId,
     }, ...prev].slice(0, 200));
+    // Talking accessibility: read important events out loud for blind users.
+    if (severity === 'critical' || severity === 'high') announce(`Alert. ${message}`, true);
+    else announce(message);
   }, []);
 
   const lastMatchedPhraseRef = useRef<string>('');
