@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { speak, stopSpeaking } from '@/lib/speech';
 
 export interface TutorialStep {
   /** CSS selector resolved at step activation */
@@ -28,22 +29,6 @@ function resolveTarget(step: TutorialStep): Element | null {
     return child ?? root;
   }
   return root;
-}
-
-function speak(text: string) {
-  try {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.02;
-    u.pitch = 1.05;
-    u.volume = 0.9;
-    // Prefer an English voice if present
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /en(-|_)?(US|GB)/i.test(v.lang)) || voices.find(v => v.lang.startsWith('en'));
-    if (preferred) u.voice = preferred;
-    window.speechSynthesis.speak(u);
-  } catch { /* noop */ }
 }
 
 export default function TutorialOverlay({ steps, open, onClose, onFinish }: Props) {
@@ -84,7 +69,7 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
     if (!open || !step || muted) return;
     const text = step.narration || `${step.title}. ${step.body}`;
     speak(text);
-    return () => { try { window.speechSynthesis?.cancel(); } catch { /* noop */ } };
+    return () => { stopSpeaking(); };
   }, [open, step, muted]);
 
   const cardStyle = useMemo<React.CSSProperties>(() => {
@@ -111,7 +96,7 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
   if (!open || !step) return null;
 
   const finish = () => {
-    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+    stopSpeaking();
     onFinish?.();
     onClose();
   };
@@ -168,14 +153,14 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
           {/* AI avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">E</span>
+              <span className="text-sm font-bold text-primary-foreground">M</span>
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success ring-2 ring-card animate-pulse" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[9px] font-mono uppercase tracking-wider text-primary">Elmer</span>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-primary">MSDS</span>
                 <span className="text-muted-foreground/40">·</span>
                 <h4 className="text-xs font-semibold text-foreground tracking-tight truncate">{step.title}</h4>
               </div>
