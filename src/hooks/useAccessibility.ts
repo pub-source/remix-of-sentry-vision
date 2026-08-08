@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { setVoiceGuide } from '@/lib/voiceGuide';
 
 const FONT_KEY = 'safewatch-font-scale';
 const HC_KEY = 'safewatch-high-contrast';
+const VOICE_KEY = 'safewatch-voice-guide';
 
 export const MIN_SCALE = 85;
 export const MAX_SCALE = 160;
