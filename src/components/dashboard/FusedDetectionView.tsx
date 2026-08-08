@@ -19,6 +19,11 @@ interface FusedDetectionViewProps {
   cctvAudioEnabled?: boolean;
   cctvAudioAvailable?: boolean;
   onToggleCctvAudio?: () => void;
+  /** Push-to-talk out of the CCTV speaker. */
+  talking?: boolean;
+  talkError?: string | null;
+  onTalkStart?: () => void;
+  onTalkStop?: () => void;
 }
 
 // Distress indicators from object/audio context
@@ -110,6 +115,10 @@ export default function FusedDetectionView({
   cctvAudioEnabled = false,
   cctvAudioAvailable = false,
   onToggleCctvAudio,
+  talking = false,
+  talkError,
+  onTalkStart,
+  onTalkStop,
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -329,7 +338,7 @@ export default function FusedDetectionView({
         )}
         {!transcript && !interimTranscript && speechListening && active && (
           <div className="bg-background/60 rounded px-2 py-1 border border-border/50">
-            <span className="text-[9px] font-mono text-muted-foreground">Listening for wake words...</span>
+            <span className="text-[9px] font-mono text-muted-foreground">Listening to the CCTV for wake words...</span>
           </div>
         )}
       </div>
@@ -365,21 +374,38 @@ export default function FusedDetectionView({
           : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
       </button>
 
-      {/* Mic indicator (always visible, always on when system running) */}
-      <div
+      {/* Push-to-talk — speak out of the CCTV speaker */}
+      <button
+        onMouseDown={() => onTalkStart?.()}
+        onMouseUp={() => onTalkStop?.()}
+        onMouseLeave={() => talking && onTalkStop?.()}
+        onTouchStart={e => { e.preventDefault(); onTalkStart?.(); }}
+        onTouchEnd={e => { e.preventDefault(); onTalkStop?.(); }}
         className={`absolute bottom-2 right-10 z-20 p-1.5 rounded border transition-all ${
-          speechListening
-            ? 'bg-success/20 border-success/50'
-            : 'bg-destructive/20 border-destructive/50'
+          talking
+            ? 'bg-destructive/30 border-destructive'
+            : speechListening
+              ? 'bg-success/20 border-success/50'
+              : 'bg-background/70 border-border hover:border-primary/50'
         }`}
-        title={speechListening ? 'Microphone active — listening for wake words' : 'Microphone off'}
+        title={
+          talkError
+            ? `Talk failed: ${talkError}`
+            : talking
+              ? 'Release to send your voice to the CCTV speaker'
+              : 'Hold to talk — your voice plays out of the CCTV speaker'
+        }
+        aria-label="Hold to talk through the CCTV speaker"
+        aria-pressed={talking}
       >
-        {speechListening ? (
-          <Mic className="w-3.5 h-3.5 text-success animate-pulse" />
+        {talking ? (
+          <Mic className="w-3.5 h-3.5 text-destructive animate-pulse" />
+        ) : speechListening ? (
+          <Mic className="w-3.5 h-3.5 text-success" />
         ) : (
-          <MicOff className="w-3.5 h-3.5 text-destructive" />
+          <MicOff className="w-3.5 h-3.5 text-muted-foreground" />
         )}
-      </div>
+      </button>
 
       {/* Status badges */}
       <div className="absolute bottom-2 left-1 z-10 flex gap-1">
