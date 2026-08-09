@@ -22,6 +22,8 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
 import { announce } from '@/lib/voiceGuide';
 import { useCctvSpeech } from '@/hooks/useCctvSpeech';
+import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
+
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
 
