@@ -556,11 +556,13 @@ async def test_connection(request: Request):
     rtsp = body.get("rtsp", "")
     if not rtsp:
         return {"success": False, "error": "missing rtsp url"}
-    if not which(FFPROBE_EXE):
-        return {"success": False, "error": "ffprobe not installed"}
+    ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
+    if not ffprobe:
+        return {"success": False, "error": install_hint("ffprobe", "FFPROBE_EXE")}
     try:
         out = subprocess.run(
-            [FFPROBE_EXE, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+            [ffprobe, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+
              "-show_entries", "stream=codec_name,width,height",
              "-of", "json", rtsp],
             capture_output=True, text=True, timeout=20,
