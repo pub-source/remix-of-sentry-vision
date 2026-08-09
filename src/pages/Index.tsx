@@ -8,6 +8,8 @@ import ControlsPanel from '@/components/dashboard/ControlsPanel';
 import AttentionGauge from '@/components/dashboard/AttentionGauge';
 import DetectionFeedback from '@/components/dashboard/DetectionFeedback';
 import ModelCachePanel from '@/components/dashboard/ModelCachePanel';
+import PerformanceMonitor from '@/components/dashboard/PerformanceMonitor';
+
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
 import ExpertMode from '@/components/dashboard/ExpertMode';
 
