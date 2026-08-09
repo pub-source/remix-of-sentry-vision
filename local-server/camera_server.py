@@ -588,8 +588,12 @@ def shutdown(*_args):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
+    for _bin, _var in (("ffmpeg", "FFMPEG_EXE"), ("ffprobe", "FFPROBE_EXE"), ("mediamtx", "MEDIAMTX_EXE")):
+        _p = resolve_exe(_bin, _var)
+        print(f"{_bin:9s}: {_p or 'NOT FOUND -> ' + install_hint(_bin, _var)}", flush=True)
     threading.Thread(target=watchdog, daemon=True).start()
     start_mediamtx()
+
     print(f"MSDSystem multi-camera bridge on http://0.0.0.0:{API_PORT} (HLS :{HLS_PORT})")
     print(f"Whisper available: {WHISPER.available}")
     uvicorn.run(app, host="0.0.0.0", port=API_PORT, log_level="warning")
