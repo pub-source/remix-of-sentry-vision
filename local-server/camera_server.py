@@ -396,14 +396,24 @@ def status():
     host = lan_ip()
     with CAM_LOCK:
         cams = [c.status(host) for c in CAMERAS.values()]
+    ffmpeg = resolve_exe("ffmpeg", "FFMPEG_EXE")
+    ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
+    problems = []
+    if not ffmpeg:
+        problems.append(install_hint("ffmpeg", "FFMPEG_EXE"))
+    if not ffprobe:
+        problems.append(install_hint("ffprobe", "FFPROBE_EXE"))
     return {
         "mediamtx": bool(MEDIAMTX and MEDIAMTX.poll() is None),
         "hls_port": HLS_PORT,
         "lan_ip": host,
         "whisper": WHISPER.available,
         "cameras": cams,
-        "error": None if which(FFMPEG_EXE) else "ffmpeg not found; set FFMPEG_EXE to its full path",
+        "ffmpeg_path": ffmpeg,
+        "ffprobe_path": ffprobe,
+        "error": " ".join(problems) or None,
     }
+
 
 
 @app.post("/cameras/sync")
