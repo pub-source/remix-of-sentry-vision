@@ -201,14 +201,17 @@ export default function Index() {
   const ipCam = useIpCamera();
 
   // Audio in/out always goes through the CCTV, never the laptop mic:
-  //  - listening: Whisper transcripts of the camera's RTSP audio
+  //  - listening: Whisper transcripts of the camera's RTSP audio (only while the
+  //    CCTV speaker/microphone toggle is ON)
   //  - talking:   push-to-talk from the laptop mic out of the camera speaker
   const cctvServer = serverUrlFor(loadServerHost());
-  const cctvSpeech = useCctvSpeech(cctvServer, 'cam1', running && ipCam.connected);
+  const cctvListenEnabled = running && ipCam.connected && ipCam.audioEnabled;
+  const cctvSpeech = useCctvSpeech(cctvServer, 'cam1', cctvListenEnabled);
   const cctvTalk = useCctvTalk(cctvServer, 'cam1');
   const listenTranscript = ipCam.connected ? cctvSpeech.transcript : transcript;
   const listenInterim = ipCam.connected ? '' : interimTranscript;
   const listening = ipCam.connected ? cctvSpeech.listening : speechListening;
+
 
   // Test video upload — feeds an uploaded video file into a slot as a MediaStream
   const testVideoRef = useRef<HTMLVideoElement | null>(null);
