@@ -9,6 +9,7 @@ import shutil
 import socket
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -512,6 +513,11 @@ def status():
         "hls_port": HLS_PORT,
         "lan_ip": host,
         "whisper": WHISPER.available,
+        "whisper_state": WHISPER.state,
+        "whisper_model": WHISPER_MODEL,
+        "whisper_error": WHISPER.error,
+        "python_exe": sys.executable,
+        "install_command": pip_install_command(),
         "cameras": cams,
         "ffmpeg_path": ffmpeg,
         "ffprobe_path": ffprobe,
@@ -702,5 +708,11 @@ if __name__ == "__main__":
     start_mediamtx()
 
     print(f"MSDSystem multi-camera bridge on http://0.0.0.0:{API_PORT} (HLS :{HLS_PORT})")
-    print(f"Whisper available: {WHISPER.available}")
+    print(f"python   : {sys.executable}")
+    if WHISPER.available:
+        print(f"whisper  : faster-whisper installed (model '{WHISPER_MODEL}', downloaded on first use)")
+    else:
+        print("whisper  : NOT AVAILABLE - CCTV wake-word transcription is disabled")
+        print(f"           {WHISPER.error}")
+        print("           Video/CCTV streaming keeps working without it.")
     uvicorn.run(app, host="0.0.0.0", port=API_PORT, log_level="warning")
