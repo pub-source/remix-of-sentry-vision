@@ -397,6 +397,7 @@ export default function Index() {
       console.warn('[handleStart] Audio failed to start:', err);
     });
     setCameraStatusMsg('');
+    perfMonitor.reset();
     setRunning(true);
   }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert, startPendingTestVideo]);
 
@@ -408,6 +409,7 @@ export default function Index() {
     clearSpeech();
     setAttentionScore(0);
     setGlobalSaliencyScore(0);
+    perfMonitor.reset();
   }, [stopCameras, stopAudio, stopSpeech, clearSpeech]);
 
   // Watch for camera disconnect mid-run: if no active webcam and no IP cam,
