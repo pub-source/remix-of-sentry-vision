@@ -8,6 +8,7 @@
 // Output: scores [N, 521], embeddings [N, 1024], spectrogram [N, 96, 64].
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AI_RATES, RateLimiter, perfMonitor, now as perfNow } from '@/lib/performance';
 import * as tf from '@tensorflow/tfjs';
 
 const YAMNET_URL =
@@ -97,6 +98,8 @@ export function useYamnet(enabled: boolean) {
       const proc = ctx.createScriptProcessor(4096, 1, 1);
       procRef.current = proc;
 
+      const limiter = new RateLimiter(AI_RATES.audio);
+
       proc.onaudioprocess = async (e) => {
         if (stoppedRef.current) return;
         const ch = e.inputBuffer.getChannelData(0);
@@ -108,10 +111,27 @@ export function useYamnet(enabled: boolean) {
         bufferRef.current = merged;
 
         if (bufferRef.current.length >= WINDOW_SAMPLES && !inferringRef.current) {
-          inferringRef.current = true;
           const window = bufferRef.current.slice(0, WINDOW_SAMPLES);
           // keep ~half-window overlap for responsiveness
           bufferRef.current = bufferRef.current.slice(WINDOW_SAMPLES / 2);
+
+          // Throttle to the configured audio analysis rate.
+          if (!limiter.shouldRun(perfNow())) return;
+
+          // Voice-activity gate: skip inference on near-silence so the model
+          // is not run continuously on an empty room.
+          let sumSq = 0;
+          for (let i = 0; i < window.length; i++) sumSq += window[i] * window[i];
+          const rms = Math.sqrt(sumSq / window.length);
+          if (rms < 0.004) {
+            setResult(r => (r.distressScore === 0 && r.topLabel === 'silence'
+              ? r
+              : { ...r, topLabel: 'silence', topScore: 0, distressScore: 0, ready: true }));
+            return;
+          }
+
+          inferringRef.current = true;
+          const inferStart = perfNow();
           try {
             const input = tf.tensor1d(window);
             const out = modelRef.current!.execute(input) as tf.Tensor[];
@@ -152,6 +172,7 @@ export function useYamnet(enabled: boolean) {
           } catch (err) {
             console.warn('[YAMNet] inference error', err);
           } finally {
+            perfMonitor.markAiFrame(perfNow() - inferStart);
             inferringRef.current = false;
           }
         }

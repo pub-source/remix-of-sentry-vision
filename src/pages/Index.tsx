@@ -8,6 +8,8 @@ import ControlsPanel from '@/components/dashboard/ControlsPanel';
 import AttentionGauge from '@/components/dashboard/AttentionGauge';
 import DetectionFeedback from '@/components/dashboard/DetectionFeedback';
 import ModelCachePanel from '@/components/dashboard/ModelCachePanel';
+import PerformanceMonitor from '@/components/dashboard/PerformanceMonitor';
+
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
 import ExpertMode from '@/components/dashboard/ExpertMode';
 
@@ -20,6 +22,8 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { useIpCamera } from '@/hooks/useIpCamera';
 import { announce } from '@/lib/voiceGuide';
 import { useCctvSpeech } from '@/hooks/useCctvSpeech';
+import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
+
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
 
@@ -38,11 +42,21 @@ import type { SaliencyBreakdown } from '@/lib/fireDetection';
 import type { SaliencyMode, QualityMode, Alert, DetectedObject } from '@/types/dashboard';
 import { DEFAULT_PRIORITY_OBJECTS } from '@/types/dashboard';
 
+// Repeated low-value events (speech / person present / ambient noise) get a
+// much longer cooldown so they cannot flood state and the alert log.
+// Emergency, fire and wake-word events keep the original fast cooldown.
+const LOW_VALUE_ALERTS = /^(Speech detected|Person detected|High noise level|Clap detected)$/;
+
 export default function Index() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { householdId, wakeWords, members, checkForWakeWord, logAlert, logNotification } = useHousehold(user?.id);
   const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices, startSpecificCamera } = useCamera();
+  // Always-current camera snapshot for analysis loops, so throttled timers do
+  // not have to restart every time an object list changes.
+  const camerasRef = useRef(cameras);
+  camerasRef.current = cameras;
+
   const { audioFeatures, startAudio, stopAudio } = useAudioAnalysis();
   const { loadModel, detect, stats: detectionStats } = useObjectDetection();
   const [darkMode, setDarkMode] = useState(() => {
@@ -309,8 +323,10 @@ export default function Index() {
   const addAlert = useCallback((message: string, severity: Alert['severity'], cameraId: number, snapshotId?: string) => {
     const key = `${message}-${cameraId}`;
     const now = Date.now();
-    if (alertCooldownRef.current[key] && now - alertCooldownRef.current[key] < 3000) return;
+    const cooldown = severity === 'critical' ? 3000 : LOW_VALUE_ALERTS.test(message) ? 20000 : 6000;
+    if (alertCooldownRef.current[key] && now - alertCooldownRef.current[key] < cooldown) return;
     alertCooldownRef.current[key] = now;
+
 
     setAlerts(prev => [{
       id: `${now}-${Math.random().toString(36).slice(2, 6)}`,
@@ -382,6 +398,7 @@ export default function Index() {
       console.warn('[handleStart] Audio failed to start:', err);
     });
     setCameraStatusMsg('');
+    perfMonitor.reset();
     setRunning(true);
   }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert, startPendingTestVideo]);
 
@@ -393,6 +410,7 @@ export default function Index() {
     clearSpeech();
     setAttentionScore(0);
     setGlobalSaliencyScore(0);
+    perfMonitor.reset();
   }, [stopCameras, stopAudio, stopSpeech, clearSpeech]);
 
   // Watch for camera disconnect mid-run: if no active webcam and no IP cam,
@@ -554,14 +572,21 @@ export default function Index() {
     }
   }, [ipCam.stream, ipCam.connected, ipTargetSlot, ipKind, attachStream]);
 
-  // Fire detection — runs on cam 1 source frames every ~500ms
+  // Fire detection — throttled to AI_RATES.fire on the shared source canvas.
+  // The effect deliberately does not depend on `cameras`, otherwise every
+  // object update would tear down and rebuild the timer.
   useEffect(() => {
     const target = cam2SourceCanvas || sourceCanvas;
     if (!running || !target) return;
-    const fusedObjs = cameras[1].active ? cameras[1].objects : cameras[0].objects;
     const fireCooldown = { current: 0 };
-    const interval = window.setInterval(() => {
+    let busy = false;
+    const tick = () => {
+      if (busy) { perfMonitor.markDropped(); return; }
+      busy = true;
+      const started = perfNow();
       try {
+        const cams = camerasRef.current;
+        const fusedObjs = cams[1].active ? cams[1].objects : cams[0].objects;
         const ctx = target.getContext('2d');
         if (!ctx || target.width === 0 || target.height === 0) return;
         const frame = ctx.getImageData(0, 0, target.width, target.height);
@@ -590,24 +615,33 @@ export default function Index() {
             logAlert('smoke', `Smoke emergency: coverage ${(result.smokeRatio * 100).toFixed(1)}%, visibility ${result.visibility}/100`);
           }
         }
+        perfMonitor.markAiFrame(perfNow() - started);
       } catch (err) {
         // Canvas may be tainted by cross-origin IP cam — skip silently
+      } finally {
+        busy = false;
       }
-    }, 250);
+    };
+    const interval = window.setInterval(tick, 1000 / AI_RATES.fire);
     return () => window.clearInterval(interval);
-  }, [running, sourceCanvas, cam2SourceCanvas, cameras, addAlert, logAlert]);
+  }, [running, sourceCanvas, cam2SourceCanvas, addAlert, logAlert]);
 
-  // Facial distress — runs on cam 2 source (or cam 1 fallback) every ~700ms
+  // Facial distress — throttled to AI_RATES.face; the hook already guards
+  // against overlapping inference so stale frames are simply skipped.
   useEffect(() => {
     if (!running || !faceDistress.ready) return;
     const target = cam2SourceCanvas || sourceCanvas;
     if (!target) return;
-    const lastAlertRef = { current: 0 };
+    const analyze = faceDistress.analyze;
     const interval = window.setInterval(() => {
-      faceDistress.analyze(target);
-    }, 350);
+      const started = perfNow();
+      void Promise.resolve(analyze(target)).then(() => {
+        perfMonitor.markAiFrame(perfNow() - started);
+      });
+    }, 1000 / AI_RATES.face);
     return () => window.clearInterval(interval);
-  }, [running, faceDistress.ready, faceDistress, cam2SourceCanvas, sourceCanvas]);
+  }, [running, faceDistress.ready, faceDistress.analyze, cam2SourceCanvas, sourceCanvas]);
+
 
   // Alert on facial distress (mild + severe)
   useEffect(() => {
@@ -1354,6 +1388,10 @@ export default function Index() {
             onMinConfidenceChange={setMinConfidence}
             onExportCSV={exportCSV}
           />
+
+          <PerformanceMonitor />
+
+
 
 
           {/* Auto-Snapshots */}

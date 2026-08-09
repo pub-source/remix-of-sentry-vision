@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { CameraState, SaliencyMode, DetectedObject } from '@/types/dashboard';
 import { computeSaliency, applyHeatmapColor, computeSaliencyScore } from '@/lib/saliency';
+import { RateLimiter, LatestOnlyRunner, ThrottledPublisher, perfMonitor, now as perfNow } from '@/lib/performance';
+
 
 interface DetectionStats {
   totalDetected: number;
@@ -51,10 +53,9 @@ export default function CameraFeed({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const prevFrameRef = useRef<ImageData | null>(null);
   const fpsCountRef = useRef(0);
-  const fpsTimeRef = useRef(Date.now());
+  const fpsTimeRef = useRef(perfNow());
   const animRef = useRef<number>(0);
   const detectedObjectsRef = useRef<DetectedObject[]>([]);
-  const detectionIntervalRef = useRef<number>(0);
   const [simObjects] = useState<DetectedObject[]>(() => {
     if (!simulationMode) return [];
     return [
@@ -63,6 +64,11 @@ export default function CameraFeed({
       { label: 'cup', confidence: 0.73, bbox: [320, 180, 40, 50] },
     ];
   });
+
+  // Latest callbacks/settings kept in refs so the render loop never has to be
+  // torn down and rebuilt when a parent re-renders.
+  const cbRef = useRef({ onFpsUpdate, onObjectsUpdate, onSaliencyScoreUpdate, onFrameCapture, onDetectFrame, mirror, saliencyMode, threshold });
+  cbRef.current = { onFpsUpdate, onObjectsUpdate, onSaliencyScoreUpdate, onFrameCapture, onDetectFrame, mirror, saliencyMode, threshold };
 
   // Set stream on video element
   useEffect(() => {
@@ -73,25 +79,11 @@ export default function CameraFeed({
     return () => { video.srcObject = null; };
   }, [camera.stream, camera.label]);
 
-  // Object detection loop (separate from render loop, runs every 200ms)
-  useEffect(() => {
-    if (!camera.active || simulationMode || !onDetectFrame) return;
-    const video = videoRef.current;
-    if (!video) return;
-
-    const runDetection = async () => {
-      if (video.readyState >= 2) {
-        const objects = await onDetectFrame(video);
-        detectedObjectsRef.current = objects;
-        onObjectsUpdate(camera.id, objects);
-      }
-    };
-
-    detectionIntervalRef.current = window.setInterval(runDetection, 200);
-    return () => { window.clearInterval(detectionIntervalRef.current); };
-  }, [camera.active, camera.label, simulationMode, onDetectFrame, onObjectsUpdate]);
-
-  // Main render loop — CAM 1 shows RAW feed only (no bounding boxes)
+  // Single render/analysis loop.
+  //  - display: every animation frame (smooth video)
+  //  - saliency: throttled to the saliency target rate
+  //  - object detection: throttled, latest-frame-only (no backlog)
+  //  - React updates: coalesced through throttled publishers
   useEffect(() => {
     if (!camera.active && !simulationMode) return;
 
@@ -102,33 +94,60 @@ export default function CameraFeed({
     if (!ctx) return;
 
     let running = true;
+    const cameraId = camera.id;
+
+    const saliencyLimiter = new RateLimiter(perfMonitor.rateFor('saliency'));
+    const objectLimiter = new RateLimiter(perfMonitor.rateFor('object'));
+
+    const saliencyPublisher = new ThrottledPublisher<number>(score => {
+      cbRef.current.onSaliencyScoreUpdate(cameraId, score);
+    });
+    const objectsPublisher = new ThrottledPublisher<DetectedObject[]>(objs => {
+      cbRef.current.onObjectsUpdate(cameraId, objs);
+    });
+
+    // Object detection consumes the newest frame only; if a detection is still
+    // running when the next slot comes up, the stale frame is dropped.
+    const detectRunner = new LatestOnlyRunner<HTMLVideoElement, DetectedObject[]>(
+      async src => (await cbRef.current.onDetectFrame?.(src)) ?? [],
+      (objs, latency) => {
+        detectedObjectsRef.current = objs;
+        objectsPublisher.push(objs);
+        perfMonitor.markAiFrame(latency);
+      },
+    );
+
+    let lastDropped = 0;
+    let capturedOnce = false;
 
     const render = () => {
       if (!running) return;
 
       const w = canvas.width;
       const h = canvas.height;
+      const t = perfNow();
+      const { mirror: mirrored, saliencyMode: mode, threshold: thr } = cbRef.current;
 
-      // Draw video frame or simulation
+      // --- Display: draw video frame or simulation every rAF tick ---
       if (video && video.readyState >= 2) {
         ctx.save();
-        if (mirror) {
+        if (mirrored) {
           ctx.translate(w, 0);
           ctx.scale(-1, 1);
         }
         ctx.drawImage(video, 0, 0, w, h);
         ctx.restore();
       } else if (simulationMode) {
-        const t = Date.now() / 1000;
+        const ts = t / 1000;
         const imgData = ctx.createImageData(w, h);
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             const i = (y * w + x) * 4;
             const nx = x / w;
             const ny = y / h;
-            const v1 = Math.sin(nx * 20 + t * 1.5) * Math.cos(ny * 15 + t * 0.9);
-            const v2 = Math.sin((nx + ny) * 12 + t * 2) * 0.5;
-            const v3 = Math.cos(nx * 8 - ny * 6 + t * 1.2) * 0.3;
+            const v1 = Math.sin(nx * 20 + ts * 1.5) * Math.cos(ny * 15 + ts * 0.9);
+            const v2 = Math.sin((nx + ny) * 12 + ts * 2) * 0.5;
+            const v3 = Math.cos(nx * 8 - ny * 6 + ts * 1.2) * 0.3;
             const v = (v1 + v2 + v3) * 0.5 + 0.5;
             const brightness = Math.floor(v * 220 + 20);
             imgData.data[i] = Math.floor(brightness * 0.4);
@@ -139,31 +158,51 @@ export default function CameraFeed({
         }
         ctx.putImageData(imgData, 0, 0);
       }
+      perfMonitor.markVideoFrame();
 
-      // Compute saliency score silently (no overlay on CAM 1)
-      try {
-        const frameData = ctx.getImageData(0, 0, w, h);
-        const saliencyData = computeSaliency(frameData, prevFrameRef.current, saliencyMode, threshold);
-        prevFrameRef.current = frameData;
-        const score = computeSaliencyScore(saliencyData);
-        onSaliencyScoreUpdate(camera.id, score);
-      } catch {}
-
-      // Capture frame for other panels
-      onFrameCapture?.(canvas);
-
-      // Simulation mode: still report objects for other panels
-      if (simulationMode && simObjects.length > 0) {
-        onObjectsUpdate(camera.id, simObjects);
+      // --- Saliency: throttled, shares this already-drawn canvas ---
+      saliencyLimiter.setFps(perfMonitor.rateFor('saliency'));
+      if (saliencyLimiter.shouldRun(t)) {
+        try {
+          const started = perfNow();
+          const frameData = ctx.getImageData(0, 0, w, h);
+          const saliencyData = computeSaliency(frameData, prevFrameRef.current, mode, thr);
+          prevFrameRef.current = frameData;
+          saliencyPublisher.push(computeSaliencyScore(saliencyData));
+          perfMonitor.markAiFrame(perfNow() - started);
+        } catch {}
       }
 
-      // FPS counter
+      // --- Object detection: throttled + latest-frame-only ---
+      if (!simulationMode && video && cbRef.current.onDetectFrame) {
+        objectLimiter.setFps(perfMonitor.rateFor('object'));
+        if (video.readyState >= 2 && objectLimiter.shouldRun(t)) {
+          detectRunner.submit(video);
+          if (detectRunner.dropped !== lastDropped) {
+            perfMonitor.markDropped(detectRunner.dropped - lastDropped);
+            lastDropped = detectRunner.dropped;
+          }
+        }
+      }
+
+      // Publish the shared source canvas once — the reference never changes,
+      // so re-emitting it every frame only produced wasted work.
+      if (!capturedOnce) {
+        capturedOnce = true;
+        cbRef.current.onFrameCapture?.(canvas);
+      }
+
+      // Simulation mode: still report objects for other panels (throttled)
+      if (simulationMode && simObjects.length > 0) {
+        objectsPublisher.push(simObjects);
+      }
+
+      // FPS counter — published at most once per second
       fpsCountRef.current++;
-      const now = Date.now();
-      if (now - fpsTimeRef.current >= 1000) {
-        onFpsUpdate(camera.id, fpsCountRef.current);
+      if (t - fpsTimeRef.current >= 1000) {
+        cbRef.current.onFpsUpdate(cameraId, fpsCountRef.current);
         fpsCountRef.current = 0;
-        fpsTimeRef.current = now;
+        fpsTimeRef.current = t;
       }
 
       animRef.current = requestAnimationFrame(render);
@@ -174,8 +213,13 @@ export default function CameraFeed({
     return () => {
       running = false;
       cancelAnimationFrame(animRef.current);
+      detectRunner.cancelPending();
+      saliencyPublisher.dispose();
+      objectsPublisher.dispose();
+      prevFrameRef.current = null;
     };
-  }, [camera.active, simulationMode, mirror, saliencyMode, threshold, simObjects, onFpsUpdate, onObjectsUpdate, onSaliencyScoreUpdate, onFrameCapture]);
+  }, [camera.active, camera.id, simulationMode, simObjects]);
+
 
   return (
     <div className="relative bg-card rounded-md overflow-hidden border border-border panel-glow group">
