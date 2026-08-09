@@ -562,14 +562,21 @@ export default function Index() {
     }
   }, [ipCam.stream, ipCam.connected, ipTargetSlot, ipKind, attachStream]);
 
-  // Fire detection — runs on cam 1 source frames every ~500ms
+  // Fire detection — throttled to AI_RATES.fire on the shared source canvas.
+  // The effect deliberately does not depend on `cameras`, otherwise every
+  // object update would tear down and rebuild the timer.
   useEffect(() => {
     const target = cam2SourceCanvas || sourceCanvas;
     if (!running || !target) return;
-    const fusedObjs = cameras[1].active ? cameras[1].objects : cameras[0].objects;
     const fireCooldown = { current: 0 };
-    const interval = window.setInterval(() => {
+    let busy = false;
+    const tick = () => {
+      if (busy) { perfMonitor.markDropped(); return; }
+      busy = true;
+      const started = perfNow();
       try {
+        const cams = camerasRef.current;
+        const fusedObjs = cams[1].active ? cams[1].objects : cams[0].objects;
         const ctx = target.getContext('2d');
         if (!ctx || target.width === 0 || target.height === 0) return;
         const frame = ctx.getImageData(0, 0, target.width, target.height);
@@ -598,24 +605,33 @@ export default function Index() {
             logAlert('smoke', `Smoke emergency: coverage ${(result.smokeRatio * 100).toFixed(1)}%, visibility ${result.visibility}/100`);
           }
         }
+        perfMonitor.markAiFrame(perfNow() - started);
       } catch (err) {
         // Canvas may be tainted by cross-origin IP cam — skip silently
+      } finally {
+        busy = false;
       }
-    }, 250);
+    };
+    const interval = window.setInterval(tick, 1000 / AI_RATES.fire);
     return () => window.clearInterval(interval);
-  }, [running, sourceCanvas, cam2SourceCanvas, cameras, addAlert, logAlert]);
+  }, [running, sourceCanvas, cam2SourceCanvas, addAlert, logAlert]);
 
-  // Facial distress — runs on cam 2 source (or cam 1 fallback) every ~700ms
+  // Facial distress — throttled to AI_RATES.face; the hook already guards
+  // against overlapping inference so stale frames are simply skipped.
   useEffect(() => {
     if (!running || !faceDistress.ready) return;
     const target = cam2SourceCanvas || sourceCanvas;
     if (!target) return;
-    const lastAlertRef = { current: 0 };
+    const analyze = faceDistress.analyze;
     const interval = window.setInterval(() => {
-      faceDistress.analyze(target);
-    }, 350);
+      const started = perfNow();
+      void Promise.resolve(analyze(target)).then(() => {
+        perfMonitor.markAiFrame(perfNow() - started);
+      });
+    }, 1000 / AI_RATES.face);
     return () => window.clearInterval(interval);
-  }, [running, faceDistress.ready, faceDistress, cam2SourceCanvas, sourceCanvas]);
+  }, [running, faceDistress.ready, faceDistress.analyze, cam2SourceCanvas, sourceCanvas]);
+
 
   // Alert on facial distress (mild + severe)
   useEffect(() => {
