@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getAudioEvents } from '@/lib/multiCamServer';
+import { getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
+
+export interface CctvSpeechDiagnostics {
+  polling: boolean;
+  backendReachable: boolean;
+  audioConnected: boolean;
+  chunksReceived: number;
+  lastTranscriptionAt: string | null;
+  lastTranscript: string;
+  error: string | null;
+}
 
 /**
  * Speech coming from the CCTV camera itself.
@@ -10,23 +20,58 @@ import { getAudioEvents } from '@/lib/multiCamServer';
 export function useCctvSpeech(server: string, cameraId: string, enabled: boolean) {
   const [transcript, setTranscript] = useState('');
   const [listening, setListening] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<CctvSpeechDiagnostics>({
+    polling: false, backendReachable: false, audioConnected: false,
+    chunksReceived: 0, lastTranscriptionAt: null, lastTranscript: '', error: null,
+  });
   const sinceRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!enabled) { setListening(false); return; }
+    if (!enabled) {
+      setListening(false);
+      setDiagnostics(prev => ({ ...prev, polling: false }));
+      return;
+    }
     let cancelled = false;
+    let inFlight = false;
     setListening(true);
+    setDiagnostics(prev => ({ ...prev, polling: true, error: null }));
+
+    const applyStatus = (status: CctvAudioStatus) => {
+      setDiagnostics({
+        polling: true,
+        backendReachable: true,
+        audioConnected: status.connected,
+        chunksReceived: status.chunks_received ?? 0,
+        lastTranscriptionAt: status.last_transcription_at,
+        lastTranscript: status.last_transcript ?? '',
+        error: status.error,
+      });
+    };
 
     const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await getAudioEvents(server, cameraId, sinceRef.current);
+        if (cancelled) return;
+        applyStatus(res.status);
         const events = res?.events ?? [];
-        if (cancelled || !events.length) return;
+        if (!events.length) return;
         sinceRef.current = events[events.length - 1].timestamp;
         const text = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
-        if (text) setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
-      } catch {
-        /* backend not reachable yet — keep polling */
+        if (text) {
+          console.info(`[CCTV Speech ${cameraId}]`, text);
+          setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn(`[CCTV Speech ${cameraId}] polling failed:`, message);
+          setDiagnostics(prev => ({ ...prev, polling: true, backendReachable: false, audioConnected: false, error: message }));
+        }
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -37,5 +82,5 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
 
   const clear = useCallback(() => setTranscript(''), []);
 
-  return { transcript, listening, clear };
+  return { transcript, listening, clear, diagnostics };
 }

@@ -117,12 +117,14 @@ class WhisperEngine:
     def __init__(self) -> None:
         self.model = None
         self.available = False
+        self.error: Optional[str] = None
         self.lock = threading.Lock()
         try:
             from faster_whisper import WhisperModel  # noqa: F401
             self.available = True
-        except Exception:
+        except Exception as exc:
             self.available = False
+            self.error = f"faster-whisper unavailable: {exc}. Install with: pip install faster-whisper"
 
     def load(self):
         if self.model is not None:
@@ -130,7 +132,12 @@ class WhisperEngine:
         with self.lock:
             if self.model is None:
                 from faster_whisper import WhisperModel
-                self.model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+                try:
+                    self.model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+                    self.error = None
+                except Exception as exc:
+                    self.error = f"Whisper model '{WHISPER_MODEL}' failed to load: {exc}"
+                    raise RuntimeError(self.error) from exc
         return self.model
 
     def transcribe(self, wav_path: str) -> str:
@@ -175,6 +182,14 @@ class Camera:
     lock: threading.Lock = field(default_factory=threading.Lock)
     stderr_lines: List[str] = field(default_factory=list)
     started_at: float = 0.0
+    audio_connected: bool = False
+    audio_chunks: int = 0
+    audio_bytes: int = 0
+    audio_error: Optional[str] = None
+    audio_ffmpeg_error: Optional[str] = None
+    last_audio_chunk_at: Optional[str] = None
+    last_transcription_at: Optional[str] = None
+    last_transcript: str = ""
 
     def _capture_video_errors(self, proc: subprocess.Popen):
         if not proc.stderr:
@@ -249,52 +264,97 @@ class Camera:
 
     # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
     def _audio_loop(self):
-        try:
-            ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
-        except MissingExecutable as exc:
-            self.error = str(exc)
-            return
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
         try:
             while not self.stop_flag.is_set():
+                try:
+                    ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
+                except MissingExecutable as exc:
+                    self.audio_connected = False
+                    self.audio_error = str(exc)
+                    self.error = self.audio_error
+                    print(f"[Audio {self.id}] {self.audio_error}", flush=True)
+                    self.stop_flag.wait(5)
+                    continue
+
                 wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
                 cmd = [
-                    ffmpeg, "-nostdin", "-loglevel", "error",
-
+                    ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning",
                     "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
-                    "-vn", "-ac", "1", "-ar", "16000",
+                    "-map", "0:a:0", "-vn", "-acodec", "pcm_s16le",
+                    "-ac", "1", "-ar", "16000", "-f", "wav",
                     "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
                 ]
                 try:
-                    self.audio_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    self.audio_proc.wait(timeout=AUDIO_CHUNK_SECONDS + 15)
-                except Exception:
-                    pass
+                    self.audio_proc = subprocess.Popen(
+                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW if IS_WINDOWS else 0,
+                    )
+                    _stdout, stderr = self.audio_proc.communicate(timeout=AUDIO_CHUNK_SECONDS + 15)
+                    error_text = stderr.decode("utf-8", errors="replace").strip() if stderr else ""
+                    self.audio_ffmpeg_error = error_text[-1000:] or None
+                    if self.audio_proc.returncode != 0:
+                        self.audio_connected = False
+                        self.audio_error = f"FFmpeg audio extraction failed ({self.audio_proc.returncode}): {error_text[-500:] or 'unknown error'}"
+                        print(f"[Audio {self.id}] {self.audio_error}", flush=True)
+                except subprocess.TimeoutExpired:
+                    if self.audio_proc and self.audio_proc.poll() is None:
+                        self.audio_proc.kill()
+                        self.audio_proc.communicate()
+                    self.audio_connected = False
+                    self.audio_error = "FFmpeg audio extraction timed out; retrying"
+                    print(f"[Audio {self.id}] {self.audio_error}", flush=True)
+                except (OSError, subprocess.SubprocessError) as exc:
+                    self.audio_connected = False
+                    self.audio_error = f"Could not start FFmpeg audio extraction: {exc}. {install_hint('ffmpeg', 'FFMPEG_EXE')}"
+                    self.error = self.audio_error
+                    print(f"[Audio {self.id}] {self.audio_error}", flush=True)
                 if self.stop_flag.is_set():
                     break
                 if os.path.exists(wav) and os.path.getsize(wav) > 4000:
+                    size = os.path.getsize(wav)
+                    self.audio_connected = True
+                    self.audio_chunks += 1
+                    self.audio_bytes += size
+                    self.last_audio_chunk_at = now_iso()
+                    self.audio_error = None
                     try:
                         transcript = WHISPER.transcribe(wav)
                     except Exception as exc:  # keep this camera alive
                         transcript = ""
-                        self.error = f"whisper: {exc}"
+                        self.audio_error = f"Whisper transcription failed: {exc}"
+                        self.error = self.audio_error
+                        print(f"[Audio {self.id}] {self.audio_error}", flush=True)
                     if transcript:
                         keyword, confidence = match_distress(transcript)
-                        if keyword:
-                            with self.lock:
-                                self.events.append({
-                                    "camera_id": self.id,
-                                    "timestamp": now_iso(),
-                                    "transcript": transcript,
-                                    "keyword": keyword,
-                                    "confidence": confidence,
-                                })
-                                self.events = self.events[-200:]
+                        timestamp = now_iso()
+                        self.last_transcription_at = timestamp
+                        self.last_transcript = transcript
+                        # Publish every transcript. The frontend owns custom
+                        # household wake-word matching; filtering here used to
+                        # discard all non-hard-coded distress phrases.
+                        with self.lock:
+                            self.events.append({
+                                "camera_id": self.id,
+                                "timestamp": timestamp,
+                                "transcript": transcript,
+                                "keyword": keyword,
+                                "confidence": confidence,
+                            })
+                            self.events = self.events[-200:]
+                        print(f"[Audio {self.id}] transcript: {transcript}", flush=True)
+                else:
+                    self.audio_connected = False
+                    if not self.audio_error:
+                        self.audio_error = "No valid audio chunk received (camera may have no RTSP audio track)"
                 try:
                     os.remove(wav)
                 except OSError:
                     pass
+                if self.audio_error and not self.stop_flag.is_set():
+                    self.stop_flag.wait(2)
         finally:
+            self.audio_connected = False
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     def start(self):
@@ -304,6 +364,8 @@ class Camera:
         if WHISPER.available and (self.audio_thread is None or not self.audio_thread.is_alive()):
             self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
             self.audio_thread.start()
+        elif not WHISPER.available:
+            self.audio_error = WHISPER.error or "Whisper is unavailable"
 
     def stop(self):
         self.stop_flag.set()
@@ -343,6 +405,20 @@ class Camera:
             "stream_local": f"http://127.0.0.1:{HLS_PORT}/{self.path}/index.m3u8",
             "restarts": self.restarts,
             "error": self.error,
+            "audio": self.audio_status(),
+        }
+
+    def audio_status(self) -> dict:
+        return {
+            "thread_running": bool(self.audio_thread and self.audio_thread.is_alive()),
+            "connected": self.audio_connected,
+            "chunks_received": self.audio_chunks,
+            "bytes_received": self.audio_bytes,
+            "last_chunk_at": self.last_audio_chunk_at,
+            "last_transcription_at": self.last_transcription_at,
+            "last_transcript": self.last_transcript,
+            "error": self.audio_error or WHISPER.error,
+            "ffmpeg_error": self.audio_ffmpeg_error,
         }
 
 
@@ -500,12 +576,15 @@ def stop_all():
 def audio_events(camera_id: str, since: Optional[str] = None):
     cam = CAMERAS.get(camera_id)
     if not cam:
-        return {"events": []}
+        return {
+            "events": [],
+            "status": {"connected": False, "thread_running": False, "error": f"unknown camera id '{camera_id}'", "available_camera_ids": list(CAMERAS)},
+        }
     with cam.lock:
         events = list(cam.events)
     if since:
         events = [e for e in events if e["timestamp"] > since]
-    return {"events": events}
+    return {"events": events, "status": cam.audio_status()}
 
 
 @app.post("/cameras/{camera_id}/talk")

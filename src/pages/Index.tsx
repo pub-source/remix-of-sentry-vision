@@ -220,8 +220,11 @@ export default function Index() {
   //  - talking:   push-to-talk from the laptop mic out of the camera speaker
   const cctvServer = serverUrlFor(loadServerHost());
   const cctvListenEnabled = running && ipCam.connected && ipCam.audioEnabled;
-  const cctvSpeech = useCctvSpeech(cctvServer, 'cam1', cctvListenEnabled);
-  const cctvTalk = useCctvTalk(cctvServer, 'cam1');
+  // Camera Management registers camera 1 as `slot-1` (its MediaMTX path is
+  // `cam1`, but API routes use the camera ID, not the path).
+  const cctvCameraId = 'slot-1';
+  const cctvSpeech = useCctvSpeech(cctvServer, cctvCameraId, cctvListenEnabled);
+  const cctvTalk = useCctvTalk(cctvServer, cctvCameraId);
   const listenTranscript = ipCam.connected ? cctvSpeech.transcript : transcript;
   const listenInterim = ipCam.connected ? '' : interimTranscript;
   const listening = ipCam.connected ? cctvSpeech.listening : speechListening;
@@ -343,14 +346,20 @@ export default function Index() {
 
   const lastMatchedPhraseRef = useRef<string>('');
   const lastMatchedTimeRef = useRef<number>(0);
+  const [wakeWordDiagnostic, setWakeWordDiagnostic] = useState('Waiting for CCTV transcript');
 
   // Low-latency wake word detection — checks both transcript and interim
   useEffect(() => {
     if (!running) return;
     const combinedText = `${listenTranscript} ${listenInterim}`.trim();
-    if (!combinedText) return;
+    if (!combinedText) {
+      setWakeWordDiagnostic('Waiting for CCTV transcript');
+      return;
+    }
     
     const match = checkForWakeWord(combinedText);
+    setWakeWordDiagnostic(match.matched ? `Matched: ${match.phrase}` : 'Transcript received — no configured wake word matched');
+    console.info('[Wake word check]', { source: ipCam.connected ? 'CCTV' : 'browser fallback', matched: match.matched, phrase: match.phrase });
     const now = Date.now();
     if (match.matched && (match.phrase !== lastMatchedPhraseRef.current || now - lastMatchedTimeRef.current > 5000)) {
       lastMatchedPhraseRef.current = match.phrase;
@@ -1023,6 +1032,8 @@ export default function Index() {
               cctvAudioEnabled={ipCam.audioEnabled}
               cctvAudioAvailable={ipCam.connected}
               onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
+              cctvDiagnostics={cctvSpeech.diagnostics}
+              wakeWordDiagnostic={wakeWordDiagnostic}
             />
           </div>
 
