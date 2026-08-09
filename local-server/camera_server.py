@@ -29,15 +29,64 @@ AUDIO_CHUNK_SECONDS = 5
 WHISPER_MODEL = os.environ.get("MSD_WHISPER_MODEL", "base")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-FFMPEG_EXE = os.environ.get(
-    "FFMPEG_EXE",
-    os.path.join(BASE_DIR, "ffmpeg.exe")
-)
-FFPROBE_EXE = os.environ.get("FFPROBE_EXE", "ffprobe")
-MEDIAMTX_EXE = os.environ.get(
-    "MEDIAMTX_EXE",
-    os.path.join(BASE_DIR, "mediamtx.exe")
-)
+IS_WINDOWS = os.name == "nt"
+
+
+class MissingExecutable(RuntimeError):
+    """Raised when an external binary (ffmpeg/ffprobe/mediamtx) cannot be found."""
+
+
+def resolve_exe(name: str, env_var: str) -> Optional[str]:
+    """Find an external binary.
+
+    Order: explicit env var -> next to this script -> system PATH.
+    Returns an absolute path, or None when the binary is genuinely missing.
+    Never returns a non-existent guess (that is what caused
+    "[WinError 2] The system cannot find the file specified").
+    """
+    candidates: List[str] = []
+    override = os.environ.get(env_var)
+    if override:
+        candidates.append(override)
+        # allow FFMPEG_EXE to point at a folder
+        candidates.append(os.path.join(override, name + (".exe" if IS_WINDOWS else "")))
+    local_names = [name + ".exe", name] if IS_WINDOWS else [name]
+    for n in local_names:
+        candidates.append(os.path.join(BASE_DIR, n))
+        candidates.append(os.path.join(BASE_DIR, "bin", n))
+
+    for cand in candidates:
+        if cand and os.path.isfile(cand) and os.access(cand, os.X_OK if not IS_WINDOWS else os.F_OK):
+            return os.path.abspath(cand)
+
+    found = shutil.which(override) if override else None
+    return found or shutil.which(name)
+
+
+def install_hint(name: str, env_var: str) -> str:
+    if name == "mediamtx":
+        how = ("download mediamtx from https://github.com/bluenviron/mediamtx/releases "
+               f"and put {name}{'.exe' if IS_WINDOWS else ''} next to camera_server.py")
+    elif IS_WINDOWS:
+        how = ("install it with  winget install Gyan.FFmpeg  (or download from "
+               "https://www.gyan.dev/ffmpeg/builds/ and add the bin folder to PATH)")
+    else:
+        how = "install it with  sudo apt install ffmpeg  (or brew install ffmpeg)"
+    return (f"'{name}' was not found. {how}. "
+            f"Alternatively set the {env_var} environment variable to its full path.")
+
+
+def need_exe(name: str, env_var: str) -> str:
+    path = resolve_exe(name, env_var)
+    if not path:
+        raise MissingExecutable(install_hint(name, env_var))
+    return path
+
+
+FFMPEG_EXE = resolve_exe("ffmpeg", "FFMPEG_EXE")
+FFPROBE_EXE = resolve_exe("ffprobe", "FFPROBE_EXE")
+MEDIAMTX_EXE = resolve_exe("mediamtx", "MEDIAMTX_EXE")
+
 DISTRESS_KEYWORDS = {
     "help": 0.95, "help me": 0.98, "fire": 0.97, "emergency": 0.95,
     "call 911": 0.98, "someone help": 0.97, "i fell": 0.93, "i can't breathe": 0.98,
@@ -56,8 +105,9 @@ def lan_ip() -> str:
     finally:
         s.close()
 
-def which(binary: str) -> bool:
-    return os.path.isfile(binary) or shutil.which(binary) is not None
+def which(binary: Optional[str]) -> bool:
+    return bool(binary) and (os.path.isfile(binary) or shutil.which(binary) is not None)
+
 
 
 # --------------------------------------------------------------------------- #
@@ -149,9 +199,11 @@ class Camera:
             return
 
         target = f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}"
+        ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
 
         cmd = [
-            FFMPEG_EXE,
+            ffmpeg,
+
             "-nostdin",
             "-hide_banner",
             "-loglevel", "warning",
@@ -197,12 +249,18 @@ class Camera:
 
     # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
     def _audio_loop(self):
+        try:
+            ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
+        except MissingExecutable as exc:
+            self.error = str(exc)
+            return
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
         try:
             while not self.stop_flag.is_set():
                 wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
                 cmd = [
-                    FFMPEG_EXE, "-nostdin", "-loglevel", "error",
+                    ffmpeg, "-nostdin", "-loglevel", "error",
+
                     "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
                     "-vn", "-ac", "1", "-ar", "16000",
                     "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
@@ -297,10 +355,13 @@ def start_mediamtx():
     global MEDIAMTX
     if MEDIAMTX and MEDIAMTX.poll() is None:
         return
-    if not which(MEDIAMTX_EXE):
+    exe = resolve_exe("mediamtx", "MEDIAMTX_EXE")
+    if not exe:
+        print(install_hint("mediamtx", "MEDIAMTX_EXE"), flush=True)
         return
-    MEDIAMTX = subprocess.Popen([MEDIAMTX_EXE], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    MEDIAMTX = subprocess.Popen([exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.5)
+
 
 
 def watchdog():
@@ -335,14 +396,24 @@ def status():
     host = lan_ip()
     with CAM_LOCK:
         cams = [c.status(host) for c in CAMERAS.values()]
+    ffmpeg = resolve_exe("ffmpeg", "FFMPEG_EXE")
+    ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
+    problems = []
+    if not ffmpeg:
+        problems.append(install_hint("ffmpeg", "FFMPEG_EXE"))
+    if not ffprobe:
+        problems.append(install_hint("ffprobe", "FFPROBE_EXE"))
     return {
         "mediamtx": bool(MEDIAMTX and MEDIAMTX.poll() is None),
         "hls_port": HLS_PORT,
         "lan_ip": host,
         "whisper": WHISPER.available,
         "cameras": cams,
-        "error": None if which(FFMPEG_EXE) else "ffmpeg not found; set FFMPEG_EXE to its full path",
+        "ffmpeg_path": ffmpeg,
+        "ffprobe_path": ffprobe,
+        "error": " ".join(problems) or None,
     }
+
 
 
 @app.post("/cameras/sync")
@@ -447,8 +518,10 @@ async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
     cam = CAMERAS.get(camera_id)
     if not cam:
         return {"success": False, "error": "camera not connected"}
-    if not which(FFMPEG_EXE):
-        return {"success": False, "error": "ffmpeg not installed"}
+    ffmpeg = resolve_exe("ffmpeg", "FFMPEG_EXE")
+    if not ffmpeg:
+        return {"success": False, "error": install_hint("ffmpeg", "FFMPEG_EXE")}
+
     data = await audio.read()
     if not data:
         return {"success": False, "error": "empty audio"}
@@ -461,7 +534,7 @@ async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
     target = cam.rtsp
     try:
         out = subprocess.run(
-            [FFMPEG_EXE, "-hide_banner", "-loglevel", "error", "-re", "-i", tmp,
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-re", "-i", tmp,
              "-vn", "-acodec", "pcm_mulaw", "-ar", "8000", "-ac", "1",
              "-f", "rtsp", "-rtsp_transport", "tcp", target],
             capture_output=True, text=True, timeout=30,
@@ -485,11 +558,13 @@ async def test_connection(request: Request):
     rtsp = body.get("rtsp", "")
     if not rtsp:
         return {"success": False, "error": "missing rtsp url"}
-    if not which(FFPROBE_EXE):
-        return {"success": False, "error": "ffprobe not installed"}
+    ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
+    if not ffprobe:
+        return {"success": False, "error": install_hint("ffprobe", "FFPROBE_EXE")}
     try:
         out = subprocess.run(
-            [FFPROBE_EXE, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+            [ffprobe, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+
              "-show_entries", "stream=codec_name,width,height",
              "-of", "json", rtsp],
             capture_output=True, text=True, timeout=20,
@@ -513,8 +588,12 @@ def shutdown(*_args):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
+    for _bin, _var in (("ffmpeg", "FFMPEG_EXE"), ("ffprobe", "FFPROBE_EXE"), ("mediamtx", "MEDIAMTX_EXE")):
+        _p = resolve_exe(_bin, _var)
+        print(f"{_bin:9s}: {_p or 'NOT FOUND -> ' + install_hint(_bin, _var)}", flush=True)
     threading.Thread(target=watchdog, daemon=True).start()
     start_mediamtx()
+
     print(f"MSDSystem multi-camera bridge on http://0.0.0.0:{API_PORT} (HLS :{HLS_PORT})")
     print(f"Whisper available: {WHISPER.available}")
     uvicorn.run(app, host="0.0.0.0", port=API_PORT, log_level="warning")

@@ -19,8 +19,12 @@ export interface BackendStatus {
   lan_ip: string;
   whisper: boolean;
   cameras: BackendCameraStatus[];
+  /** Resolved binary paths reported by the local bridge (null = missing). */
+  ffmpeg_path?: string | null;
+  ffprobe_path?: string | null;
   error: string | null;
 }
+
 
 export interface AudioEvent {
   camera_id: string;
