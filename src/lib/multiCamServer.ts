@@ -19,6 +19,14 @@ export interface BackendStatus {
   hls_port: number;
   lan_ip: string;
   whisper: boolean;
+  /** "package_missing" | "model_error" | "ready" | "idle" */
+  whisper_state?: string;
+  whisper_model?: string;
+  whisper_error?: string | null;
+  /** Interpreter running camera_server.py (for install hints). */
+  python_exe?: string;
+  /** Copy-pasteable command that installs deps into that interpreter. */
+  install_command?: string;
   cameras: BackendCameraStatus[];
   /** Resolved binary paths reported by the local bridge (null = missing). */
   ffmpeg_path?: string | null;
