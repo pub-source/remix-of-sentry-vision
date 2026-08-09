@@ -518,8 +518,10 @@ async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
     cam = CAMERAS.get(camera_id)
     if not cam:
         return {"success": False, "error": "camera not connected"}
-    if not which(FFMPEG_EXE):
-        return {"success": False, "error": "ffmpeg not installed"}
+    ffmpeg = resolve_exe("ffmpeg", "FFMPEG_EXE")
+    if not ffmpeg:
+        return {"success": False, "error": install_hint("ffmpeg", "FFMPEG_EXE")}
+
     data = await audio.read()
     if not data:
         return {"success": False, "error": "empty audio"}
