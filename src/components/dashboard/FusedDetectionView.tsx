@@ -363,11 +363,14 @@ export default function FusedDetectionView({
         }`}
         title={
           !cctvAudioAvailable
-            ? 'Connect a CCTV stream to hear its audio'
-            : cctvAudioEnabled ? 'CCTV speaker ON — click to mute' : 'CCTV speaker OFF — click to listen'
+            ? 'Connect a CCTV stream to hear its audio and use its microphone'
+            : cctvAudioEnabled
+              ? 'CCTV speaker + microphone ON — hearing the camera and listening for wake words. Click to mute.'
+              : 'CCTV speaker + microphone OFF — click to hear the camera and listen for wake words'
         }
-        aria-label="Toggle CCTV speaker"
+        aria-label="Toggle CCTV speaker and microphone (wake-word listening)"
         aria-pressed={cctvAudioEnabled}
+
       >
         {cctvAudioEnabled
           ? <Volume2 className="w-3.5 h-3.5 text-primary animate-pulse" />
