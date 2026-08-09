@@ -308,11 +308,17 @@ export default function Index() {
   const snapshotCooldownRef = useRef(0);
   const [snapshots, setSnapshots] = useState<{ id: string; timestamp: Date; dataUrl: string; reason: string }[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<{ id: string; timestamp: Date; dataUrl: string; reason: string } | null>(null);
+  // Repeated low-value events (speech / person present / ambient noise) get a
+  // much longer cooldown so they cannot flood state and the alert log.
+  // Emergency, fire and wake-word events keep the original fast cooldown.
+  const LOW_VALUE_ALERTS = /^(Speech detected|Person detected|High noise level|Clap detected)$/;
   const addAlert = useCallback((message: string, severity: Alert['severity'], cameraId: number, snapshotId?: string) => {
     const key = `${message}-${cameraId}`;
     const now = Date.now();
-    if (alertCooldownRef.current[key] && now - alertCooldownRef.current[key] < 3000) return;
+    const cooldown = severity === 'critical' ? 3000 : LOW_VALUE_ALERTS.test(message) ? 20000 : 6000;
+    if (alertCooldownRef.current[key] && now - alertCooldownRef.current[key] < cooldown) return;
     alertCooldownRef.current[key] = now;
+
 
     setAlerts(prev => [{
       id: `${now}-${Math.random().toString(36).slice(2, 6)}`,
