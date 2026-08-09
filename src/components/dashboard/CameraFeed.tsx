@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { CameraState, SaliencyMode, DetectedObject } from '@/types/dashboard';
 import { computeSaliency, applyHeatmapColor, computeSaliencyScore } from '@/lib/saliency';
+import { RateLimiter, LatestOnlyRunner, ThrottledPublisher, perfMonitor, now as perfNow } from '@/lib/performance';
+
 
 interface DetectionStats {
   totalDetected: number;
