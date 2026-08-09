@@ -199,9 +199,11 @@ class Camera:
             return
 
         target = f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}"
+        ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
 
         cmd = [
-            FFMPEG_EXE,
+            ffmpeg,
+
             "-nostdin",
             "-hide_banner",
             "-loglevel", "warning",
