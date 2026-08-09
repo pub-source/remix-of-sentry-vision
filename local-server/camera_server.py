@@ -249,12 +249,18 @@ class Camera:
 
     # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
     def _audio_loop(self):
+        try:
+            ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
+        except MissingExecutable as exc:
+            self.error = str(exc)
+            return
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
         try:
             while not self.stop_flag.is_set():
                 wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
                 cmd = [
-                    FFMPEG_EXE, "-nostdin", "-loglevel", "error",
+                    ffmpeg, "-nostdin", "-loglevel", "error",
+
                     "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
                     "-vn", "-ac", "1", "-ar", "16000",
                     "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
