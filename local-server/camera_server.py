@@ -113,10 +113,27 @@ def which(binary: Optional[str]) -> bool:
 # --------------------------------------------------------------------------- #
 # Whisper (loaded lazily, shared across cameras, one worker thread)
 # --------------------------------------------------------------------------- #
+def pip_install_command() -> str:
+    """Copy-pasteable command that installs into the SAME interpreter running us."""
+    req = os.path.join(BASE_DIR, "requirements.txt")
+    if os.path.isfile(req):
+        return f'"{sys.executable}" -m pip install -r "{req}"'
+    return f'"{sys.executable}" -m pip install faster-whisper'
+
+
 class WhisperEngine:
+    """Lazy Whisper wrapper.
+
+    `state` distinguishes:
+      - "package_missing"  -> faster-whisper is not installed in THIS interpreter
+      - "model_error"      -> package present but model download/load failed
+      - "ready" / "idle"   -> usable
+    """
+
     def __init__(self) -> None:
         self.model = None
         self.available = False
+        self.state = "idle"
         self.error: Optional[str] = None
         self.lock = threading.Lock()
         try:
@@ -124,7 +141,11 @@ class WhisperEngine:
             self.available = True
         except Exception as exc:
             self.available = False
-            self.error = f"faster-whisper unavailable: {exc}. Install with: pip install faster-whisper"
+            self.state = "package_missing"
+            self.error = (
+                f"faster-whisper is not installed in this Python ({sys.executable}): {exc}. "
+                f"Install it into the SAME interpreter with:  {pip_install_command()}"
+            )
 
     def load(self):
         if self.model is not None:
@@ -135,8 +156,14 @@ class WhisperEngine:
                 try:
                     self.model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
                     self.error = None
+                    self.state = "ready"
                 except Exception as exc:
-                    self.error = f"Whisper model '{WHISPER_MODEL}' failed to load: {exc}"
+                    self.state = "model_error"
+                    self.error = (
+                        f"Whisper model '{WHISPER_MODEL}' could not be loaded/downloaded: {exc}. "
+                        "The first run needs internet access to fetch the model; "
+                        "set MSD_WHISPER_MODEL=tiny for a smaller download."
+                    )
                     raise RuntimeError(self.error) from exc
         return self.model
 
@@ -150,6 +177,7 @@ class WhisperEngine:
 
 
 WHISPER = WhisperEngine()
+
 
 
 def match_distress(transcript: str):
