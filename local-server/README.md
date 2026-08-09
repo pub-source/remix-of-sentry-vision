@@ -13,8 +13,17 @@ CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/cam1/index.m3u8
 - Python deps:
 
 ```bash
-pip install fastapi uvicorn psutil
+pip install fastapi uvicorn psutil python-multipart faster-whisper
 ```
+
+`faster-whisper` is required for CCTV microphone transcription. On first use it
+downloads the model selected by `MSD_WHISPER_MODEL` (default: `base`), so the
+machine needs internet access once or a previously cached model.
+
+On Windows, install FFmpeg with `winget install Gyan.FFmpeg`, restart the
+terminal, and confirm `where ffmpeg` and `where ffprobe` return paths. If FFmpeg
+is installed outside `PATH`, set `FFMPEG_EXE` to either its `bin` directory or
+the full path to `ffmpeg.exe` before starting `camera_server.py`.
 
 ## 2. Point it at your camera
 
