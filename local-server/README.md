@@ -6,24 +6,66 @@ Bridges an RTSP CCTV into a browser-playable HLS stream for the MSDSystem dashbo
 CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/cam1/index.m3u8
 ```
 
-## 1. Install
+## 1. Install (Windows — recommended)
 
-- [MediaMTX](https://github.com/bluenviron/mediamtx/releases) (unzip anywhere)
-- [ffmpeg](https://ffmpeg.org/download.html)
-- Python deps:
+From a terminal in this folder:
 
-```bash
-pip install fastapi uvicorn psutil python-multipart faster-whisper
+```bat
+setup_windows.bat
 ```
 
-`faster-whisper` is required for CCTV microphone transcription. On first use it
-downloads the model selected by `MSD_WHISPER_MODEL` (default: `base`), so the
-machine needs internet access once or a previously cached model.
+This creates a local `.venv`, installs everything in `requirements.txt`
+(FastAPI, uvicorn, psutil, python-multipart, **faster-whisper**) into *that*
+interpreter, and checks that `ffmpeg`/`ffprobe` are on PATH.
 
-On Windows, install FFmpeg with `winget install Gyan.FFmpeg`, restart the
-terminal, and confirm `where ffmpeg` and `where ffprobe` return paths. If FFmpeg
-is installed outside `PATH`, set `FFMPEG_EXE` to either its `bin` directory or
-the full path to `ffmpeg.exe` before starting `camera_server.py`.
+Then always start the server with:
+
+```bat
+start_server.bat
+```
+
+`start_server.bat` runs `.venv\Scripts\python.exe camera_server.py` and
+re-installs requirements automatically if `faster_whisper` is missing, so the
+package can never end up in a different Python environment.
+
+To activate the venv manually:
+
+```bat
+.venv\Scripts\activate
+python camera_server.py
+```
+
+### Manual / macOS / Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python camera_server.py
+```
+
+You also need [MediaMTX](https://github.com/bluenviron/mediamtx/releases)
+(`mediamtx.exe` next to this script, or `MEDIAMTX_EXE`) and
+[ffmpeg](https://ffmpeg.org/download.html)
+(`winget install Gyan.FFmpeg`, or set `FFMPEG_EXE`).
+
+### Whisper / CCTV wake words
+
+`faster-whisper` powers CCTV microphone transcription. On first use it
+downloads the model named by `MSD_WHISPER_MODEL` (default `base`; use `tiny`
+for a smaller download), so the machine needs internet access once.
+
+The server never dies when audio is unavailable — video keeps streaming — and
+`/status` plus the startup banner tell you exactly which of the three failure
+modes you hit:
+
+| `whisper_state`   | meaning                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `package_missing` | faster-whisper is not installed in the running Python. The message includes `sys.executable` and a copy-pasteable `"<python>" -m pip install -r requirements.txt`. |
+| `model_error`     | package present, but the model failed to download/load.   |
+| `ready`           | transcription is running.                                 |
+
+Missing FFmpeg is reported separately in `ffmpeg_path` / `error`.
 
 ## 2. Point it at your camera
 
