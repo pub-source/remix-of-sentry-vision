@@ -47,6 +47,11 @@ export default function Index() {
   const navigate = useNavigate();
   const { householdId, wakeWords, members, checkForWakeWord, logAlert, logNotification } = useHousehold(user?.id);
   const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices, startSpecificCamera } = useCamera();
+  // Always-current camera snapshot for analysis loops, so throttled timers do
+  // not have to restart every time an object list changes.
+  const camerasRef = useRef(cameras);
+  camerasRef.current = cameras;
+
   const { audioFeatures, startAudio, stopAudio } = useAudioAnalysis();
   const { loadModel, detect, stats: detectionStats } = useObjectDetection();
   const [darkMode, setDarkMode] = useState(() => {
