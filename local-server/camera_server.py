@@ -355,10 +355,13 @@ def start_mediamtx():
     global MEDIAMTX
     if MEDIAMTX and MEDIAMTX.poll() is None:
         return
-    if not which(MEDIAMTX_EXE):
+    exe = resolve_exe("mediamtx", "MEDIAMTX_EXE")
+    if not exe:
+        print(install_hint("mediamtx", "MEDIAMTX_EXE"), flush=True)
         return
-    MEDIAMTX = subprocess.Popen([MEDIAMTX_EXE], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    MEDIAMTX = subprocess.Popen([exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.5)
+
 
 
 def watchdog():
