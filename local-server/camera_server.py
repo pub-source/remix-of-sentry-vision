@@ -534,7 +534,7 @@ async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
     target = cam.rtsp
     try:
         out = subprocess.run(
-            [FFMPEG_EXE, "-hide_banner", "-loglevel", "error", "-re", "-i", tmp,
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-re", "-i", tmp,
              "-vn", "-acodec", "pcm_mulaw", "-ar", "8000", "-ac", "1",
              "-f", "rtsp", "-rtsp_transport", "tcp", target],
             capture_output=True, text=True, timeout=30,
