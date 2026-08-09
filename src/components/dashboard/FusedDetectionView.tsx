@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { DetectedObject, AudioFeatures } from '@/types/dashboard';
 import { Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import type { CctvSpeechDiagnostics } from '@/hooks/useCctvSpeech';
 
 interface FusedDetectionViewProps {
   sourceCanvas: HTMLCanvasElement | null;
@@ -19,6 +20,8 @@ interface FusedDetectionViewProps {
   cctvAudioEnabled?: boolean;
   cctvAudioAvailable?: boolean;
   onToggleCctvAudio?: () => void;
+  cctvDiagnostics?: CctvSpeechDiagnostics;
+  wakeWordDiagnostic?: string;
   /** Push-to-talk out of the CCTV speaker. */
   talking?: boolean;
   talkError?: string | null;
@@ -115,6 +118,8 @@ export default function FusedDetectionView({
   cctvAudioEnabled = false,
   cctvAudioAvailable = false,
   onToggleCctvAudio,
+  cctvDiagnostics,
+  wakeWordDiagnostic,
   talking = false,
   talkError,
   onTalkStart,
@@ -342,6 +347,17 @@ export default function FusedDetectionView({
           </div>
         )}
       </div>
+
+      {cctvAudioEnabled && cctvDiagnostics && (
+        <div className="absolute top-2 left-2 z-20 max-w-[min(92%,28rem)] rounded border border-border bg-background/90 px-2 py-1.5 text-[10px] text-foreground shadow-sm">
+          <div className="font-bold text-primary">CCTV AUDIO → WHISPER</div>
+          <div>Backend: {cctvDiagnostics.backendReachable ? 'connected' : 'unreachable'} · Audio: {cctvDiagnostics.audioConnected ? 'receiving' : 'waiting'} · Chunks: {cctvDiagnostics.chunksReceived}</div>
+          <div>Last transcription: {cctvDiagnostics.lastTranscriptionAt ? new Date(cctvDiagnostics.lastTranscriptionAt).toLocaleTimeString() : 'none'}</div>
+          <div className="truncate">Transcript: {cctvDiagnostics.lastTranscript || 'none'}</div>
+          <div>Wake word: {wakeWordDiagnostic || 'waiting'}</div>
+          {cctvDiagnostics.error && <div className="text-destructive break-words">Error: {cctvDiagnostics.error}</div>}
+        </div>
+      )}
 
       {/* Fullscreen button */}
       <button

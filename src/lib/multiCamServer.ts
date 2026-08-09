@@ -11,6 +11,7 @@ export interface BackendCameraStatus {
   stream_local: string;
   restarts: number;
   error: string | null;
+  audio?: CctvAudioStatus;
 }
 
 export interface BackendStatus {
@@ -32,6 +33,19 @@ export interface AudioEvent {
   transcript: string;
   keyword: string;
   confidence: number;
+}
+
+export interface CctvAudioStatus {
+  thread_running: boolean;
+  connected: boolean;
+  chunks_received: number;
+  bytes_received: number;
+  last_chunk_at: string | null;
+  last_transcription_at: string | null;
+  last_transcript: string;
+  error: string | null;
+  ffmpeg_error: string | null;
+  available_camera_ids?: string[];
 }
 
 const base = (url: string) => url.trim().replace(/\/+$/, '');
@@ -88,7 +102,7 @@ export const testCamera = (server: string, rtsp: string) =>
 
 /** Audio distress events produced by ffmpeg -> Whisper on the backend. */
 export const getAudioEvents = (server: string, id: string, since?: string) =>
-  req<{ events: AudioEvent[] }>(
+  req<{ events: AudioEvent[]; status: CctvAudioStatus }>(
     `${base(server)}/cameras/${id}/audio-events${since ? `?since=${encodeURIComponent(since)}` : ''}`,
     undefined,
     8000,
