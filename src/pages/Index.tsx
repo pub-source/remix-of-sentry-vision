@@ -1355,6 +1355,10 @@ export default function Index() {
             onExportCSV={exportCSV}
           />
 
+          <PerformanceMonitor />
+
+
+
 
           {/* Auto-Snapshots */}
           {snapshots.length > 0 && (
