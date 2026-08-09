@@ -1,5 +1,6 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import type { AudioFeatures, AudioEventType } from '@/types/dashboard';
+import { AI_RATES, RateLimiter, ThrottledPublisher, now as perfNow } from '@/lib/performance';
 
 function classifyAudioEvent(
   freqData: Uint8Array,
@@ -68,6 +69,7 @@ export function useAudioAnalysis() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animRef = useRef<number>(0);
+  const publisherRef = useRef<ThrottledPublisher<AudioFeatures> | null>(null);
 
   const startAudio = useCallback(async () => {
     try {
@@ -88,7 +90,15 @@ export function useAudioAnalysis() {
       const timeData = new Uint8Array(bufferLength);
       const freqData = new Uint8Array(bufferLength);
 
+      // Analysis (incl. the O(n^2) autocorrelation) is throttled well below
+      // display rate, and results are published to React at the UI rate.
+      const limiter = new RateLimiter(AI_RATES.ui);
+      const publisher = publisherRef.current ?? new ThrottledPublisher<AudioFeatures>(setAudioFeatures, AI_RATES.ui);
+      publisherRef.current = publisher;
+
       const analyze = () => {
+        animRef.current = requestAnimationFrame(analyze);
+        if (!limiter.shouldRun(perfNow())) return;
         analyser.getByteTimeDomainData(timeData);
         analyser.getByteFrequencyData(freqData);
 
@@ -135,20 +145,21 @@ export function useAudioAnalysis() {
 
         const audioEvent = classifyAudioEvent(freqData, timeData, sampleRate, analyser.fftSize, speechDetected, Math.max(-60, db));
 
-        setAudioFeatures({
+        publisher.push({
           decibel: Math.max(-60, Math.min(0, db)),
           speechDetected,
           pitchEstimate: speechDetected ? pitchEstimate : 0,
           waveform,
           audioEvent,
         });
-
-        animRef.current = requestAnimationFrame(analyze);
       };
 
       analyze();
     } catch {
+      const simLimiter = new RateLimiter(AI_RATES.ui);
       const simulate = () => {
+        animRef.current = requestAnimationFrame(simulate);
+        if (!simLimiter.shouldRun(perfNow())) return;
         const t = Date.now() / 1000;
         const waveform = Array.from({ length: 64 }, (_, i) =>
           Math.sin(i * 0.3 + t * 2) * 0.3 * (Math.random() * 0.5 + 0.5)
@@ -165,7 +176,6 @@ export function useAudioAnalysis() {
           waveform,
           audioEvent: events[eventIdx] || 'none',
         });
-        animRef.current = requestAnimationFrame(simulate);
       };
       simulate();
     }
@@ -173,12 +183,22 @@ export function useAudioAnalysis() {
 
   const stopAudio = useCallback(() => {
     cancelAnimationFrame(animRef.current);
+    publisherRef.current?.dispose();
+    publisherRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     contextRef.current?.close();
     streamRef.current = null;
     contextRef.current = null;
     analyserRef.current = null;
     setAudioFeatures({ decibel: -60, speechDetected: false, pitchEstimate: 0, waveform: new Array(64).fill(0), audioEvent: 'none' });
+  }, []);
+
+  // Safety net: never leave a rAF loop, stream, or context alive on unmount.
+  useEffect(() => () => {
+    cancelAnimationFrame(animRef.current);
+    publisherRef.current?.dispose();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    contextRef.current?.close().catch(() => {});
   }, []);
 
   return { audioFeatures, startAudio, stopAudio };
