@@ -10,7 +10,15 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "electron:dev": "cross-env-less: run `npm run dev` in one terminal, then `npm run electron:start`",
+    "electron:start": "cross-env MSDS_ELECTRON_DEV=1 electron .",
+    "electron:build": "ELECTRON=1 vite build && electron-builder --win nsis --config electron-builder.yml",
+    "electron:package": "ELECTRON=1 vite build && electron-builder --dir --config electron-builder.yml",
+    "cf:dev": "npm --prefix cloudflare run dev",
+    "cf:deploy": "npm --prefix cloudflare run deploy",
+    "local:dev": "npm --prefix local-service run dev",
+    "local:start": "npm --prefix local-service run start"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
@@ -96,5 +104,6 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
-  }
+  },
+  "main": "electron/main.cjs"
 }
