@@ -1,0 +1,18 @@
+# Native packaging only — never runs in the web preview.
+appId: com.msds.system
+productName: MSDS System
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+win:
+  target: [nsis]
+  artifactName: MSDS-System-Setup.exe
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: MSDS System
