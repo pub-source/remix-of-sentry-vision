@@ -77,38 +77,40 @@ export default function IpAddressHelp() {
             <div className="flex flex-col sm:flex-row gap-6 items-center">
               <div className="relative w-[190px] h-[340px] flex-shrink-0 rounded-[28px] border-4 border-border bg-background overflow-hidden">
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 w-14 h-2 rounded-full bg-border" />
-                <div
-                  className="absolute inset-x-0 top-8 transition-transform duration-500 ease-out"
-                  style={{ transform: `translateY(-${step * 72}px)` }}
-                >
-                  {STEPS.map((s, i) => (
-                    <div
-                      key={s.title}
-                      className={`h-[64px] mx-2.5 mb-2 rounded-xl border px-2.5 flex items-center gap-2 transition-colors ${
-                        i === step ? 'border-primary bg-primary/15' : 'border-border bg-secondary/30'
-                      }`}
-                    >
-                      <s.icon className={`w-5 h-5 flex-shrink-0 ${i === step ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className="text-[13px] font-semibold leading-tight">{s.title}</span>
-                    </div>
-                  ))}
+                <div className="absolute inset-x-0 top-8 h-[220px] overflow-hidden">
+                  <div
+                    className="transition-transform duration-500 ease-out"
+                    style={{ transform: `translateY(-${step * 72}px)` }}
+                  >
+                    {STEPS.map((s, i) => (
+                      <div
+                        key={s.title}
+                        className={`h-[64px] mx-2.5 mb-2 rounded-xl border px-2.5 flex items-center gap-2 transition-colors ${
+                          i === step ? 'border-primary bg-primary/15' : 'border-border bg-secondary/30'
+                        }`}
+                      >
+                        <s.icon className={`w-5 h-5 flex-shrink-0 ${i === step ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <span className="text-[13px] font-semibold leading-tight">{s.title}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="absolute bottom-3 inset-x-3 rounded-lg bg-primary/20 border border-primary/40 px-2 py-1.5 text-center">
                   <span className="text-[14px] font-bold text-primary">192.168.18.98</span>
                 </div>
               </div>
 
-
               <div key={step} className="flex-1 min-w-0 animate-fade-in">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-                    <Active className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  <span className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center">
+                    <Active className="w-5 h-5" />
                   </span>
-                  <span className="text-[15px] font-bold">Step {step + 1} of {STEPS.length}</span>
+                  <span className="text-[17px] font-bold">Step {step + 1} of {STEPS.length}</span>
                 </div>
-                <p className="text-[17px] font-bold mb-1">{STEPS[step].title}</p>
-                <p className="text-[15px] text-muted-foreground leading-relaxed">{STEPS[step].body}</p>
+                <p className="text-[21px] font-bold mb-2">{STEPS[step].title}</p>
+                <p className="text-[18px] text-muted-foreground leading-relaxed">{STEPS[step].body}</p>
               </div>
+
             </div>
 
             <div className="mt-4 flex gap-1.5">
