@@ -22,6 +22,7 @@ import {
   type CameraSlot,
   type SlotCount,
 } from '@/hooks/useCameraSlots';
+import IpAddressHelp from './IpAddressHelp';
 
 interface Props {
   /** Called with the backend-reported HLS URL for camera 1 (drives the main dashboard). */
@@ -208,12 +209,15 @@ function SlotCard({
         </div>
         <div className="space-y-1">
           <label className="text-[14px] font-semibold">Camera IP address</label>
-          <input
-            value={slot.ip}
-            onChange={e => onIp(e.target.value)}
-            placeholder="192.168.18.98"
-            className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              value={slot.ip}
+              onChange={e => onIp(e.target.value)}
+              placeholder="192.168.18.98"
+              className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <IpAddressHelp />
+          </div>
         </div>
       </div>
 
