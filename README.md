@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+# MSDS System — Multimodal Saliency Detection
 
-## Project info
+Desktop + cloud architecture. The React dashboard, CCTV/RTSP pipeline, Whisper wake-word
+listening, multi-camera support, saliency and alerts are all unchanged — the Electron and
+Cloudflare layers are additive.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Architecture
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```text
+┌───────────────────────── LOCAL (Windows PC on the CCTV LAN) ─────────────────────────┐
+│  Electron shell (electron/main.cjs + preload.cjs, contextIsolation ON)               │
+│      └── renderer = existing Vite/React app (dist/)                                  │
+│  local-service/  (Node + TS)  FFmpeg discovery, Whisper status, camera probe  :5055  │
+│  local-server/   (Python)     RTSP -> FFmpeg -> MediaMTX -> HLS + Whisper     :5000  │
+│  CCTV cameras    rtsp://192.168.x.x:554/live/ch00_1                                  │
+└───────────────────────────────────┬──────────────────────────────────────────────────┘
+                                    │ HTTPS / WSS (device pushes only)
+┌───────────────────────────────────▼──────────── CLOUD ───────────────────────────────┐
+│  cloudflare/  Workers API: devices, heartbeat, alerts, detections, transcripts,      │
+│               health + DeviceSession Durable Object (realtime fan-out)               │
+│               data behind MsdsRepository: memory | Supabase | D1 (later)             │
+└──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+Cloudflare never reaches a private camera IP. The local device is the only bridge, and
+camera credentials never leave the machine (not in the renderer bundle, not in the cloud).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## VS Code setup
 
-**Use GitHub Codespaces**
+```bash
+git clone <repo> && cd <repo>
+npm install                       # web + electron tooling
+npm --prefix local-service install
+npm --prefix cloudflare install
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Local dependencies to install yourself:
+- **Node 20+**
+- **FFmpeg** — `winget install Gyan.FFmpeg` (or set `MSDS_FFMPEG_PATH`)
+- **MediaMTX** — `mediamtx.exe` next to `local-server/`
+- **Python 3.10+** with `local-server/setup_windows.bat` (installs faster-whisper)
 
-## What technologies are used for this project?
+## Commands
 
-This project is built with:
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Web dashboard at http://localhost:8080 |
+| `npm run build` | Production web build |
+| `npm run local:dev` | Local Node service (FFmpeg/Whisper diagnostics) on :5055 |
+| `local-server\start_server.bat` | Python RTSP/HLS + Whisper bridge on :5000 |
+| `npm run electron:start` | Open the Electron shell (dev server must be running) |
+| `npm run electron:dev` | Vite + Electron together (needs `concurrently` + `wait-on`) |
+| `npm run electron:build` | Windows NSIS installer -> `release/MSDS-System-Setup.exe` |
+| `npm run cf:dev` / `npm run cf:deploy` | Cloudflare Worker dev / deploy |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Environment variables
 
-## How can I deploy this project?
+Web (`.env`, already present): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Local: `MSDS_LOCAL_PORT`, `MSDS_FFMPEG_PATH`, `MSDS_FFPROBE_PATH`, `MSDS_WHISPER_PROVIDER`, `MSDS_CAMERA_SERVER_URL`.
 
-## Can I connect a custom domain to my Lovable project?
+Cloud (`cloudflare/.dev.vars`, never committed): `MSDS_DEVICE_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `DATA_BACKEND`.
 
-Yes, you can!
+## Must run locally in VS Code
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Electron and packaging cannot run inside the web preview. Install the native tooling once:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```bash
+npm i -D electron electron-builder concurrently wait-on
+npm run electron:build
+```
+
+No installer is produced or published by this repository yet — the workflow in
+`.github/workflows/electron-windows.yml` builds it on demand.
