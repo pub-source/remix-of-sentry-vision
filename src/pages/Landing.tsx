@@ -257,13 +257,16 @@ export default function Landing() {
           <p className="text-muted-foreground text-xl mb-10 max-w-2xl mx-auto">
             Start monitoring in minutes with our intelligent multimodal detection system.
           </p>
-          <button
-            onClick={() => navigate(user ? '/dashboard' : '/auth')}
-            className="inline-flex items-center gap-2 text-lg font-semibold bg-primary text-primary-foreground px-10 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-          >
-            {user ? 'Open Dashboard' : 'Create Free Account'}
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          <div className="relative inline-block">
+            <IdleHint message={user ? 'Open your dashboard to start monitoring' : 'Create your free account here'} />
+            <button
+              onClick={() => navigate(user ? '/dashboard' : '/auth')}
+              className="inline-flex items-center gap-2 text-lg font-semibold bg-primary text-primary-foreground px-10 py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            >
+              {user ? 'Open Dashboard' : 'Create Free Account'}
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
         </motion.div>
       </section>
 
