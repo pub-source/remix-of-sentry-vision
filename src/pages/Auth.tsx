@@ -1,3 +1,4 @@
+import IdleHint from '@/components/IdleHint';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -601,6 +602,9 @@ export default function Auth() {
               Read full notice
             </button>
           </label>
+        </div>
+        <div className="relative">
+          <IdleHint message="Fill the fields above, then press Create Account" disabled={submitting || !!success} />
         </div>
         <PrimaryButton type="submit" disabled={!canSubmitCreate} aria-label="Create Account">
           {submitting ? (

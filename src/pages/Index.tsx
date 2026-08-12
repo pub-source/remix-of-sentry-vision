@@ -30,7 +30,7 @@ import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
 import MultiCameraConnect from '@/components/dashboard/MultiCameraConnect';
-import IdleHint from '@/components/IdleHint';
+import IdleHint, { setHintsSuppressed } from '@/components/IdleHint';
 
 
 
@@ -161,6 +161,7 @@ export default function Index() {
   const [running, setRunning] = useState(false);
   // Keep the device/tab awake while monitoring so detection isn't suspended
   useWakeLock(running);
+
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
   const [saliencyMode, setSaliencyMode] = useState<SaliencyMode>('sobel');
@@ -214,6 +215,9 @@ export default function Index() {
   const localTargetSlot = 1;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
+
+  // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
+  useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
 
   // Audio in/out always goes through the CCTV, never the laptop mic:
   //  - listening: Whisper transcripts of the camera's RTSP audio (only while the
@@ -1357,7 +1361,8 @@ export default function Index() {
             <X className="w-4 h-4" />
           </button>
           {/* Start/Stop */}
-          <div id="tour-start" className="bg-card rounded-md border border-border panel-glow p-3">
+          <div id="tour-start" className="bg-card rounded-md border border-border panel-glow p-3 relative">
+            <IdleHint message="Press ▶ Start Monitoring to begin detection" disabled={running} />
             <button
               onClick={running ? handleStop : handleStart}
               className={`w-full text-xs font-mono py-2.5 px-3 rounded-md transition-all font-semibold ${

@@ -1,3 +1,4 @@
+import IdleHint from '@/components/IdleHint';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, X, Camera, Filter, Trash2, Grid2x2, Square as SquareIcon, Columns2 } from 'lucide-react';
@@ -80,12 +81,15 @@ export default function Monitoring() {
                 Open Connect on the dashboard, choose 1, 2 or 4 cameras and type each camera's local
                 server IP address. Every feed runs its own saliency detection pipeline.
               </p>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[15px] font-bold"
-              >
-                Go to Connect
-              </button>
+              <div className="relative inline-block">
+                <IdleHint message="Go to Connect to add your first camera" />
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[15px] font-bold"
+                >
+                  Go to Connect
+                </button>
+              </div>
             </div>
           ) : (
             <div className={`grid gap-4 ${focused ? 'grid-cols-1' : gridClass}`}>
