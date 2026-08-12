@@ -446,16 +446,19 @@ export default function HouseholdPage() {
                   <Volume2 className="w-4 h-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground">Wake Words & Phrases</h3>
                 </div>
-                <button
-                  onClick={() => setShowAddPhrase(p => !p)}
-                  className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all ${
-                    showAddPhrase
-                      ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
-                      : 'border-primary/30 text-primary hover:bg-primary/10'
-                  }`}
-                >
-                  {showAddPhrase ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> Add Phrase</>}
-                </button>
+                <div className="relative">
+                  <IdleHint message="Tap + Add Phrase to create a wake word" disabled={showAddPhrase} />
+                  <button
+                    onClick={() => setShowAddPhrase(p => !p)}
+                    className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                      showAddPhrase
+                        ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
+                        : 'border-primary/30 text-primary hover:bg-primary/10'
+                    }`}
+                  >
+                    {showAddPhrase ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> Add Phrase</>}
+                  </button>
+                </div>
               </div>
 
               <p className="text-xs text-muted-foreground">
