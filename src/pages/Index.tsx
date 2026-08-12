@@ -161,8 +161,6 @@ export default function Index() {
   const [running, setRunning] = useState(false);
   // Keep the device/tab awake while monitoring so detection isn't suspended
   useWakeLock(running);
-  // Once monitoring is live, stop every idle hint animation app-wide.
-  useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
@@ -219,6 +217,8 @@ export default function Index() {
   const ipCam = useIpCamera();
 
   // Audio in/out always goes through the CCTV, never the laptop mic:
+  // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
+  useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
   //  - listening: Whisper transcripts of the camera's RTSP audio (only while the
   //    CCTV speaker/microphone toggle is ON)
   //  - talking:   push-to-talk from the laptop mic out of the camera speaker
