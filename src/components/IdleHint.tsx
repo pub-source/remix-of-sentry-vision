@@ -18,6 +18,23 @@ interface Props {
  * inactive for `delay` ms. Any pointer / key / scroll activity resets it.
  * Place inside a `relative` container that wraps the button it points at.
  */
+/**
+ * Global kill switch — once the system is actually working (camera connected /
+ * monitoring running) every hint stops animating so nothing burns frames.
+ */
+let suppressed = false;
+const SUPPRESS_EVENT = 'msds-hints-suppressed';
+
+export function setHintsSuppressed(value: boolean) {
+  if (suppressed === value) return;
+  suppressed = value;
+  window.dispatchEvent(new CustomEvent(SUPPRESS_EVENT));
+}
+
+export function areHintsSuppressed() {
+  return suppressed;
+}
+
 export default function IdleHint({
   message,
   delay = 3000,
@@ -26,9 +43,16 @@ export default function IdleHint({
   className = '',
 }: Props) {
   const [show, setShow] = useState(false);
+  const [off, setOff] = useState(suppressed);
 
   useEffect(() => {
-    if (disabled) { setShow(false); return; }
+    const sync = () => setOff(suppressed);
+    window.addEventListener(SUPPRESS_EVENT, sync);
+    return () => window.removeEventListener(SUPPRESS_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
+    if (disabled || off) { setShow(false); return; }
     let timer = window.setTimeout(() => setShow(true), delay);
     const reset = () => {
       setShow(false);
@@ -41,7 +65,8 @@ export default function IdleHint({
       window.clearTimeout(timer);
       events.forEach(e => window.removeEventListener(e, reset));
     };
-  }, [delay, disabled]);
+  }, [delay, disabled, off]);
+
 
   if (disabled || !show) return null;
 
