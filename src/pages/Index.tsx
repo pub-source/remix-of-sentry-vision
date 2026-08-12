@@ -1080,22 +1080,25 @@ export default function Index() {
                 Disconnect
               </button>
             ) : (
-              <button
-                onClick={async () => {
-                  setShowIpDialog(true);
-                  // Prime camera permission so built-in / USB device labels
-                  // become visible in the picker (browsers hide labels until
-                  // permission is granted at least once).
-                  try {
-                    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                    s.getTracks().forEach(t => t.stop());
-                  } catch { /* user denied — enumeration still returns deviceIds */ }
-                  enumerateDevices();
-                }}
-                className="text-[10px] font-mono px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30"
-              >
-                + Connect
-              </button>
+              <div className="relative">
+                <IdleHint message="Click + Connect to add your CCTV camera" disabled={ipCam.connected} />
+                <button
+                  onClick={async () => {
+                    setShowIpDialog(true);
+                    // Prime camera permission so built-in / USB device labels
+                    // become visible in the picker (browsers hide labels until
+                    // permission is granted at least once).
+                    try {
+                      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                      s.getTracks().forEach(t => t.stop());
+                    } catch { /* user denied — enumeration still returns deviceIds */ }
+                    enumerateDevices();
+                  }}
+                  className="text-[10px] font-mono px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30"
+                >
+                  + Connect
+                </button>
+              </div>
             )}
           </div>
 
