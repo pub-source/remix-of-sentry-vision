@@ -30,6 +30,7 @@ import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
 import MultiCameraConnect from '@/components/dashboard/MultiCameraConnect';
+import IdleHint from '@/components/IdleHint';
 
 
 
