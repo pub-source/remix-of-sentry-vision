@@ -110,12 +110,15 @@ export default function Landing() {
                   >
                     Sign In
                   </button>
-                  <button
-                    onClick={() => navigate('/auth')}
-                    className="text-base font-semibold bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors"
-                  >
-                    Get Started
-                  </button>
+                  <div className="relative">
+                    <IdleHint message="New here? Tap Get Started to create your account" placement="bottom" />
+                    <button
+                      onClick={() => navigate('/auth')}
+                      className="text-base font-semibold bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors"
+                    >
+                      Get Started
+                    </button>
+                  </div>
                 </>
               )
             )}
