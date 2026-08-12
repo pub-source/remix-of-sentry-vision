@@ -216,9 +216,10 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
 
-  // Audio in/out always goes through the CCTV, never the laptop mic:
   // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
   useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
+
+  // Audio in/out always goes through the CCTV, never the laptop mic:
   //  - listening: Whisper transcripts of the camera's RTSP audio (only while the
   //    CCTV speaker/microphone toggle is ON)
   //  - talking:   push-to-talk from the laptop mic out of the camera speaker
