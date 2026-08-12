@@ -224,14 +224,20 @@ function SlotCard({
       <Preview url={streamUrl} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={handleConnect}
-          disabled={busy !== ''}
-          className="flex-1 flex items-center justify-center gap-2 text-[15px] font-bold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
-        >
-          {busy === 'start' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-          {busy === 'start' ? 'Connecting…' : 'Connect'}
-        </button>
+        <div className="relative flex-1">
+          <IdleHint
+            message={slot.ip.trim() ? 'Press Connect to start this camera' : 'Type the camera IP address, then press Connect'}
+            disabled={live || busy !== ''}
+          />
+          <button
+            onClick={handleConnect}
+            disabled={busy !== ''}
+            className="w-full flex items-center justify-center gap-2 text-[15px] font-bold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+          >
+            {busy === 'start' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {busy === 'start' ? 'Connecting…' : 'Connect'}
+          </button>
+        </div>
         <button
           onClick={handleDisconnect}
           disabled={busy !== '' || !live}
