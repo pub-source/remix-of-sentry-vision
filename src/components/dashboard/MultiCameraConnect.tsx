@@ -23,6 +23,7 @@ import {
   type SlotCount,
 } from '@/hooks/useCameraSlots';
 import IpAddressHelp from './IpAddressHelp';
+import IdleHint from '@/components/IdleHint';
 
 interface Props {
   /** Called with the backend-reported HLS URL for camera 1 (drives the main dashboard). */

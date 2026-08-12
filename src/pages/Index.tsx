@@ -162,7 +162,7 @@ export default function Index() {
   // Keep the device/tab awake while monitoring so detection isn't suspended
   useWakeLock(running);
   // Once monitoring is live, stop every idle hint animation app-wide.
-  useEffect(() => { setHintsSuppressed(running); return () => setHintsSuppressed(false); }, [running]);
+  useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
