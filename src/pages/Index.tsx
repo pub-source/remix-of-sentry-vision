@@ -1357,7 +1357,8 @@ export default function Index() {
             <X className="w-4 h-4" />
           </button>
           {/* Start/Stop */}
-          <div id="tour-start" className="bg-card rounded-md border border-border panel-glow p-3">
+          <div id="tour-start" className="bg-card rounded-md border border-border panel-glow p-3 relative">
+            <IdleHint message="Press ▶ Start Monitoring to begin detection" disabled={running} />
             <button
               onClick={running ? handleStop : handleStart}
               className={`w-full text-xs font-mono py-2.5 px-3 rounded-md transition-all font-semibold ${
