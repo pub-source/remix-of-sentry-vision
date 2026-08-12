@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 interface Props {
   /** Message shown in the bubble. */
