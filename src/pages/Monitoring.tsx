@@ -1,3 +1,4 @@
+import IdleHint from '@/components/IdleHint';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, X, Camera, Filter, Trash2, Grid2x2, Square as SquareIcon, Columns2 } from 'lucide-react';

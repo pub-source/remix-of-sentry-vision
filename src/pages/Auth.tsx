@@ -1,3 +1,4 @@
+import IdleHint from '@/components/IdleHint';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
