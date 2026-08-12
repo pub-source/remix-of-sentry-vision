@@ -30,7 +30,7 @@ const App = () => (
           <Route path="/household" element={<RequireAuth><Household /></RequireAuth>} />
           <Route path="/monitoring" element={<RequireAuth><Monitoring /></RequireAuth>} />
           <Route path="/cameras" element={<Navigate to="/monitoring" replace />} />
-          <Route path="/research" element={<Research />} />
+          <Route path="/research" element={<RequireAuth><Research /></RequireAuth>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
