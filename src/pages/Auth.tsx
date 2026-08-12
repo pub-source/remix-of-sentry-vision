@@ -604,7 +604,7 @@ export default function Auth() {
           </label>
         </div>
         <div className="relative">
-          <IdleHint message="Fill the fields above, then press Create Account" disabled={submitting || success} />
+          <IdleHint message="Fill the fields above, then press Create Account" disabled={submitting || !!success} />
         </div>
         <PrimaryButton type="submit" disabled={!canSubmitCreate} aria-label="Create Account">
           {submitting ? (
