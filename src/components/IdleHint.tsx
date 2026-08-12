@@ -68,7 +68,7 @@ export default function IdleHint({
   }, [delay, disabled, off]);
 
 
-  if (disabled || !show) return null;
+  if (disabled || off || !show) return null;
 
   const pos = placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2';
 
@@ -79,10 +79,11 @@ export default function IdleHint({
       className={`absolute right-0 z-40 ${pos} pointer-events-none animate-[idle-float_1.4s_ease-in-out_infinite] ${className}`}
     >
       <div className="flex flex-col items-center gap-1">
+        {placement === 'bottom' && <ArrowUp className="w-5 h-5 text-primary drop-shadow" />}
         <div className="whitespace-nowrap rounded-xl border border-primary/40 bg-primary text-primary-foreground px-3 py-2 text-[14px] font-semibold shadow-lg">
           {message}
         </div>
-        <ArrowDown className="w-5 h-5 text-primary drop-shadow" />
+        {placement === 'top' && <ArrowDown className="w-5 h-5 text-primary drop-shadow" />}
       </div>
     </div>
   );
