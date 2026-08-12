@@ -330,10 +330,13 @@ export default function HouseholdPage() {
                 </div>
               )}
 
-              <button type="submit" className="w-full flex items-center justify-center gap-2 text-lg font-bold py-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm">
-                {mode === 'create' ? 'Create Household' : 'Join Household'}
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <div className="relative">
+                <IdleHint message={mode === 'create' ? 'Fill your details, then press Create Household' : 'Enter the invite code, then press Join Household'} />
+                <button type="submit" className="w-full flex items-center justify-center gap-2 text-lg font-bold py-4 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm">
+                  {mode === 'create' ? 'Create Household' : 'Join Household'}
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </form>
           </div>
         )}
