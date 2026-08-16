@@ -19,6 +19,11 @@ if errorlevel 1 (
   if errorlevel 1 goto :fail
 )
 
+if not exist "bin\ffmpeg.exe" (
+  echo ffmpeg not found in bin - downloading binaries...
+  "%VENV_PY%" fetch_binaries.py
+)
+
 echo Starting MSD camera server with "%VENV_PY%"
 "%VENV_PY%" camera_server.py
 endlocal

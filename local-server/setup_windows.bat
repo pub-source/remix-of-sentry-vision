@@ -32,14 +32,9 @@ echo Using Python: "%VENV_PY%"
 if errorlevel 1 goto :fail
 
 echo.
-where ffmpeg >nul 2>&1
-if errorlevel 1 echo [WARNING] ffmpeg was not found on PATH. Install with: winget install Gyan.FFmpeg
-if not errorlevel 1 echo ffmpeg found on PATH.
-
-where ffprobe >nul 2>&1
-if errorlevel 1 echo [WARNING] ffprobe was not found on PATH ^(ships with FFmpeg^).
-
-if not exist "mediamtx.exe" echo [WARNING] mediamtx.exe not found next to this script. Download from https://github.com/bluenviron/mediamtx/releases
+echo Downloading ffmpeg, ffprobe and mediamtx into bin\ ...
+"%VENV_PY%" fetch_binaries.py
+if errorlevel 1 echo [WARNING] Binary download failed - see messages above, or place them in bin\ manually.
 
 echo.
 echo Setup complete. Start the server with:  .\start_server.bat
