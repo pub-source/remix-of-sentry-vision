@@ -1,93 +1,84 @@
 # MSD Local Camera Server
 
-Bridges an RTSP CCTV into a browser-playable HLS stream for the MSDSystem dashboard.
+Bridges RTSP CCTVs into browser-playable HLS for the MSDSystem dashboard, and
+runs CCTV-audio wake-word transcription with Whisper.
 
 ```
-CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/cam1/index.m3u8
+CCTV (RTSP) -> ffmpeg -> MediaMTX -> HLS http://<pc-ip>:8888/<cam>/index.m3u8
+                     \-> 5s WAV chunks -> faster-whisper -> /cameras/<id>/audio-events
 ```
 
-## 1. Install (Windows — recommended)
+## Folder structure
 
-From a terminal in this folder:
+```
+local-server/
+├── camera_server.py      entry point (thin — just wiring + startup banner)
+├── msds/
+│   ├── config.py         ports, limits, distress keywords
+│   ├── binaries.py       ffmpeg/ffprobe/mediamtx discovery (cached)
+│   ├── whisper_engine.py one shared faster-whisper model
+│   ├── camera.py         one independent pipeline per camera
+│   ├── manager.py        registry, MediaMTX supervision, watchdog
+│   └── api.py            FastAPI routes
+├── bin/                  ffmpeg.exe / ffprobe.exe / mediamtx.exe (downloaded)
+├── mediamtx.yml          MediaMTX config (RTSP :8554, HLS :8888)
+├── fetch_binaries.py     downloads the three binaries into bin/
+├── get_binaries.bat      Windows wrapper for the above
+├── setup_windows.bat     venv + pip install + binaries
+├── start_server.bat      runs the server with the venv interpreter
+└── requirements.txt
+```
+
+Binaries are **not** committed (size + licensing). `bin/` is populated by
+`fetch_binaries.py`, and every module resolves them in this order:
+`FFMPEG_EXE`/`FFPROBE_EXE`/`MEDIAMTX_EXE` env var → `bin/` → `local-server/` → PATH.
+
+## Install (Windows — recommended)
 
 ```bat
-setup_windows.bat
+setup_windows.bat     :: venv + Python deps + downloads ffmpeg/ffprobe/mediamtx
+start_server.bat      :: runs .venv\Scripts\python.exe camera_server.py
 ```
 
-This creates a local `.venv`, installs everything in `requirements.txt`
-(FastAPI, uvicorn, psutil, python-multipart, **faster-whisper**) into *that*
-interpreter, and checks that `ffmpeg`/`ffprobe` are on PATH.
-
-Then always start the server with:
-
-```bat
-start_server.bat
-```
-
-`start_server.bat` runs `.venv\Scripts\python.exe camera_server.py` and
-re-installs requirements automatically if `faster_whisper` is missing, so the
-package can never end up in a different Python environment.
-
-To activate the venv manually:
-
-```bat
-.venv\Scripts\activate
-python camera_server.py
-```
-
-### Manual / macOS / Linux
+## macOS / Linux
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
+python fetch_binaries.py
 python camera_server.py
 ```
 
-You also need [MediaMTX](https://github.com/bluenviron/mediamtx/releases)
-(`mediamtx.exe` next to this script, or `MEDIAMTX_EXE`) and
-[ffmpeg](https://ffmpeg.org/download.html)
-(`winget install Gyan.FFmpeg`, or set `FFMPEG_EXE`).
+## Whisper / CCTV wake words
 
-### Whisper / CCTV wake words
-
-`faster-whisper` powers CCTV microphone transcription. On first use it
-downloads the model named by `MSD_WHISPER_MODEL` (default `base`; use `tiny`
-for a smaller download), so the machine needs internet access once.
-
-The server never dies when audio is unavailable — video keeps streaming — and
-`/status` plus the startup banner tell you exactly which of the three failure
-modes you hit:
+`faster-whisper` downloads its model on first use (`MSD_WHISPER_MODEL`,
+default `base`; use `tiny` for a smaller download). Video keeps streaming when
+audio is unavailable, and `/status` reports which failure mode you hit:
 
 | `whisper_state`   | meaning                                                  |
 | ----------------- | -------------------------------------------------------- |
-| `package_missing` | faster-whisper is not installed in the running Python. The message includes `sys.executable` and a copy-pasteable `"<python>" -m pip install -r requirements.txt`. |
+| `package_missing` | faster-whisper is not installed in the running Python.    |
 | `model_error`     | package present, but the model failed to download/load.   |
 | `ready`           | transcription is running.                                 |
 
-Missing FFmpeg is reported separately in `ffmpeg_path` / `error`.
+## Environment variables
 
-## 2. Point it at your camera
+`MSD_API_PORT` (5000), `MSD_HLS_PORT` (8888), `MSD_RTSP_PORT` (8554),
+`MSD_WHISPER_MODEL`, `FFMPEG_EXE`, `FFPROBE_EXE`, `MEDIAMTX_EXE`.
 
-Either edit the constants at the top of `camera_server.py`, or set env vars:
+## Electron
 
-```bash
-set MEDIAMTX_EXE=D:\mediamtx\mediamtx.exe
-set FFMPEG_EXE=C:\ffmpeg\bin\ffmpeg.exe
-set CAMERA_RTSP=rtsp://192.168.18.98:554/live/ch00_1
-python camera_server.py
-```
+`electron-builder.yml` ships `local-server/**` as an extra resource, so the
+packaged desktop app carries the Python bridge, `mediamtx.yml` and whatever is
+in `bin/` at build time. Run `python fetch_binaries.py` before
+`npm run electron:build` if you want the binaries inside the installer.
 
-## 3. Connect from the dashboard
+## Connect from the dashboard
 
-Open the dashboard **on the same machine or Wi-Fi**, press **Connect**, and in
-**Local camera server** enter the server URL (default `http://127.0.0.1:5000`),
-then press **Start monitoring** — the HLS link is filled in and connected
-automatically.
+Open the dashboard on the same machine/Wi-Fi, press **Connect**, enter the
+server URL (default `http://127.0.0.1:5000`) and start monitoring — the HLS
+link is filled in automatically.
 
-### Notes
-
-- The dashboard must be opened over `http://` (or the native app) — an HTTPS page
-  cannot load a plain-HTTP local stream (mixed content).
-- From a phone, use `http://<pc-lan-ip>:5000` instead of `127.0.0.1`.
-- The server reports its LAN IP in `/status` so the stream URL works cross-device.
+- An HTTPS page cannot load a plain-HTTP local stream; use `http://` or the
+  desktop app.
+- From a phone use `http://<pc-lan-ip>:5000`; `/status` reports the LAN IP.
