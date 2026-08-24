@@ -158,7 +158,14 @@ export default function Index() {
   const { transcript, interimTranscript, isListening: speechListening, supported: speechSupported, start: startSpeech, stop: stopSpeech, clear: clearSpeech } = useSpeechRecognition();
   const [showEmergency, setShowEmergency] = useState(false);
 
-  const [running, setRunning] = useState(false);
+  // Monitoring keeps running while the user visits other pages: the flag lives
+  // outside React so returning to the dashboard resumes the live session.
+  const [running, setRunningState] = useState(monitoringSession.running);
+  const setRunning = useCallback((v: boolean) => {
+    monitoringSession.running = v;
+    setRunningState(v);
+  }, []);
+
   // Keep the device/tab awake while monitoring so detection isn't suspended
   useWakeLock(running);
 
