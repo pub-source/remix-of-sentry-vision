@@ -48,6 +48,10 @@ import { DEFAULT_PRIORITY_OBJECTS } from '@/types/dashboard';
 // Emergency, fire and wake-word events keep the original fast cooldown.
 const LOW_VALUE_ALERTS = /^(Speech detected|Person detected|High noise level|Clap detected)$/;
 
+/** Survives route changes so the camera/detection session is not restarted. */
+const monitoringSession = { running: false };
+
+
 export default function Index() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -158,7 +162,14 @@ export default function Index() {
   const { transcript, interimTranscript, isListening: speechListening, supported: speechSupported, start: startSpeech, stop: stopSpeech, clear: clearSpeech } = useSpeechRecognition();
   const [showEmergency, setShowEmergency] = useState(false);
 
-  const [running, setRunning] = useState(false);
+  // Monitoring keeps running while the user visits other pages: the flag lives
+  // outside React so returning to the dashboard resumes the live session.
+  const [running, setRunningState] = useState(monitoringSession.running);
+  const setRunning = useCallback((v: boolean) => {
+    monitoringSession.running = v;
+    setRunningState(v);
+  }, []);
+
   // Keep the device/tab awake while monitoring so detection isn't suspended
   useWakeLock(running);
 

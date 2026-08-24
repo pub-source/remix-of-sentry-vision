@@ -1,24 +1,48 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { CameraState, QualityMode } from '@/types/dashboard';
 
-export function useCamera() {
-  const [cameras, setCameras] = useState<CameraState[]>([
-    { id: 1, deviceId: null, label: 'Camera 1', fps: 0, active: false, stream: null, objects: [], saliencyScore: 0 },
-    { id: 2, deviceId: null, label: 'Camera 2', fps: 0, active: false, stream: null, objects: [], saliencyScore: 0 },
-    { id: 3, deviceId: null, label: 'Camera 3', fps: 0, active: false, stream: null, objects: [], saliencyScore: 0 },
-    { id: 4, deviceId: null, label: 'Camera 4', fps: 0, active: false, stream: null, objects: [], saliencyScore: 0 },
-  ]);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const streamsRef = useRef<MediaStream[]>([]);
+/**
+ * Module-level camera store. Webcam / attached CCTV streams live outside React
+ * so switching pages (dashboard -> household -> monitoring) never stops them.
+ * Streams are only released when the user explicitly stops monitoring.
+ */
+const makeSlots = (): CameraState[] => [1, 2, 3, 4].map(id => ({
+  id, deviceId: null, label: `Camera ${id}`, fps: 0, active: false,
+  stream: null, objects: [], saliencyScore: 0,
+}));
+
+const store = {
+  cameras: makeSlots(),
+  devices: [] as MediaDeviceInfo[],
+  streams: [] as MediaStream[],
   // Slots fed by an external stream (IP/CCTV/test video). These must never be
   // wiped by starting/stopping local webcams.
-  const externalSlotsRef = useRef<Set<number>>(new Set());
+  externalSlots: new Set<number>(),
+  listeners: new Set<() => void>(),
+};
+
+const notify = () => store.listeners.forEach(l => l());
+
+const setCameras = (updater: (prev: CameraState[]) => CameraState[]) => {
+  store.cameras = updater(store.cameras);
+  notify();
+};
+
+export function useCamera() {
+  const [, force] = useState(0);
+
+  useEffect(() => {
+    const listener = () => force(n => n + 1);
+    store.listeners.add(listener);
+    return () => { store.listeners.delete(listener); };
+  }, []);
 
   const enumerateDevices = useCallback(async () => {
     try {
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
-      setDevices(videoDevices);
+      store.devices = videoDevices;
+      notify();
       return videoDevices;
     } catch {
       return [];
@@ -37,7 +61,7 @@ export function useCamera() {
     // Each camera gets its OWN device. If a slot has no real device, it stays
     // OFFLINE — cams work independently or together depending on what's available.
     for (let i = 0; i < 4; i++) {
-      if (externalSlotsRef.current.has(i + 1)) {
+      if (store.externalSlots.has(i + 1)) {
         newCameras.push(null as unknown as CameraState); // placeholder, kept below
         continue;
       }
@@ -69,18 +93,14 @@ export function useCamera() {
       });
     }
 
-    streamsRef.current = streams;
-    let merged: CameraState[] = newCameras;
-    setCameras(prev => {
-      merged = newCameras.map((c, i) => (c ? c : prev[i]));
-      return merged;
-    });
+    store.streams = streams;
+    setCameras(prev => newCameras.map((c, i) => (c ? c : prev[i])));
     return newCameras.filter(Boolean);
   }, [enumerateDevices]);
 
   const stopCameras = useCallback(() => {
     const stopped = new Set<string>();
-    streamsRef.current.forEach(stream => {
+    store.streams.forEach(stream => {
       stream.getTracks().forEach(track => {
         if (!stopped.has(track.id)) {
           track.stop();
@@ -88,8 +108,8 @@ export function useCamera() {
         }
       });
     });
-    streamsRef.current = [];
-    setCameras(prev => prev.map(c => externalSlotsRef.current.has(c.id)
+    store.streams = [];
+    setCameras(prev => prev.map(c => store.externalSlots.has(c.id)
       ? { ...c, fps: 0 }
       : { ...c, active: false, stream: null, fps: 0, objects: [], saliencyScore: 0 }));
   }, []);
@@ -105,7 +125,7 @@ export function useCamera() {
         video: { deviceId: { exact: deviceId }, ...constraints },
         audio: false,
       });
-      streamsRef.current.push(stream);
+      store.streams.push(stream);
       const devs = await navigator.mediaDevices.enumerateDevices();
       const dev = devs.find(d => d.deviceId === deviceId);
       setCameras(prev => prev.map(c => c.id === slot
@@ -127,23 +147,18 @@ export function useCamera() {
     setCameras(prev => prev.map(c => c.id === id
       ? { ...c, stream, active: !!stream, label: label ?? (stream ? `IP Cam ${id}` : c.label), fps: 0 }
       : c));
-    if (stream) externalSlotsRef.current.add(id);
-    else externalSlotsRef.current.delete(id);
+    if (stream) store.externalSlots.add(id);
+    else store.externalSlots.delete(id);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      const stopped = new Set<string>();
-      streamsRef.current.forEach(stream => {
-        stream.getTracks().forEach(track => {
-          if (!stopped.has(track.id)) {
-            track.stop();
-            stopped.add(track.id);
-          }
-        });
-      });
-    };
-  }, []);
-
-  return { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices, startSpecificCamera };
+  return {
+    cameras: store.cameras,
+    devices: store.devices,
+    startCameras,
+    stopCameras,
+    updateCamera,
+    attachStream,
+    enumerateDevices,
+    startSpecificCamera,
+  };
 }
