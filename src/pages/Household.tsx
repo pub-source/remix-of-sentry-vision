@@ -558,6 +558,8 @@ export default function HouseholdPage() {
               )}
             </div>
 
+            <NotificationSettings householdId={household.id} />
+
             {/* Go to Dashboard */}
             <button
               onClick={() => navigate('/dashboard')}
