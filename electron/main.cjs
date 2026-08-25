@@ -13,6 +13,7 @@
  */
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const { startLocalServer, stopLocalServer } = require('./localServer.cjs');
 
 const isDev = !app.isPackaged || process.env.MSDS_ELECTRON_DEV === '1';
 const DEV_URL = process.env.MSDS_DEV_URL || 'http://localhost:8080';
@@ -23,6 +24,9 @@ const LOCAL_SERVICE_URL = process.env.MSDS_LOCAL_SERVICE_URL || 'http://127.0.0.
 const LOCAL_CAMERA_SERVER_URL = process.env.MSDS_CAMERA_SERVER_URL || 'http://127.0.0.1:5000';
 
 let mainWindow = null;
+/** Last result of the local-server startup attempt, surfaced to the renderer. */
+let localServerStatus = { managed: false, running: false, error: null };
+
 
 function createWindow() {
   mainWindow = new BrowserWindow({
