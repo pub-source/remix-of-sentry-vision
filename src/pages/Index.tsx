@@ -56,7 +56,7 @@ export default function Index() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { householdId, wakeWords, members, checkForWakeWord, logAlert, logNotification } = useHousehold(user?.id);
-  const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices, startSpecificCamera } = useCamera();
+  const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices } = useCamera();
   // Always-current camera snapshot for analysis loops, so throttled timers do
   // not have to restart every time an object list changes.
   const camerasRef = useRef(cameras);
@@ -223,7 +223,7 @@ export default function Index() {
   // Single-camera mode: everything runs on CAM 2 (slot index 0 internally as the
   // sole detection source). We keep constants so downstream logic stays intact.
   const ipTargetSlot = 1;
-  const localTargetSlot = 1;
+  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
 
