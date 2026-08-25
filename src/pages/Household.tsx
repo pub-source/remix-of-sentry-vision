@@ -471,7 +471,7 @@ export default function HouseholdPage() {
               {/* Wake Word List */}
               <div className="space-y-2">
                 {wakeWords.map(w => {
-                  const ac = actionConfig[w.action_type as keyof typeof actionConfig] || actionConfig.sms;
+                  const ac = actionConfig[w.action_type as keyof typeof actionConfig] || actionConfig.email;
                   const ActionIcon = ac.icon;
                   return (
                     <div key={w.id} className="bg-secondary/40 rounded-lg px-4 py-3 space-y-2">
