@@ -17,11 +17,14 @@ interface FusedDetectionViewProps {
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
+  /** Speaker OUTPUT only (playback of the camera's audio). */
   cctvAudioEnabled?: boolean;
   cctvAudioAvailable?: boolean;
   onToggleCctvAudio?: () => void;
   cctvDiagnostics?: CctvSpeechDiagnostics;
   wakeWordDiagnostic?: string;
+  /** Microphone INPUT pipeline (Whisper wake-word listening) — independent of the speaker. */
+  listeningActive?: boolean;
   /** Push-to-talk out of the CCTV speaker. */
   talking?: boolean;
   talkError?: string | null;
@@ -120,6 +123,7 @@ export default function FusedDetectionView({
   onToggleCctvAudio,
   cctvDiagnostics,
   wakeWordDiagnostic,
+  listeningActive = false,
   talking = false,
   talkError,
   onTalkStart,
@@ -348,7 +352,7 @@ export default function FusedDetectionView({
         )}
       </div>
 
-      {cctvAudioEnabled && cctvDiagnostics && (
+      {listeningActive && cctvDiagnostics && (
         <div className="absolute top-2 left-2 z-20 max-w-[min(92%,28rem)] rounded border border-border bg-background/90 px-2 py-1.5 text-[10px] text-foreground shadow-sm">
           <div className="font-bold text-primary">CCTV AUDIO → WHISPER</div>
           <div>Backend: {cctvDiagnostics.backendReachable ? 'connected' : 'unreachable'} · Audio: {cctvDiagnostics.audioConnected ? 'receiving' : 'waiting'} · Chunks: {cctvDiagnostics.chunksReceived}</div>
@@ -379,12 +383,12 @@ export default function FusedDetectionView({
         }`}
         title={
           !cctvAudioAvailable
-            ? 'Connect a CCTV stream to hear its audio and use its microphone'
+            ? 'Connect a CCTV stream to hear its audio'
             : cctvAudioEnabled
-              ? 'CCTV speaker + microphone ON — hearing the camera and listening for wake words. Click to mute.'
-              : 'CCTV speaker + microphone OFF — click to hear the camera and listen for wake words'
+              ? 'Speaker ON — you hear the camera. Muting only stops playback; wake-word listening keeps running.'
+              : 'Speaker OFF (playback muted). Wake-word listening and audio analysis keep running.'
         }
-        aria-label="Toggle CCTV speaker and microphone (wake-word listening)"
+        aria-label="Toggle CCTV speaker playback (does not affect microphone listening)"
         aria-pressed={cctvAudioEnabled}
 
       >
@@ -441,6 +445,14 @@ export default function FusedDetectionView({
         }`}>
           α:{attentionScore}
         </span>
+        {listeningActive && (
+          <span
+            className="text-[9px] font-mono px-1 py-0.5 rounded bg-accent/20 text-accent"
+            title="Microphone input pipeline is active — independent of speaker playback"
+          >
+            MIC LIVE
+          </span>
+        )}
       </div>
 
       {!active && (

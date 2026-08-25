@@ -25,7 +25,8 @@ import { useCctvSpeech } from '@/hooks/useCctvSpeech';
 import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
-import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
+import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
+import CameraSlotSelector, { SlotLiveView } from '@/components/dashboard/CameraSlotSelector';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
@@ -56,7 +57,7 @@ export default function Index() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { householdId, wakeWords, members, checkForWakeWord, logAlert, logNotification } = useHousehold(user?.id);
-  const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices, startSpecificCamera } = useCamera();
+  const { cameras, devices, startCameras, stopCameras, updateCamera, attachStream, enumerateDevices } = useCamera();
   // Always-current camera snapshot for analysis loops, so throttled timers do
   // not have to restart every time an object list changes.
   const camerasRef = useRef(cameras);
@@ -223,9 +224,13 @@ export default function Index() {
   // Single-camera mode: everything runs on CAM 2 (slot index 0 internally as the
   // sole detection source). We keep constants so downstream logic stays intact.
   const ipTargetSlot = 1;
-  const localTargetSlot = 1;
+  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
+
+  // CAM 1..4 selector for the main frame (display only — never disconnects).
+  const { slots: camSlots } = useCameraSlots();
+  const [selectedCam, setSelectedCam] = useState(1);
 
   // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
   useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
@@ -235,7 +240,9 @@ export default function Index() {
   //    CCTV speaker/microphone toggle is ON)
   //  - talking:   push-to-talk from the laptop mic out of the camera speaker
   const cctvServer = serverUrlFor(loadServerHost());
-  const cctvListenEnabled = running && ipCam.connected && ipCam.audioEnabled;
+  // INPUT pipeline (microphone / Whisper wake words) is independent from the
+  // OUTPUT pipeline (speaker playback). Muting the speaker never stops listening.
+  const cctvListenEnabled = running && ipCam.connected;
   // Camera Management registers camera 1 as `slot-1` (its MediaMTX path is
   // `cam1`, but API routes use the camera ID, not the path).
   const cctvCameraId = 'slot-1';
@@ -246,67 +253,6 @@ export default function Index() {
   const listening = ipCam.connected ? cctvSpeech.listening : speechListening;
 
 
-  // Test video upload — feeds an uploaded video file into a slot as a MediaStream
-  const testVideoRef = useRef<HTMLVideoElement | null>(null);
-  const [testVideoName, setTestVideoName] = useState<string>('');
-  const pendingVideoRef = useRef<{ file: File; slot: number } | null>(null);
-  const startPendingTestVideo = useCallback(async () => {
-    const pending = pendingVideoRef.current;
-    if (!pending) return false;
-    const { file, slot } = pending;
-    try {
-      // Recreate the hidden source video every upload so switching files works.
-      if (testVideoRef.current) {
-        try { testVideoRef.current.pause(); } catch {}
-        try { URL.revokeObjectURL(testVideoRef.current.src); } catch {}
-        testVideoRef.current.removeAttribute('src');
-        testVideoRef.current.load();
-        if (testVideoRef.current.parentNode) testVideoRef.current.parentNode.removeChild(testVideoRef.current);
-        testVideoRef.current = null;
-      }
-      const v = document.createElement('video');
-      v.muted = true;
-      v.loop = true;
-      v.playsInline = true;
-      v.autoplay = true;
-      v.setAttribute('playsinline', '');
-      v.setAttribute('muted', '');
-      v.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:2px;height:2px;opacity:0;pointer-events:none;';
-      document.body.appendChild(v);
-      testVideoRef.current = v;
-      const url = URL.createObjectURL(file);
-      v.src = url;
-      await new Promise<void>((resolve, reject) => {
-        const onMeta = () => { cleanup(); resolve(); };
-        const onErr = () => { cleanup(); reject(new Error('video load error: ' + (v.error?.message || 'unknown'))); };
-        const cleanup = () => {
-          v.removeEventListener('loadedmetadata', onMeta);
-          v.removeEventListener('error', onErr);
-        };
-        v.addEventListener('loadedmetadata', onMeta, { once: true });
-        v.addEventListener('error', onErr, { once: true });
-      });
-      // @ts-expect-error captureStream typing varies across browsers
-      const capture = v.captureStream ? v.captureStream.bind(v) : (v as any).mozCaptureStream?.bind(v);
-      if (!capture) {
-        alert('Your browser does not support video.captureStream(). Try Chrome or Firefox.');
-        return false;
-      }
-      const stream: MediaStream = capture();
-      attachStream(slot, stream, `Test Video: ${file.name}`);
-      setCameraStatusMsg('');
-      try {
-        await v.play();
-      } catch (e) {
-        alert('Playback blocked by browser. Interact with the page and re-upload.');
-        return false;
-      }
-      return true;
-    } catch (err) {
-      alert('Failed to load test video: ' + (err instanceof Error ? err.message : String(err)));
-      return false;
-    }
-  }, [attachStream]);
 
   // Fire detection state
   const fireStateRef = useRef(createFireState());
@@ -394,7 +340,7 @@ export default function Index() {
     const detected = await enumerateDevices();
     // Require a connected camera (webcam OR IP/CCTV) before enabling any
     // detection pipeline. Simulation mode bypasses the requirement.
-    let hasCamera = simulationMode || ipCam.connected || !!pendingVideoRef.current;
+    let hasCamera = simulationMode || ipCam.connected;
     if (!simulationMode) {
       try {
         const started = await startCameras(quality);
@@ -411,10 +357,6 @@ export default function Index() {
       addAlert(msg, 'medium', 1);
       return;
     }
-    // Start any pending uploaded test video only when monitoring begins
-    if (pendingVideoRef.current) {
-      await startPendingTestVideo();
-    }
     loadModel(); // Start loading COCO-SSD model
     // Wake words come from the CCTV's own audio when a camera stream is live;
     // the laptop microphone is only a fallback when no CCTV is connected.
@@ -425,7 +367,7 @@ export default function Index() {
     setCameraStatusMsg('');
     perfMonitor.reset();
     setRunning(true);
-  }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert, startPendingTestVideo]);
+  }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert]);
 
   const handleStop = useCallback(() => {
     setRunning(false);
@@ -735,91 +677,6 @@ export default function Index() {
               </button>
             </div>
 
-            {/* Local webcams (built-in / USB) — auto-detected. Single-camera mode:
-                all footage streams into CAM 2 for fused detection. */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-muted-foreground uppercase">
-                Available cameras ({devices.length} found)
-              </label>
-              <p className="text-[10px] text-muted-foreground">
-                Pick a camera to stream into CAM 2. All detection runs on this feed.
-              </p>
-              {devices.length === 0 ? (
-                <p className="text-[10px] font-mono text-muted-foreground">
-                  No built-in or USB webcam detected. Connect a CCTV/IP camera below, or grant camera permission and reload.
-                </p>
-              ) : (
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {devices.map((d, idx) => {
-                    const inUse = cameras.some(c => c.deviceId === d.deviceId && c.active);
-                    const lower = (d.label || '').toLowerCase();
-                    const isVirtual = /obs|virtual|snap|manycam|streamlab/.test(lower);
-                    const isBuiltIn = !isVirtual && (idx === 0 || /built[- ]?in|facetime|integrated|internal/.test(lower));
-                    const kindTag = isBuiltIn ? 'Built-in' : isVirtual ? 'Virtual' : 'External';
-                    return (
-                      <button
-                        key={d.deviceId || idx}
-                        onClick={async () => {
-                          const ok = await startSpecificCamera(d.deviceId, localTargetSlot, quality);
-                          if (ok) {
-                            setCameraStatusMsg('');
-                            setShowIpDialog(false);
-                          }
-                        }}
-                        className={`w-full text-left text-[10px] font-mono px-2 py-1.5 rounded border transition-all ${
-                          inUse
-                            ? 'bg-success/10 border-success/40 text-success'
-                            : 'bg-secondary/30 border-border hover:border-primary/50 text-foreground/80'
-                        }`}
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="truncate">
-                            {inUse ? '● ' : '○ '}{d.label || `Camera ${idx + 1}`}
-                          </span>
-                          <span className={`text-[8px] px-1 py-0.5 rounded shrink-0 ${
-                            isBuiltIn ? 'bg-primary/20 text-primary' :
-                            isVirtual ? 'bg-accent/20 text-accent' :
-                            'bg-muted text-muted-foreground'
-                          }`}>{kindTag}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="text-[9px] font-mono text-muted-foreground">
-                Tip: start OBS Virtual Camera in OBS, then it will appear here as a source you can assign to CAM 2 for fused detection.
-              </p>
-            </div>
-
-            <div className="h-px bg-border" />
-
-            {/* Upload video for testing detection */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-muted-foreground uppercase">
-                Upload test video (fire / smoke / distress clips)
-              </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={async e => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  pendingVideoRef.current = { file, slot: localTargetSlot };
-                  setTestVideoName(file.name);
-                  setShowIpDialog(false);
-                }}
-                className="w-full text-[10px] font-mono file:mr-2 file:py-1 file:px-2 file:rounded file:border file:border-input file:bg-secondary/30 file:text-foreground/80 file:cursor-pointer"
-              />
-              {testVideoName && (
-                <p className="text-[9px] font-mono text-success">Ready: {testVideoName} — press Start Monitoring to play.</p>
-              )}
-              <p className="text-[9px] font-mono text-muted-foreground">
-                The video is queued and only starts playing when you press Start Monitoring. Use it to validate fire / smoke / facial-distress logic without a live camera.
-              </p>
-            </div>
-
-            <div className="h-px bg-border" />
 
             <MultiCameraConnect
               onStream={async (url) => {
@@ -1026,32 +883,49 @@ export default function Index() {
               />
             </div>
 
-            {/* CAM view — fused detection is the only visible feed */}
-            <FusedDetectionView
-              sourceCanvas={cam2SourceCanvas || sourceCanvas}
-              objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
-              audioFeatures={audioFeatures}
-              attentionScore={attentionScore}
-              saliencyScore={globalSaliencyScore}
-              active={running}
-              transcript={listenTranscript}
-              interimTranscript={listenInterim}
-              speechListening={listening}
-              onToggleSpeech={() => {}}
-              talking={cctvTalk.talking}
-              talkError={cctvTalk.error}
-              onTalkStart={cctvTalk.startTalk}
-              onTalkStop={cctvTalk.stopTalk}
-              fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
-              fireFrameWidth={fireStatus.frameWidth}
-              fireFrameHeight={fireStatus.frameHeight}
-              cctvAudioEnabled={ipCam.audioEnabled}
-              cctvAudioAvailable={ipCam.connected}
-              onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
-              cctvDiagnostics={cctvSpeech.diagnostics}
-              wakeWordDiagnostic={wakeWordDiagnostic}
-            />
+            {/* CAM 1..4 selector + main frame. Switching only changes what is
+                shown — other cameras keep streaming and keep audio monitoring. */}
+            <div className="flex flex-col lg:flex-row gap-2">
+              <CameraSlotSelector
+                slots={camSlots}
+                selected={selectedCam}
+                onSelect={setSelectedCam}
+                primaryLive={ipCam.connected || cameras.some(c => c.active)}
+              />
+              <div className="flex-1 min-w-0">
+                {selectedCam === 1 ? (
+                  <FusedDetectionView
+                    sourceCanvas={cam2SourceCanvas || sourceCanvas}
+                    objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
+                    audioFeatures={audioFeatures}
+                    attentionScore={attentionScore}
+                    saliencyScore={globalSaliencyScore}
+                    active={running}
+                    transcript={listenTranscript}
+                    interimTranscript={listenInterim}
+                    speechListening={listening}
+                    onToggleSpeech={() => {}}
+                    talking={cctvTalk.talking}
+                    talkError={cctvTalk.error}
+                    onTalkStart={cctvTalk.startTalk}
+                    onTalkStop={cctvTalk.stopTalk}
+                    fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
+                    fireFrameWidth={fireStatus.frameWidth}
+                    fireFrameHeight={fireStatus.frameHeight}
+                    cctvAudioEnabled={ipCam.audioEnabled}
+                    cctvAudioAvailable={ipCam.connected}
+                    onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
+                    cctvDiagnostics={cctvSpeech.diagnostics}
+                    wakeWordDiagnostic={wakeWordDiagnostic}
+                    listeningActive={cctvListenEnabled}
+                  />
+                ) : (
+                  <SlotLiveView slot={camSlots.find(s => s.index === selectedCam)} />
+                )}
+              </div>
+            </div>
           </div>
+
 
           {/* Hidden CAM 2 raw capture — only when cam 2 has its own stream */}
           {cameras[1].active && (
