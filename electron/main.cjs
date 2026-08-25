@@ -68,18 +68,43 @@ ipcMain.handle('msds:env', () => ({
   appVersion: app.getVersion(),
   localServiceUrl: LOCAL_SERVICE_URL,
   cameraServerUrl: LOCAL_CAMERA_SERVER_URL,
+  localServer: localServerStatus,
 }));
+
+ipcMain.handle('msds:localServerStatus', () => localServerStatus);
 
 ipcMain.handle('msds:openExternal', (_evt, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Open the window immediately — the local bridge boots in parallel so a slow
+  // or failing Python start never blocks the UI.
+  createWindow();
+  startLocalServer()
+    .then((status) => {
+      localServerStatus = status;
+      if (status.error) console.error('[msds] local server not ready:', status.error);
+    })
+    .catch((exc) => {
+      localServerStatus = { managed: true, running: false, error: String(exc) };
+      console.error('[msds] local server startup crashed:', exc);
+    });
+});
+
+// Terminate the Python bridge (and its MediaMTX/ffmpeg children) on shutdown.
+app.on('before-quit', stopLocalServer);
+app.on('will-quit', stopLocalServer);
+process.on('exit', stopLocalServer);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    stopLocalServer();
+    app.quit();
+  }
 });
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
+
