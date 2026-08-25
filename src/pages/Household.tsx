@@ -8,6 +8,7 @@ import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2,
 import { HelpCircle } from 'lucide-react';
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
 import householdBg from '@/assets/household-bg.jpg';
+import NotificationSettings from '@/components/household/NotificationSettings';
 
 
 interface Household {
