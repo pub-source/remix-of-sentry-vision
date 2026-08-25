@@ -178,7 +178,7 @@ export default function HouseholdPage() {
     await supabase.from('wake_words').insert({ household_id: household.id, phrase: newPhrase.trim().toLowerCase(), is_emergency: isEmergency, created_by: user?.id, action_type: actionType });
     setNewPhrase('');
     setIsEmergency(false);
-    setActionType('sms');
+    setActionType('email');
     setShowAddPhrase(false);
     fetchHousehold();
   };
