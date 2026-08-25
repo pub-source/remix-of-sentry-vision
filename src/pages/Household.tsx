@@ -512,8 +512,8 @@ export default function HouseholdPage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground">Action Type</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['sms', 'email', 'both'] as const).map(opt => {
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['in_app', 'email'] as const).map(opt => {
                         const cfg = actionConfig[opt];
                         const Icon = cfg.icon;
                         return (
