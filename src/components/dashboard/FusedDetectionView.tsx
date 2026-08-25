@@ -17,11 +17,14 @@ interface FusedDetectionViewProps {
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
+  /** Speaker OUTPUT only (playback of the camera's audio). */
   cctvAudioEnabled?: boolean;
   cctvAudioAvailable?: boolean;
   onToggleCctvAudio?: () => void;
   cctvDiagnostics?: CctvSpeechDiagnostics;
   wakeWordDiagnostic?: string;
+  /** Microphone INPUT pipeline (Whisper wake-word listening) — independent of the speaker. */
+  listeningActive?: boolean;
   /** Push-to-talk out of the CCTV speaker. */
   talking?: boolean;
   talkError?: string | null;
@@ -120,6 +123,7 @@ export default function FusedDetectionView({
   onToggleCctvAudio,
   cctvDiagnostics,
   wakeWordDiagnostic,
+  listeningActive = false,
   talking = false,
   talkError,
   onTalkStart,
