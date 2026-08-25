@@ -240,9 +240,8 @@ export default function HouseholdPage() {
   }
 
   const actionConfig = {
-    sms: { icon: PhoneIcon, label: 'SMS', color: 'text-primary', bg: 'bg-primary/10', desc: 'Text message sent to all members' },
-    email: { icon: Mail, label: 'Email', color: 'text-accent', bg: 'bg-accent/10', desc: 'Email notification to admin accounts' },
-    both: { icon: MessageSquare, label: 'Both', color: 'text-warning', bg: 'bg-warning/10', desc: 'SMS + Email notifications' },
+    in_app: { icon: Bell, label: 'In-App', color: 'text-primary', bg: 'bg-primary/10', desc: 'Alert shown inside the dashboard only' },
+    email: { icon: Mail, label: 'Email', color: 'text-accent', bg: 'bg-accent/10', desc: 'Email notification sent to your recipients' },
   };
 
   return (
