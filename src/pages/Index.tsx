@@ -228,6 +228,10 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ipCam = useIpCamera();
 
+  // CAM 1..4 selector for the main frame (display only — never disconnects).
+  const { slots: camSlots } = useCameraSlots();
+  const [selectedCam, setSelectedCam] = useState(1);
+
   // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
   useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
 
