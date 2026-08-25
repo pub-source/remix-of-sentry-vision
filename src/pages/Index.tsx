@@ -25,7 +25,8 @@ import { useCctvSpeech } from '@/hooks/useCctvSpeech';
 import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
-import { loadServerHost, serverUrlFor } from '@/hooks/useCameraSlots';
+import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
+import CameraSlotSelector, { SlotLiveView } from '@/components/dashboard/CameraSlotSelector';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
@@ -878,32 +879,49 @@ export default function Index() {
               />
             </div>
 
-            {/* CAM view — fused detection is the only visible feed */}
-            <FusedDetectionView
-              sourceCanvas={cam2SourceCanvas || sourceCanvas}
-              objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
-              audioFeatures={audioFeatures}
-              attentionScore={attentionScore}
-              saliencyScore={globalSaliencyScore}
-              active={running}
-              transcript={listenTranscript}
-              interimTranscript={listenInterim}
-              speechListening={listening}
-              onToggleSpeech={() => {}}
-              talking={cctvTalk.talking}
-              talkError={cctvTalk.error}
-              onTalkStart={cctvTalk.startTalk}
-              onTalkStop={cctvTalk.stopTalk}
-              fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
-              fireFrameWidth={fireStatus.frameWidth}
-              fireFrameHeight={fireStatus.frameHeight}
-              cctvAudioEnabled={ipCam.audioEnabled}
-              cctvAudioAvailable={ipCam.connected}
-              onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
-              cctvDiagnostics={cctvSpeech.diagnostics}
-              wakeWordDiagnostic={wakeWordDiagnostic}
-            />
+            {/* CAM 1..4 selector + main frame. Switching only changes what is
+                shown — other cameras keep streaming and keep audio monitoring. */}
+            <div className="flex flex-col lg:flex-row gap-2">
+              <CameraSlotSelector
+                slots={camSlots}
+                selected={selectedCam}
+                onSelect={setSelectedCam}
+                primaryLive={ipCam.connected || cameras.some(c => c.active)}
+              />
+              <div className="flex-1 min-w-0">
+                {selectedCam === 1 ? (
+                  <FusedDetectionView
+                    sourceCanvas={cam2SourceCanvas || sourceCanvas}
+                    objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
+                    audioFeatures={audioFeatures}
+                    attentionScore={attentionScore}
+                    saliencyScore={globalSaliencyScore}
+                    active={running}
+                    transcript={listenTranscript}
+                    interimTranscript={listenInterim}
+                    speechListening={listening}
+                    onToggleSpeech={() => {}}
+                    talking={cctvTalk.talking}
+                    talkError={cctvTalk.error}
+                    onTalkStart={cctvTalk.startTalk}
+                    onTalkStop={cctvTalk.stopTalk}
+                    fireBbox={fireStatus.fireDetected ? fireStatus.bbox : undefined}
+                    fireFrameWidth={fireStatus.frameWidth}
+                    fireFrameHeight={fireStatus.frameHeight}
+                    cctvAudioEnabled={ipCam.audioEnabled}
+                    cctvAudioAvailable={ipCam.connected}
+                    onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
+                    cctvDiagnostics={cctvSpeech.diagnostics}
+                    wakeWordDiagnostic={wakeWordDiagnostic}
+                    listeningActive={cctvListenEnabled}
+                  />
+                ) : (
+                  <SlotLiveView slot={camSlots.find(s => s.index === selectedCam)} />
+                )}
+              </div>
+            </div>
           </div>
+
 
           {/* Hidden CAM 2 raw capture — only when cam 2 has its own stream */}
           {cameras[1].active && (
