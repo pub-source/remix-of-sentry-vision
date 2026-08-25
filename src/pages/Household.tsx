@@ -77,7 +77,7 @@ export default function HouseholdPage() {
 
   const [newPhrase, setNewPhrase] = useState('');
   const [isEmergency, setIsEmergency] = useState(false);
-  const [actionType, setActionType] = useState<'sms' | 'email' | 'both'>('sms');
+  const [actionType, setActionType] = useState<'in_app' | 'email'>('email');
   const [showAddPhrase, setShowAddPhrase] = useState(false);
 
   const [showEmergency, setShowEmergency] = useState(false);
