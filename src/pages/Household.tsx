@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2, Plus, X, Check, Phone as PhoneIcon, Mail, MessageSquare, ChevronRight } from 'lucide-react';
+import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2, Plus, X, Check, Mail, Bell, ChevronRight } from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
 import householdBg from '@/assets/household-bg.jpg';
