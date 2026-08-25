@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('msds', {
   isElectron: true,
   /** { isElectron, isDev, platform, appVersion, localServiceUrl, cameraServerUrl } */
   getEnv: () => ipcRenderer.invoke('msds:env'),
+  /** { managed, running, error } for the Electron-managed Python bridge. */
+  getLocalServerStatus: () => ipcRenderer.invoke('msds:localServerStatus'),
   openExternal: (url) => ipcRenderer.invoke('msds:openExternal', url),
 });
