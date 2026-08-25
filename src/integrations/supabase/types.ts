@@ -375,6 +375,85 @@ export type Database = {
           },
         ]
       }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          email: string
+          enabled: boolean
+          household_id: string
+          id: string
+          label: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          enabled?: boolean
+          household_id: string
+          id?: string
+          label?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          enabled?: boolean
+          household_id?: string
+          id?: string
+          label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_recipients_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          cooldown_seconds: number
+          created_at: string
+          email_enabled: boolean
+          household_id: string
+          in_app_enabled: boolean
+          severity_threshold: string
+          sound_enabled: boolean
+          sound_volume: number
+          updated_at: string
+        }
+        Insert: {
+          cooldown_seconds?: number
+          created_at?: string
+          email_enabled?: boolean
+          household_id: string
+          in_app_enabled?: boolean
+          severity_threshold?: string
+          sound_enabled?: boolean
+          sound_volume?: number
+          updated_at?: string
+        }
+        Update: {
+          cooldown_seconds?: number
+          created_at?: string
+          email_enabled?: boolean
+          household_id?: string
+          in_app_enabled?: boolean
+          severity_threshold?: string
+          sound_enabled?: boolean
+          sound_volume?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

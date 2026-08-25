@@ -4,10 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2, Plus, X, Check, Phone as PhoneIcon, Mail, MessageSquare, ChevronRight } from 'lucide-react';
+import { Shield, LogOut, ArrowLeft, Copy, QrCode, AlertTriangle, Users, Volume2, Plus, X, Check, Mail, Bell, ChevronRight } from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
 import householdBg from '@/assets/household-bg.jpg';
+import NotificationSettings from '@/components/household/NotificationSettings';
 
 
 interface Household {
@@ -77,7 +78,7 @@ export default function HouseholdPage() {
 
   const [newPhrase, setNewPhrase] = useState('');
   const [isEmergency, setIsEmergency] = useState(false);
-  const [actionType, setActionType] = useState<'sms' | 'email' | 'both'>('sms');
+  const [actionType, setActionType] = useState<'in_app' | 'email'>('email');
   const [showAddPhrase, setShowAddPhrase] = useState(false);
 
   const [showEmergency, setShowEmergency] = useState(false);
@@ -178,7 +179,7 @@ export default function HouseholdPage() {
     await supabase.from('wake_words').insert({ household_id: household.id, phrase: newPhrase.trim().toLowerCase(), is_emergency: isEmergency, created_by: user?.id, action_type: actionType });
     setNewPhrase('');
     setIsEmergency(false);
-    setActionType('sms');
+    setActionType('email');
     setShowAddPhrase(false);
     fetchHousehold();
   };
@@ -240,9 +241,8 @@ export default function HouseholdPage() {
   }
 
   const actionConfig = {
-    sms: { icon: PhoneIcon, label: 'SMS', color: 'text-primary', bg: 'bg-primary/10', desc: 'Text message sent to all members' },
-    email: { icon: Mail, label: 'Email', color: 'text-accent', bg: 'bg-accent/10', desc: 'Email notification to admin accounts' },
-    both: { icon: MessageSquare, label: 'Both', color: 'text-warning', bg: 'bg-warning/10', desc: 'SMS + Email notifications' },
+    in_app: { icon: Bell, label: 'In-App', color: 'text-primary', bg: 'bg-primary/10', desc: 'Alert shown inside the dashboard only' },
+    email: { icon: Mail, label: 'Email', color: 'text-accent', bg: 'bg-accent/10', desc: 'Email notification sent to your recipients' },
   };
 
   return (
@@ -472,7 +472,7 @@ export default function HouseholdPage() {
               {/* Wake Word List */}
               <div className="space-y-2">
                 {wakeWords.map(w => {
-                  const ac = actionConfig[w.action_type as keyof typeof actionConfig] || actionConfig.sms;
+                  const ac = actionConfig[w.action_type as keyof typeof actionConfig] || actionConfig.email;
                   const ActionIcon = ac.icon;
                   return (
                     <div key={w.id} className="bg-secondary/40 rounded-lg px-4 py-3 space-y-2">
@@ -513,8 +513,8 @@ export default function HouseholdPage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground">Action Type</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['sms', 'email', 'both'] as const).map(opt => {
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['in_app', 'email'] as const).map(opt => {
                         const cfg = actionConfig[opt];
                         const Icon = cfg.icon;
                         return (
@@ -558,6 +558,8 @@ export default function HouseholdPage() {
                 </form>
               )}
             </div>
+
+            <NotificationSettings householdId={household.id} />
 
             {/* Go to Dashboard */}
             <button

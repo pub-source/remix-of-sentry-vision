@@ -5,7 +5,7 @@ interface WakeWord {
   id: string;
   phrase: string;
   is_emergency: boolean;
-  action_type: 'sms' | 'email' | 'both';
+  action_type: 'in_app' | 'email';
 }
 
 interface HouseholdMember {
@@ -18,7 +18,7 @@ interface WakeWordMatch {
   matched: boolean;
   phrase: string;
   isEmergency: boolean;
-  actionType: 'sms' | 'email' | 'both';
+  actionType: 'in_app' | 'email';
   wakeWordId: string;
 }
 
@@ -68,7 +68,7 @@ export function useHousehold(userId: string | undefined) {
         };
       }
     }
-    return { matched: false, phrase: '', isEmergency: false, actionType: 'sms', wakeWordId: '' };
+    return { matched: false, phrase: '', isEmergency: false, actionType: 'email', wakeWordId: '' };
   }, [wakeWords]);
 
   const logAlert = useCallback(async (alertType: string, message: string, snapshotUrl?: string) => {
@@ -85,7 +85,7 @@ export function useHousehold(userId: string | undefined) {
   const logNotification = useCallback(async (
     wakeWordId: string,
     phraseMatched: string,
-    actionType: 'sms' | 'email' | 'both',
+    actionType: 'in_app' | 'email',
     isEmergency: boolean
   ) => {
     if (!householdId || !userId) return;
