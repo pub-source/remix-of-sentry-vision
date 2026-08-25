@@ -277,9 +277,9 @@ export default function HouseholdPage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-5">
+      <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
         {tab === 'setup' && (
-          <div id="hh-tour-setup" className="space-y-5">
+          <div id="hh-tour-setup" className="space-y-5 max-w-2xl mx-auto">
             {/* Mode Toggle */}
             <div id="hh-tour-mode" className="flex rounded-lg border border-border overflow-hidden">
               {(['create', 'join'] as const).map(m => (
@@ -342,7 +342,27 @@ export default function HouseholdPage() {
         )}
 
         {tab === 'manage' && household && (
-          <div className="space-y-5">
+          <div className="space-y-6">
+            {/* Overview strip — quick household stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'Household', value: household.name, Icon: Shield },
+                { label: 'Members', value: String(members.length), Icon: Users },
+                { label: 'Wake words', value: String(wakeWords.length), Icon: Volume2 },
+                { label: 'Pending requests', value: String(joinRequests.length), Icon: AlertTriangle },
+              ].map(({ label, value, Icon }) => (
+                <div key={label} className="bg-card/95 rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-base font-semibold text-foreground truncate">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Household Info Card */}
             <div id="hh-tour-invite" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="p-5 space-y-4">
@@ -389,7 +409,8 @@ export default function HouseholdPage() {
               </div>
             </div>
 
-            {/* Members */}
+            {/* Residents & requests */}
+            <div className="grid gap-6 lg:grid-cols-2 items-start">
             <div id="hh-tour-members" className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
@@ -442,8 +463,10 @@ export default function HouseholdPage() {
                 </div>
               </div>
             )}
+            </div>
 
-            {/* Wake Words & Phrases */}
+            {/* Safety & alert settings */}
+            <div className="grid gap-6 lg:grid-cols-2 items-start">
             <div id="hh-tour-wakewords" className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -560,6 +583,7 @@ export default function HouseholdPage() {
             </div>
 
             <NotificationSettings householdId={household.id} />
+            </div>
 
             {/* Go to Dashboard */}
             <button
