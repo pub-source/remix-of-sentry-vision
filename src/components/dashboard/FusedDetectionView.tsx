@@ -445,6 +445,14 @@ export default function FusedDetectionView({
         }`}>
           α:{attentionScore}
         </span>
+        {listeningActive && (
+          <span
+            className="text-[9px] font-mono px-1 py-0.5 rounded bg-accent/20 text-accent"
+            title="Microphone input pipeline is active — independent of speaker playback"
+          >
+            MIC LIVE
+          </span>
+        )}
       </div>
 
       {!active && (
