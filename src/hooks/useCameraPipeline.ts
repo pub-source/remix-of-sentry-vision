@@ -290,7 +290,7 @@ export function useCameraPipeline({ camera, settings, onEvent, onTranscript }: O
     const id = window.setInterval(poll, 3000);
     void poll();
     return () => { stopped = true; window.clearInterval(id); };
-  }, [camera, settings.pythonServer, settings.audioThreshold, patch, emit, onTranscript]);
+  }, [camera.enabled, camera.aiEnabled, camera.id, camera.name, camera.location, settings.pythonServer, settings.audioThreshold, patch, emit, onTranscript]);
 
   const reconnect = useCallback(() => {
     hlsRef.current?.destroy();

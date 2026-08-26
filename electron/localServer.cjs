@@ -128,7 +128,7 @@ const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 1
  * launch pays the download cost. Failures are non-fatal: we still try to start
  * the bridge with whatever is available and report the problem.
  */
-function bootstrapEnvironment(dir) {
+async function bootstrapEnvironment(dir) {
   if (process.env.MSDS_SKIP_BOOTSTRAP === '1') {
     bootstrap = { phase: 'skipped', message: 'MSDS_SKIP_BOOTSTRAP=1', firstRun: false };
     return { ok: true, error: null };
@@ -279,7 +279,7 @@ async function startLocalServer() {
   }
 
   // First run: build the venv, install requirements, fetch ffmpeg/mediamtx.
-  const boot = bootstrapEnvironment(dir);
+  const boot = await bootstrapEnvironment(dir);
   if (!boot.ok) {
     logErr(boot.error);
     return { managed: true, running: false, error: boot.error, dir, bootstrap: getBootstrapStatus() };

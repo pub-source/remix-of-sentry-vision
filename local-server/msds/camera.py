@@ -193,7 +193,13 @@ class Camera:
         # A reconnect may happen immediately after stop(). Never clear the old
         # worker's stop flag while that worker is still winding down.
         if self.audio_thread and self.audio_thread.is_alive():
-            return if self.running() else None
+            if self.running():
+                return
+            self.stop_flag.set()
+            self.audio_thread.join(timeout=AUDIO_CHUNK_SECONDS + 3)
+            if self.audio_thread.is_alive():
+                raise RuntimeError("Previous camera audio session is still stopping")
+            self.audio_thread = None
         self.stop_flag.clear()
         self.error = None
         self.start_video()

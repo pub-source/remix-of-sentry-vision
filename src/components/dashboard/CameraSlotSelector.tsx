@@ -113,7 +113,7 @@ export function SlotPipelineView({
   const camera = useMemo(
     () => ({
       ...slotCamera(slot),
-      enabled: !!slot.ip.trim() && !!slot.connected,
+      enabled: monitoring && !!slot.ip.trim() && !!slot.connected,
       aiEnabled: slot.aiEnabled && monitoring,
     }),
     [slot, monitoring],
