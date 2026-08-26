@@ -7,7 +7,7 @@ import AlertLog from '@/components/dashboard/AlertLog';
 import ControlsPanel from '@/components/dashboard/ControlsPanel';
 import AttentionGauge from '@/components/dashboard/AttentionGauge';
 import DetectionFeedback from '@/components/dashboard/DetectionFeedback';
-import PrefetchModelsButton from '@/components/dashboard/PrefetchModelsButton';
+
 import PerformanceMonitor from '@/components/dashboard/PerformanceMonitor';
 
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
