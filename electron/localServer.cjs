@@ -19,6 +19,7 @@
 const { app } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const http = require('http');
 
@@ -29,8 +30,19 @@ const STATUS_URL = process.env.MSDS_CAMERA_SERVER_URL || 'http://127.0.0.1:5000'
 let child = null;
 let stopping = false;
 
+/**
+ * First-run bootstrap progress, surfaced to the renderer through main.cjs.
+ * phase: idle | venv | deps | binaries | starting | ready | error | skipped
+ */
+let bootstrap = { phase: 'idle', message: '', firstRun: false };
+const setPhase = (phase, message) => {
+  bootstrap = { ...bootstrap, phase, message };
+  log(`[${phase}] ${message}`);
+};
+
 const log = (...args) => console.log('[msds:local-server]', ...args);
 const logErr = (...args) => console.error('[msds:local-server]', ...args);
+
 
 /** Resolve the packaged (or repo) local-server directory. */
 function localServerDir() {
