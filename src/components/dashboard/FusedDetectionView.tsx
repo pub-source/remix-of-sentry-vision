@@ -23,6 +23,8 @@ interface FusedDetectionViewProps {
   talkError?: string | null;
   onTalkStart?: () => void;
   onTalkStop?: () => void;
+  /** Header label — lets CAM 2..4 reuse the same fused view. */
+  title?: string;
 }
 
 // Distress indicators from object/audio context
@@ -116,6 +118,7 @@ export default function FusedDetectionView({
   talkError,
   onTalkStart,
   onTalkStop,
+  title = 'CAM 1 — Fused Detection',
 }: FusedDetectionViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -301,7 +304,7 @@ export default function FusedDetectionView({
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
         <span className="text-[10px] font-mono text-primary uppercase tracking-wider">
-          CAM 1 — Fused Detection
+          {title}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-accent/20 text-accent">AI+DISTRESS</span>
