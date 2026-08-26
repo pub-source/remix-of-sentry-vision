@@ -26,7 +26,7 @@ import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
-import CameraSlotSelector, { SlotLiveView } from '@/components/dashboard/CameraSlotSelector';
+import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
