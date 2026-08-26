@@ -29,6 +29,7 @@ import type { DetectionEvent } from '@/types/multicam';
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
 import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
+import { startAll as startAllCameraServices, stopAll as stopAllCameraServices } from '@/lib/multiCamServer';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
@@ -309,6 +310,8 @@ export default function Index() {
       trigger?: string;
       cameraLabel?: string;
       details?: Record<string, string | number | boolean | null | undefined>;
+      snapshotDataUrl?: string;
+      snapshotInfo?: string;
     },
   ) => {
     const key = `${message}-${cameraId}`;
@@ -331,6 +334,7 @@ export default function Index() {
     else announce(message);
 
     if ((severity === 'critical' || severity === 'high') && householdId) {
+      const snapshot = snapshotId ? snapshots.find(item => item.id === snapshotId) : undefined;
       void sendAlertEmail({
         householdId,
         alertId,
@@ -343,9 +347,13 @@ export default function Index() {
         saliencyScore: detail?.saliencyScore,
         trigger: detail?.trigger,
         details: detail?.details,
+        snapshotDataUrl: detail?.snapshotDataUrl ?? snapshot?.dataUrl,
+        snapshotInfo: detail?.snapshotInfo ?? (snapshot
+          ? `${snapshot.reason}; captured ${snapshot.timestamp.toISOString()}`
+          : 'No safe snapshot was available for this alert.'),
       });
     }
-  }, [householdId]);
+  }, [householdId, snapshots]);
 
   /** Alerts raised by the independent CAM 2..4 pipelines. */
   const handleSlotEvent = useCallback((evt: Omit<DetectionEvent, 'id'>) => {
@@ -361,25 +369,21 @@ export default function Index() {
       cameraLabel: `${evt.cameraName} (CAM ${camIndex})`,
       trigger: `${evt.type} detected by the independent pipeline of ${evt.cameraName}`,
       details: { Location: evt.location || undefined, Detection: evt.label },
+      snapshotDataUrl: evt.snapshot,
+      snapshotInfo: evt.snapshot ? `Captured by ${evt.cameraName} at ${evt.timestamp}` : undefined,
     });
   }, [addAlert]);
 
 
   const lastMatchedPhraseRef = useRef<string>('');
   const lastMatchedTimeRef = useRef<number>(0);
-  const [wakeWordDiagnostic, setWakeWordDiagnostic] = useState('Waiting for CCTV transcript');
-
   // Low-latency wake word detection — checks both transcript and interim
   useEffect(() => {
     if (!running) return;
     const combinedText = `${listenTranscript} ${listenInterim}`.trim();
-    if (!combinedText) {
-      setWakeWordDiagnostic('Waiting for CCTV transcript');
-      return;
-    }
+    if (!combinedText) return;
     
     const match = checkForWakeWord(combinedText);
-    setWakeWordDiagnostic(match.matched ? `Matched: ${match.phrase}` : 'Transcript received — no configured wake word matched');
     console.info('[Wake word check]', { source: ipCam.connected ? 'CCTV' : 'browser fallback', matched: match.matched, phrase: match.phrase });
     const now = Date.now();
     if (match.matched && (match.phrase !== lastMatchedPhraseRef.current || now - lastMatchedTimeRef.current > 5000)) {
@@ -395,11 +399,31 @@ export default function Index() {
     }
   }, [listenTranscript, listenInterim, running, checkForWakeWord, addAlert, logAlert, logNotification]);
 
+  const handleSlotTranscript = useCallback((text: string, camera: { id: string; name: string }) => {
+    const match = checkForWakeWord(text);
+    if (!match.matched) return;
+    const now = Date.now();
+    const dedupeKey = `${camera.id}:${match.phrase}`;
+    if (lastMatchedPhraseRef.current === dedupeKey && now - lastMatchedTimeRef.current <= 5000) return;
+    lastMatchedPhraseRef.current = dedupeKey;
+    lastMatchedTimeRef.current = now;
+    const camIndex = Number(camera.id.replace('slot-', '')) || 1;
+    addAlert(`${camera.name}: Wake word "${match.phrase}"`, match.isEmergency ? 'critical' : 'high', camIndex, undefined, {
+      alertType: 'wake-word',
+      trigger: `Configured wake word heard in ${camera.name}'s CCTV audio`,
+      cameraLabel: `${camera.name} (CAM ${camIndex})`,
+      details: { Phrase: match.phrase },
+    });
+    logAlert('wake_word', `${camera.name}: wake word detected: "${match.phrase}"`);
+    logNotification(match.wakeWordId, match.phrase, match.actionType, match.isEmergency);
+    if (match.isEmergency) setShowEmergency(true);
+  }, [addAlert, checkForWakeWord, logAlert, logNotification]);
+
   const handleStart = useCallback(async () => {
     const detected = await enumerateDevices();
     // Require a connected camera (webcam OR IP/CCTV) before enabling any
     // detection pipeline. Simulation mode bypasses the requirement.
-    let hasCamera = simulationMode || ipCam.connected;
+    let hasCamera = simulationMode || ipCam.connected || camSlots.some(slot => slot.connected);
     if (!simulationMode) {
       try {
         const started = await startCameras(quality);
@@ -423,10 +447,15 @@ export default function Index() {
     await startAudio().catch((err) => {
       console.warn('[handleStart] Audio failed to start:', err);
     });
+    if (camSlots.some(slot => slot.connected)) {
+      await startAllCameraServices(cctvServer).catch(err => {
+        console.warn('[handleStart] Camera services could not restart:', err);
+      });
+    }
     setCameraStatusMsg('');
     perfMonitor.reset();
     setRunning(true);
-  }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert]);
+  }, [simulationMode, quality, startCameras, startAudio, enumerateDevices, loadModel, speechSupported, startSpeech, ipCam.connected, addAlert, camSlots, cctvServer]);
 
   const handleStop = useCallback(() => {
     setRunning(false);
@@ -434,17 +463,20 @@ export default function Index() {
     stopAudio();
     stopSpeech();
     clearSpeech();
+    void stopAllCameraServices(cctvServer).catch(err => {
+      console.warn('[handleStop] Camera services could not stop cleanly:', err);
+    });
     setAttentionScore(0);
     setGlobalSaliencyScore(0);
     perfMonitor.reset();
-  }, [stopCameras, stopAudio, stopSpeech, clearSpeech]);
+  }, [stopCameras, stopAudio, stopSpeech, clearSpeech, cctvServer]);
 
   // Watch for camera disconnect mid-run: if no active webcam and no IP cam,
   // stop detection and surface a reconnect message in the existing feed area.
   useEffect(() => {
     if (!running) return;
     if (simulationMode) return;
-    const anyActive = cameras.some(c => c.active) || ipCam.connected;
+    const anyActive = cameras.some(c => c.active) || ipCam.connected || camSlots.some(slot => slot.connected);
     if (!anyActive) {
       const more = devices.length > 0;
       const msg = more
@@ -454,7 +486,7 @@ export default function Index() {
       addAlert(msg, 'high', 1);
       handleStop();
     }
-  }, [running, simulationMode, cameras, ipCam.connected, handleStop, addAlert, devices.length]);
+  }, [running, simulationMode, cameras, ipCam.connected, camSlots, handleStop, addAlert, devices.length]);
 
   // Listen for underlying MediaStreamTrack ended events (USB unplug, IP cam drop)
   useEffect(() => {
@@ -682,12 +714,12 @@ export default function Index() {
     }
   }, [faceDistress.distress.distressLevel, faceDistress.distress.expression, faceDistress.distress.distressScore, running, addAlert, logAlert]);
 
-  // Alert on YAMNet audio distress (screams, crying, wails)
+  // Alert on classified sound distress (screams, crying, wails).
   useEffect(() => {
     if (!running) return;
     if (yamnet.distressScore >= 60) {
       addAlert(`Audio distress: ${yamnet.topLabel} (${yamnet.distressScore}%)`, 'critical', 0);
-      logAlert('audio_distress', `YAMNet distress: ${yamnet.topLabel} (${yamnet.distressScore}%)`);
+      logAlert('audio_distress', `Sound distress: ${yamnet.topLabel} (${yamnet.distressScore}%)`);
       setShowEmergency(true);
     } else if (yamnet.distressScore >= 35) {
       addAlert(`Elevated audio: ${yamnet.topLabel} (${yamnet.distressScore}%)`, 'high', 0);
@@ -965,8 +997,6 @@ export default function Index() {
                     active={running}
                     transcript={listenTranscript}
                     interimTranscript={listenInterim}
-                    speechListening={listening}
-                    onToggleSpeech={() => {}}
                     talking={cctvTalk.talking}
                     talkError={cctvTalk.error}
                     onTalkStart={cctvTalk.startTalk}
@@ -986,6 +1016,7 @@ export default function Index() {
                     monitoring={running}
                     visible={selectedCam === slot.index}
                     onEvent={handleSlotEvent}
+                    onTranscript={handleSlotTranscript}
                   />
                 ))}
               </div>

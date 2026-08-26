@@ -34,11 +34,13 @@ npm --prefix local-service install
 npm --prefix cloudflare install
 ```
 
-Local dependencies to install yourself:
+Local development dependencies:
 - **Node 20+**
-- **FFmpeg** — `winget install Gyan.FFmpeg` (or set `MSDS_FFMPEG_PATH`)
-- **MediaMTX** — `mediamtx.exe` next to `local-server/`
-- **Python 3.10+** with `local-server/setup_windows.bat` (installs faster-whisper)
+- **Python 3.10+**
+
+Packaged Windows builds automatically create `local-server/.venv`, install
+`local-server/requirements.txt`, fetch FFmpeg/FFprobe/MediaMTX, and wait for the
+camera service to become ready. The batch setup remains optional for development.
 
 ## Commands
 
@@ -58,6 +60,13 @@ Local dependencies to install yourself:
 Web (`.env`, already present): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`.
 
 Local: `MSDS_LOCAL_PORT`, `MSDS_FFMPEG_PATH`, `MSDS_FFPROBE_PATH`, `MSDS_WHISPER_PROVIDER`, `MSDS_CAMERA_SERVER_URL`.
+
+Desktop bootstrap: `MSDS_MANAGE_LOCAL_SERVER=1` opts development into automatic
+service management; `MSDS_SKIP_BOOTSTRAP=1` skips dependency preparation. Packaged
+builds manage and prepare services automatically.
+
+Alert email function secrets (names only; never commit values): `BREVO_API_KEY`,
+`BREVO_SENDER_EMAIL`, and optional `BREVO_SENDER_NAME`.
 
 Cloud (`cloudflare/.dev.vars`, never committed): `MSDS_DEVICE_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `DATA_BACKEND`.
 

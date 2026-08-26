@@ -25,6 +25,7 @@ import {
 } from '@/hooks/useCameraSlots';
 import IpAddressHelp from './IpAddressHelp';
 import IdleHint from '@/components/IdleHint';
+import { getLocalServerStatus, isDesktop, type LocalServerStatus } from '@/lib/desktop';
 
 interface Props {
   /** Called with the backend-reported HLS URL for camera 1 (drives the main dashboard). */
@@ -286,6 +287,7 @@ function SlotCard({
 export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) => {
   const { count, activeSlots, setCount, updateSlot } = useCameraSlots();
   const [backend, setBackend] = useState<BackendStatus | null>(null);
+  const [desktopStatus, setDesktopStatus] = useState<LocalServerStatus | null>(null);
   const server = serverUrlFor(loadServerHost());
 
   useEffect(() => {
@@ -296,6 +298,20 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
     const t = window.setInterval(poll, 4000);
     return () => window.clearInterval(t);
   }, [server]);
+
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let stopped = false;
+    const poll = async () => {
+      const status = await getLocalServerStatus();
+      if (!stopped) setDesktopStatus(status);
+    };
+    void poll();
+    const timer = window.setInterval(poll, 1000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, []);
+
+  const preparing = desktopStatus?.managed && !desktopStatus.running && desktopStatus.bootstrap?.phase !== 'error';
 
   return (
     <div className="space-y-4">
@@ -328,8 +344,13 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-secondary/30 border border-border">
         <Dot ok={!!backend} label="Local server" />
         <Dot ok={!!backend?.mediamtx} label="MediaMTX" />
-        <Dot ok={!!backend?.whisper} label="Audio (Whisper)" />
+        <Dot ok={!!backend?.whisper} label="Camera audio" />
       </div>
+      {desktopStatus && (
+        <p className={`text-[15px] font-semibold ${desktopStatus.running ? 'text-success' : desktopStatus.error ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
+          {desktopStatus.running ? 'Camera services ready' : preparing ? 'Preparing camera services…' : desktopStatus.error || 'Camera services are not running'}
+        </p>
+      )}
 
       <div className={`grid gap-4 ${count === 1 ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
         {activeSlots.map(slot => (

@@ -44,6 +44,7 @@ class Camera:
     last_transcript: str = ""
     _hls_ok: bool = False
     _hls_checked: float = 0.0
+    lifecycle_lock: threading.RLock = field(default_factory=threading.RLock)
 
     # ---- video: RTSP -> MediaMTX (copy, low CPU) --------------------------- #
     def _capture_video_errors(self, proc: subprocess.Popen):
@@ -190,28 +191,45 @@ class Camera:
 
     # ---- lifecycle --------------------------------------------------------- #
     def start(self):
-        self.stop_flag.clear()
-        self.error = None
-        self.start_video()
-        if WHISPER.available and (self.audio_thread is None or not self.audio_thread.is_alive()):
-            self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
-            self.audio_thread.start()
-        elif not WHISPER.available:
-            self.audio_error = WHISPER.error or "Whisper is unavailable"
+        with self.lifecycle_lock:
+            # A reconnect may happen immediately after stop(). Never clear the
+            # old worker's flag while that worker is still winding down.
+            if self.audio_thread and self.audio_thread.is_alive():
+                if self.running():
+                    return
+                self.stop_flag.set()
+                self.audio_thread.join(timeout=AUDIO_CHUNK_SECONDS + 3)
+                if self.audio_thread.is_alive():
+                    raise RuntimeError("Previous camera audio session is still stopping")
+                self.audio_thread = None
+            self.stop_flag.clear()
+            self.error = None
+            self.start_video()
+            if WHISPER.available and (self.audio_thread is None or not self.audio_thread.is_alive()):
+                self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
+                self.audio_thread.start()
+            elif not WHISPER.available:
+                self.audio_error = WHISPER.error or "Whisper is unavailable"
 
     def stop(self):
-        self.stop_flag.set()
-        for proc in (self.video_proc, self.audio_proc):
-            if proc and proc.poll() is None:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=5)
-                except Exception:
-                    proc.kill()
-        self.video_proc = None
-        self.audio_proc = None
-        self._hls_ok = False
-        self._hls_checked = 0.0
+        with self.lifecycle_lock:
+            self.stop_flag.set()
+            for proc in (self.video_proc, self.audio_proc):
+                if proc and proc.poll() is None:
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=5)
+                    except Exception:
+                        proc.kill()
+            self.video_proc = None
+            self.audio_proc = None
+            thread = self.audio_thread
+            if thread and thread.is_alive() and thread is not threading.current_thread():
+                thread.join(timeout=AUDIO_CHUNK_SECONDS + 3)
+            self.audio_thread = None
+            self.audio_connected = False
+            self._hls_ok = False
+            self._hls_checked = 0.0
 
     def running(self) -> bool:
         return bool(self.video_proc and self.video_proc.poll() is None)

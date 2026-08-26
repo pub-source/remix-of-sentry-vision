@@ -34,6 +34,8 @@ interface Options {
   camera: CameraConfig;
   settings: MultiCamSettings;
   onEvent?: (evt: Omit<DetectionEvent, 'id'>) => void;
+  /** Receives every camera transcript, including speech with no distress label. */
+  onTranscript?: (text: string, camera: CameraConfig) => void;
 }
 
 /**
@@ -41,7 +43,7 @@ interface Options {
  * its own HLS player, frame queue, fire/saliency state, face session,
  * Whisper audio polling, statistics and fault-tolerant reconnect.
  */
-export function useCameraPipeline({ camera, settings, onEvent }: Options) {
+export function useCameraPipeline({ camera, settings, onEvent, onTranscript }: Options) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const workRef = useRef<HTMLCanvasElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -274,6 +276,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
         if (stopped || !events?.length) return;
         lastAudioRef.current = events[events.length - 1].timestamp;
         for (const e of events) {
+          if (e.transcript.trim()) onTranscript?.(e.transcript, camera);
           if (e.confidence < settings.audioThreshold) continue;
           patch({
             audioDistress: {
@@ -287,7 +290,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
     const id = window.setInterval(poll, 3000);
     void poll();
     return () => { stopped = true; window.clearInterval(id); };
-  }, [camera.enabled, camera.aiEnabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
+  }, [camera.enabled, camera.aiEnabled, camera.id, camera.name, camera.location, settings.pythonServer, settings.audioThreshold, patch, emit, onTranscript]);
 
   const reconnect = useCallback(() => {
     hlsRef.current?.destroy();

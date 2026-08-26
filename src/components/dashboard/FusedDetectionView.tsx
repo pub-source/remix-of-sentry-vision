@@ -11,8 +11,6 @@ interface FusedDetectionViewProps {
   active: boolean;
   transcript: string;
   interimTranscript: string;
-  speechListening: boolean;
-  onToggleSpeech: () => void;
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
@@ -20,7 +18,6 @@ interface FusedDetectionViewProps {
   cctvAudioEnabled?: boolean;
   cctvAudioAvailable?: boolean;
   onToggleCctvAudio?: () => void;
-  /** Microphone INPUT pipeline (Whisper wake-word listening) — independent of the speaker. */
   /** Push-to-talk out of the CCTV speaker. */
   talking?: boolean;
   talkError?: string | null;
@@ -109,8 +106,6 @@ export default function FusedDetectionView({
   active,
   transcript,
   interimTranscript,
-  speechListening,
-  onToggleSpeech,
   fireBbox,
   fireFrameWidth,
   fireFrameHeight,
@@ -374,9 +369,7 @@ export default function FusedDetectionView({
         className={`absolute bottom-2 right-10 z-20 p-1.5 rounded border transition-all ${
           talking
             ? 'bg-destructive/30 border-destructive'
-            : speechListening
-              ? 'bg-success/20 border-success/50'
-              : 'bg-background/70 border-border hover:border-primary/50'
+            : 'bg-background/70 border-border hover:border-primary/50'
         }`}
         title={
           talkError
@@ -390,8 +383,6 @@ export default function FusedDetectionView({
       >
         {talking ? (
           <Mic className="w-3.5 h-3.5 text-destructive animate-pulse" />
-        ) : speechListening ? (
-          <Mic className="w-3.5 h-3.5 text-success" />
         ) : (
           <MicOff className="w-3.5 h-3.5 text-muted-foreground" />
         )}

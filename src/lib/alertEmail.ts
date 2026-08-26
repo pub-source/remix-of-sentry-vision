@@ -24,6 +24,9 @@ export interface AlertEmailInput {
   trigger?: string;
   /** Extra key/value detection details rendered as a table in the email. */
   details?: Record<string, string | number | boolean | null | undefined>;
+  /** Optional small JPEG/PNG data URL. Invalid/large snapshots are omitted without blocking text. */
+  snapshotDataUrl?: string;
+  snapshotInfo?: string;
   cooldownMs?: number;
 }
 
@@ -65,6 +68,8 @@ export async function sendAlertEmail(input: AlertEmailInput): Promise<{ sent: bo
             .map(([k, v]) => [k, String(v)]),
         )
       : undefined,
+    snapshotDataUrl: input.snapshotDataUrl,
+    snapshotInfo: input.snapshotInfo,
   };
 
   try {
