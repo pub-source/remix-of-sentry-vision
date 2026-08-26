@@ -278,13 +278,21 @@ async function startLocalServer() {
     return { managed: true, running: false, error };
   }
 
+  // First run: build the venv, install requirements, fetch ffmpeg/mediamtx.
+  const boot = bootstrapEnvironment(dir);
+  if (!boot.ok) {
+    logErr(boot.error);
+    return { managed: true, running: false, error: boot.error, dir, bootstrap: getBootstrapStatus() };
+  }
+
   const python = resolvePython(dir);
   if (!python) {
     const error =
       'No Python interpreter found. Install Python 3.10+ or set MSDS_PYTHON_EXE to python.exe.';
     logErr(error);
-    return { managed: true, running: false, error, dir };
+    return { managed: true, running: false, error, dir, bootstrap: getBootstrapStatus() };
   }
+
 
   log('dir     :', dir);
   log('python  :', python.exe, python.args.join(' '));
