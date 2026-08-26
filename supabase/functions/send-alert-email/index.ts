@@ -48,6 +48,8 @@ Deno.serve(async (req) => {
     const confidence = Number((raw as any).confidence);
     const saliencyScore = Number((raw as any).saliencyScore);
     const rawDetails = (raw as any).details;
+    const snapshotInfo = String((raw as any).snapshotInfo ?? '').slice(0, 300);
+    const snapshotDataUrl = String((raw as any).snapshotDataUrl ?? '');
     const details: [string, string][] =
       rawDetails && typeof rawDetails === 'object' && !Array.isArray(rawDetails)
         ? Object.entries(rawDetails).slice(0, 20).map(([k, v]) => [String(k).slice(0, 60), String(v).slice(0, 200)])
@@ -101,6 +103,7 @@ Deno.serve(async (req) => {
       ...(Number.isFinite(confidence) ? [['Model confidence', `${Math.round(confidence * 100)}%`] as [string, string]] : []),
       ...(Number.isFinite(saliencyScore) ? [['Saliency score', `${Math.round(saliencyScore)}/100`] as [string, string]] : []),
       ...(trigger ? [['Trigger', trigger] as [string, string]] : []),
+      ...(snapshotInfo ? [['Snapshot', snapshotInfo] as [string, string]] : []),
       ...details,
       ...(alertId ? [['Alert ID', alertId] as [string, string]] : []),
     ];
@@ -128,6 +131,14 @@ Deno.serve(async (req) => {
           </p>
         </div>`;
 
+    // Attach only a bounded, well-formed image. The report always sends even
+    // when capture is unavailable, cross-origin tainted, or too large.
+    const snapshotMatch = snapshotDataUrl.match(/^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/);
+    const attachment = snapshotMatch && snapshotMatch[2].length <= 1_400_000
+      ? [{ name: `alert-${alertId || occurredAt.getTime()}.${snapshotMatch[1] === 'jpeg' ? 'jpg' : 'png'}`, content: snapshotMatch[2] }]
+      : undefined;
+
+    const textContent = rows.map(([key, value]) => `${key}: ${value}`).join('\n');
     const res = await fetch(BREVO_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
@@ -136,6 +147,8 @@ Deno.serve(async (req) => {
         to,
         subject: subject.slice(0, 200),
         htmlContent,
+        textContent: `${message}\n\n${textContent}`,
+        ...(attachment ? { attachment } : {}),
       }),
     });
 

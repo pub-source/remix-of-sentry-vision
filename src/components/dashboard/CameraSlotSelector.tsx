@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { VideoOff, Video, ChevronLeft, ChevronRight, Flame, Users, Mic, Smile } from 'lucide-react';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
 import { slotCamera, slotSettings, type CameraSlot } from '@/hooks/useCameraSlots';
-import type { DetectionEvent } from '@/types/multicam';
+import type { CameraConfig, DetectionEvent } from '@/types/multicam';
 
 /**
  * Left-hand CAM 1..4 selector for the main monitoring frame.
@@ -38,7 +38,7 @@ export function CameraSlotSelector({
         title="Show camera list"
         className="self-start flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-2 text-[13px] font-bold text-primary hover:border-primary/60 transition-colors"
       >
-        <ChevronRight className="w-4 h-4" />
+        <ChevronRight className="w-4 h-4" /> <span aria-hidden="true">&gt;&gt;</span>
         <span className="lg:[writing-mode:vertical-rl] lg:rotate-180">CAM {selected}</span>
       </button>
     );
@@ -56,7 +56,7 @@ export function CameraSlotSelector({
         title="Hide camera list"
         className="flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" /> Hide
+        <ChevronLeft className="w-4 h-4" /> <span aria-hidden="true">&lt;&lt;</span> Hide
       </button>
       {[1, 2, 3, 4].map(index => {
         const slot = slots.find(s => s.index === index);
@@ -101,12 +101,14 @@ export function SlotPipelineView({
   monitoring,
   visible,
   onEvent,
+  onTranscript,
 }: {
   slot: CameraSlot;
   /** Dashboard monitoring switch — stops the AI work when the user presses Stop. */
   monitoring: boolean;
   visible: boolean;
   onEvent?: (evt: Omit<DetectionEvent, 'id'>) => void;
+  onTranscript?: (text: string, camera: CameraConfig) => void;
 }) {
   const camera = useMemo(
     () => ({
@@ -117,7 +119,7 @@ export function SlotPipelineView({
     [slot, monitoring],
   );
   const settings = useMemo(() => slotSettings(slot), [slot]);
-  const { videoRef, runtime } = useCameraPipeline({ camera, settings, onEvent });
+  const { videoRef, runtime } = useCameraPipeline({ camera, settings, onEvent, onTranscript });
 
   const connected = camera.enabled;
   const badge = (ok: boolean, Icon: typeof Flame, text: string) => (
@@ -160,7 +162,7 @@ export function SlotPipelineView({
           {badge(runtime.faceDistress.detected, Smile, 'Face distress')}
           {badge(runtime.audioDistress.detected, Mic, runtime.audioDistress.keyword || 'Audio')}
           <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
-            Saliency {runtime.saliencyScore}
+            Saliency {runtime.saliencyScore}/100
           </span>
         </div>
       )}

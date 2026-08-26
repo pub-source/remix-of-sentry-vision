@@ -190,6 +190,10 @@ class Camera:
 
     # ---- lifecycle --------------------------------------------------------- #
     def start(self):
+        # A reconnect may happen immediately after stop(). Never clear the old
+        # worker's stop flag while that worker is still winding down.
+        if self.audio_thread and self.audio_thread.is_alive():
+            return if self.running() else None
         self.stop_flag.clear()
         self.error = None
         self.start_video()
@@ -210,6 +214,11 @@ class Camera:
                     proc.kill()
         self.video_proc = None
         self.audio_proc = None
+        thread = self.audio_thread
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=AUDIO_CHUNK_SECONDS + 3)
+        self.audio_thread = None
+        self.audio_connected = False
         self._hls_ok = False
         self._hls_checked = 0.0
 
