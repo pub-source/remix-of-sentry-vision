@@ -285,16 +285,38 @@ export default function Index() {
   const snapshotCooldownRef = useRef(0);
   const [snapshots, setSnapshots] = useState<{ id: string; timestamp: Date; dataUrl: string; reason: string }[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<{ id: string; timestamp: Date; dataUrl: string; reason: string } | null>(null);
-  const addAlert = useCallback((message: string, severity: Alert['severity'], cameraId: number, snapshotId?: string) => {
+  /**
+   * Central alert sink.
+   *
+   * `detail` carries the extra detection context (confidence, trigger, model
+   * values) that is rendered inside the notification email. High and critical
+   * alerts are emailed through the backend Brevo function, which applies the
+   * household's own severity threshold and recipient list on top of the local
+   * cooldown/dedup in `sendAlertEmail`.
+   */
+  const addAlert = useCallback((
+    message: string,
+    severity: Alert['severity'],
+    cameraId: number,
+    snapshotId?: string,
+    detail?: {
+      alertType?: string;
+      confidence?: number;
+      saliencyScore?: number;
+      trigger?: string;
+      cameraLabel?: string;
+      details?: Record<string, string | number | boolean | null | undefined>;
+    },
+  ) => {
     const key = `${message}-${cameraId}`;
     const now = Date.now();
     const cooldown = severity === 'critical' ? 3000 : LOW_VALUE_ALERTS.test(message) ? 20000 : 6000;
     if (alertCooldownRef.current[key] && now - alertCooldownRef.current[key] < cooldown) return;
     alertCooldownRef.current[key] = now;
 
-
+    const alertId = `${now}-${Math.random().toString(36).slice(2, 6)}`;
     setAlerts(prev => [{
-      id: `${now}-${Math.random().toString(36).slice(2, 6)}`,
+      id: alertId,
       timestamp: new Date(),
       message,
       severity,
@@ -304,7 +326,41 @@ export default function Index() {
     // Talking accessibility: read important events out loud for blind users.
     if (severity === 'critical' || severity === 'high') announce(`Alert. ${message}`, true);
     else announce(message);
-  }, []);
+
+    if ((severity === 'critical' || severity === 'high') && householdId) {
+      void sendAlertEmail({
+        householdId,
+        alertId,
+        alertType: detail?.alertType ?? message.split(':')[0].slice(0, 80),
+        message,
+        severity,
+        cameraLabel: detail?.cameraLabel ?? `CAM ${cameraId || 1}`,
+        occurredAt: new Date(now).toISOString(),
+        confidence: detail?.confidence,
+        saliencyScore: detail?.saliencyScore,
+        trigger: detail?.trigger,
+        details: detail?.details,
+      });
+    }
+  }, [householdId]);
+
+  /** Alerts raised by the independent CAM 2..4 pipelines. */
+  const handleSlotEvent = useCallback((evt: Omit<DetectionEvent, 'id'>) => {
+    const severity: Alert['severity'] =
+      evt.type === 'fire' || evt.type === 'smoke' ? 'critical'
+      : evt.type === 'face-distress' || evt.type === 'audio-distress' ? 'high'
+      : 'medium';
+    if (severity === 'medium' && evt.type !== 'human') return; // keep the log readable
+    const camIndex = Number(evt.cameraId.replace('slot-', '')) || 1;
+    addAlert(`${evt.cameraName}: ${evt.label}`, severity, camIndex, undefined, {
+      alertType: evt.type,
+      confidence: evt.confidence,
+      cameraLabel: `${evt.cameraName} (CAM ${camIndex})`,
+      trigger: `${evt.type} detected by the independent pipeline of ${evt.cameraName}`,
+      details: { Location: evt.location || undefined, Detection: evt.label },
+    });
+  }, [addAlert]);
+
 
   const lastMatchedPhraseRef = useRef<string>('');
   const lastMatchedTimeRef = useRef<number>(0);
