@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { DetectedObject, AudioFeatures } from '@/types/dashboard';
 import { Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
-import type { CctvSpeechDiagnostics } from '@/hooks/useCctvSpeech';
 
 interface FusedDetectionViewProps {
   sourceCanvas: HTMLCanvasElement | null;

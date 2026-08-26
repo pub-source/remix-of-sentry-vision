@@ -270,6 +270,7 @@ function SlotCard({
         <Dot ok={!!status?.hls_ready} label="HLS" />
         <Dot ok={slot.aiEnabled} label="AI detection" />
         <Dot ok={live} label="Camera" />
+        <PrefetchModelsButton className="ml-auto" />
       </div>
 
       {message && <p className="text-[14px] text-success break-all">{message}</p>}
