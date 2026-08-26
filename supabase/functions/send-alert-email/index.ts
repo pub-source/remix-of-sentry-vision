@@ -39,10 +39,24 @@ Deno.serve(async (req) => {
     const alertType = String((raw as any).alertType ?? 'alert').slice(0, 80);
     const message = String((raw as any).message ?? '').slice(0, 2000);
     const cameraLabel = String((raw as any).cameraLabel ?? '').slice(0, 120);
+    const alertId = String((raw as any).alertId ?? '').slice(0, 64);
+    const trigger = String((raw as any).trigger ?? '').slice(0, 300);
+    const occurredAtRaw = String((raw as any).occurredAt ?? '');
+    const occurredAt = occurredAtRaw && !Number.isNaN(Date.parse(occurredAtRaw))
+      ? new Date(occurredAtRaw)
+      : new Date();
+    const confidence = Number((raw as any).confidence);
+    const saliencyScore = Number((raw as any).saliencyScore);
+    const rawDetails = (raw as any).details;
+    const details: [string, string][] =
+      rawDetails && typeof rawDetails === 'object' && !Array.isArray(rawDetails)
+        ? Object.entries(rawDetails).slice(0, 20).map(([k, v]) => [String(k).slice(0, 60), String(v).slice(0, 200)])
+        : [];
 
     if (!/^[0-9a-f-]{36}$/i.test(householdId)) return respond({ error: 'householdId must be a valid id' }, 400);
     if (!(severity in SEVERITY_RANK)) return respond({ error: 'Invalid severity' }, 400);
     if (!message.trim()) return respond({ error: 'message is required' }, 400);
+
 
     // Membership check — RLS-scoped read
     const { data: settings, error: settingsErr } = await supabase
