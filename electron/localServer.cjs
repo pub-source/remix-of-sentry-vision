@@ -107,15 +107,34 @@ function systemPython() {
   return null;
 }
 
-/** Run a command synchronously, streaming output to the Electron console. */
+/** Run a bootstrap command without blocking Electron's renderer/IPC thread. */
 function run(exe, args, opts, timeoutMs = 15 * 60 * 1000) {
-  const res = spawnSync(exe, args, {
-    stdio: 'inherit',
-    windowsHide: true,
-    timeout: timeoutMs,
-    ...opts,
+  return new Promise((resolve) => {
+    let settled = false;
+    let proc;
+    try {
+      proc = spawn(exe, args, {
+        stdio: 'inherit',
+        windowsHide: true,
+        ...opts,
+      });
+    } catch {
+      resolve(false);
+      return;
+    }
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const timer = setTimeout(() => {
+      try { proc.kill(); } catch { /* already gone */ }
+      finish(false);
+    }, timeoutMs);
+    proc.once('error', () => finish(false));
+    proc.once('exit', (code) => finish(code === 0));
   });
-  return res.status === 0;
 }
 
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 16);
@@ -152,7 +171,7 @@ async function bootstrapEnvironment(dir) {
       return { ok: false, error };
     }
     setPhase('venv', 'Creating the Python environment (first run, one time only)…');
-    if (!run(sys.exe, [...sys.args, '-m', 'venv', '.venv'], { cwd: dir }, 5 * 60 * 1000)) {
+    if (!await run(sys.exe, [...sys.args, '-m', 'venv', '.venv'], { cwd: dir }, 5 * 60 * 1000)) {
       logErr('venv creation failed — falling back to the system interpreter.');
     }
   }
@@ -173,8 +192,8 @@ async function bootstrapEnvironment(dir) {
   try { installed = fs.readFileSync(marker, 'utf8').trim() === wanted; } catch { installed = false; }
   if (!installed && hasReq) {
     setPhase('deps', 'Installing camera + Whisper dependencies (first run, this can take a few minutes)…');
-    run(pyExe, [...pyArgs, '-m', 'pip', 'install', '--upgrade', 'pip'], { cwd: dir }, 5 * 60 * 1000);
-    const ok = run(pyExe, [...pyArgs, '-m', 'pip', 'install', '-r', 'requirements.txt'], { cwd: dir });
+    await run(pyExe, [...pyArgs, '-m', 'pip', 'install', '--upgrade', 'pip'], { cwd: dir }, 5 * 60 * 1000);
+    const ok = await run(pyExe, [...pyArgs, '-m', 'pip', 'install', '-r', 'requirements.txt'], { cwd: dir });
     if (ok) {
       try {
         fs.mkdirSync(path.dirname(marker), { recursive: true });
@@ -191,7 +210,7 @@ async function bootstrapEnvironment(dir) {
     .some((n) => !fs.existsSync(path.join(dir, 'bin', n + ext)));
   if (needBinaries && fs.existsSync(path.join(dir, 'fetch_binaries.py'))) {
     setPhase('binaries', 'Downloading FFmpeg and MediaMTX…');
-    if (!run(pyExe, [...pyArgs, 'fetch_binaries.py'], { cwd: dir }, 10 * 60 * 1000)) {
+    if (!await run(pyExe, [...pyArgs, 'fetch_binaries.py'], { cwd: dir }, 10 * 60 * 1000)) {
       logErr('binary download failed — place ffmpeg/ffprobe/mediamtx in local-server/bin manually.');
     }
   }
