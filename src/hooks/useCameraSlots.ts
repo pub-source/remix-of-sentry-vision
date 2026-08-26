@@ -70,12 +70,9 @@ export const hlsHostFor = (host: string) => `http://${cleanHost(host) || '127.0.
 /** Each slot publishes its own MediaMTX section: cam1, cam2, cam4. */
 export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
 
-/** Accept a complete RTSP address, or derive the V380/Cam720 main stream from an IP. */
-export const slotRtsp = (slot: CameraSlot) => {
-  const value = slot.ip.trim();
-  if (/^rtsps?:\/\//i.test(value)) return value;
-  return cleanHost(value) ? `rtsp://${cleanHost(value)}:554/live/ch00_0` : '';
-};
+/** RTSP derived from the camera IP the user typed. */
+export const slotRtsp = (slot: CameraSlot) =>
+  cleanHost(slot.ip) ? `rtsp://${cleanHost(slot.ip)}:554/live/ch00_1` : '';
 
 /** Independent pipeline settings for one slot (its own section + audio events). */
 export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => {

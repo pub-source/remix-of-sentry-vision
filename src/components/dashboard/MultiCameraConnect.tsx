@@ -11,7 +11,6 @@ import {
   startCamera,
   stopCamera,
   syncCameras,
-  testCamera,
   type BackendCameraStatus,
   type BackendStatus,
 } from '@/lib/multiCamServer';
@@ -26,7 +25,6 @@ import {
 } from '@/hooks/useCameraSlots';
 import IpAddressHelp from './IpAddressHelp';
 import IdleHint from '@/components/IdleHint';
-import { getLocalServerStatus, isDesktop, type LocalServerStatus } from '@/lib/desktop';
 
 interface Props {
   /** Called with the backend-reported HLS URL for camera 1 (drives the main dashboard). */
@@ -163,25 +161,15 @@ function SlotCard({
     if (!slot.ip.trim()) { setError('Enter the camera IP address first.'); return; }
     setBusy('start'); setError(''); setMessage(`Connecting ${slot.name}…`);
     try {
-      const rtsp = slotRtsp(slot);
-      const probe = await testCamera(server, rtsp);
-      if (!probe.success) {
-        setError(probe.error || 'The camera stream could not be opened. Check the RTSP address and camera login.');
-        setMessage('');
-        return;
-      }
       await syncCameras(server, [{
-        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: rtsp,
+        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: slotRtsp(slot),
         enabled: true, aiEnabled: slot.aiEnabled, recording: false, createdAt: new Date().toISOString(),
       }]);
       const res = await startCamera(server, id);
       if (!res.success) { setError(res.error || 'The local server could not start FFmpeg for this camera.'); return; }
-      setMessage(`Camera accepted. Waiting for the live video…`);
-      const ready = await check(true);
-      if (!ready?.hls_ready) {
-        setError(ready?.error || 'The camera did not produce a playable video stream. Check its RTSP setting, username, and password.');
-        return;
-      }
+      if (res.stream) { pushedRef.current = true; onConnected({ connected: true, streamUrl: res.stream }); onStream?.(res.stream); }
+      setMessage(`Online — publishing ${slotPath(slot)} through MediaMTX.`);
+      await check(true);
     } catch {
       setError(backendHint(server) || `Could not reach the local server at ${server}.`);
     } finally { setBusy(''); }
@@ -222,12 +210,12 @@ function SlotCard({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[14px] font-semibold">Camera IP or RTSP address</label>
+          <label className="text-[14px] font-semibold">Camera IP address</label>
           <div className="flex items-center gap-2">
             <input
               value={slot.ip}
               onChange={e => onIp(e.target.value)}
-              placeholder="192.168.18.98 or rtsp://user:password@192.168.18.98:554/path"
+              placeholder="192.168.18.98"
               className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <IpAddressHelp />
@@ -298,7 +286,6 @@ function SlotCard({
 export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) => {
   const { count, activeSlots, setCount, updateSlot } = useCameraSlots();
   const [backend, setBackend] = useState<BackendStatus | null>(null);
-  const [desktopStatus, setDesktopStatus] = useState<LocalServerStatus | null>(null);
   const server = serverUrlFor(loadServerHost());
 
   useEffect(() => {
@@ -309,20 +296,6 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
     const t = window.setInterval(poll, 4000);
     return () => window.clearInterval(t);
   }, [server]);
-
-  useEffect(() => {
-    if (!isDesktop()) return;
-    let stopped = false;
-    const poll = async () => {
-      const status = await getLocalServerStatus();
-      if (!stopped) setDesktopStatus(status);
-    };
-    void poll();
-    const timer = window.setInterval(poll, 1000);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, []);
-
-  const preparing = desktopStatus?.managed && !desktopStatus.running && desktopStatus.bootstrap?.phase !== 'error';
 
   return (
     <div className="space-y-4">
@@ -355,13 +328,8 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-secondary/30 border border-border">
         <Dot ok={!!backend} label="Local server" />
         <Dot ok={!!backend?.mediamtx} label="MediaMTX" />
-        <Dot ok={!!backend?.whisper} label="Camera audio" />
+        <Dot ok={!!backend?.whisper} label="Audio (Whisper)" />
       </div>
-      {desktopStatus && (
-        <p className={`text-[15px] font-semibold ${desktopStatus.running ? 'text-success' : desktopStatus.error ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
-          {desktopStatus.running ? 'Camera services ready' : preparing ? 'Preparing camera services…' : desktopStatus.error || 'Camera services are not running'}
-        </p>
-      )}
 
       <div className={`grid gap-4 ${count === 1 ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
         {activeSlots.map(slot => (
