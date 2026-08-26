@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import PrefetchModelsButton from '@/components/dashboard/PrefetchModelsButton';
 import {
   Play, Square, RefreshCw, CheckCircle2, XCircle, Loader2, Grid2x2,
   Square as SquareIcon, Columns2, Brain, VideoOff,
