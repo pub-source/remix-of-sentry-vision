@@ -332,36 +332,10 @@ export default function FusedDetectionView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {/* Speech transcript overlay */}
-      <div className="absolute bottom-8 left-0 right-12 z-10 px-2">
-        {(transcript || interimTranscript) && (
-          <div className="bg-background/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
-            <div className="flex items-center gap-1 mb-0.5">
-              <span className="text-[8px] font-mono text-accent uppercase">Speech</span>
-            </div>
-            <p className="text-[10px] font-mono text-foreground leading-tight">
-              {transcript && <span>{transcript.split(' ').slice(-15).join(' ')} </span>}
-              {interimTranscript && <span className="text-muted-foreground">{interimTranscript}</span>}
-            </p>
-          </div>
-        )}
-        {!transcript && !interimTranscript && speechListening && active && (
-          <div className="bg-background/60 rounded px-2 py-1 border border-border/50">
-            <span className="text-[9px] font-mono text-muted-foreground">Listening to the CCTV for wake words...</span>
-          </div>
-        )}
-      </div>
+      {/* The CCTV audio -> Whisper wake-word pipeline keeps running in the
+          background; its transcript/diagnostics overlay is intentionally not
+          rendered so the operator sees a clean video frame. */}
 
-      {listeningActive && cctvDiagnostics && (
-        <div className="absolute top-2 left-2 z-20 max-w-[min(92%,28rem)] rounded border border-border bg-background/90 px-2 py-1.5 text-[10px] text-foreground shadow-sm">
-          <div className="font-bold text-primary">CCTV AUDIO → WHISPER</div>
-          <div>Backend: {cctvDiagnostics.backendReachable ? 'connected' : 'unreachable'} · Audio: {cctvDiagnostics.audioConnected ? 'receiving' : 'waiting'} · Chunks: {cctvDiagnostics.chunksReceived}</div>
-          <div>Last transcription: {cctvDiagnostics.lastTranscriptionAt ? new Date(cctvDiagnostics.lastTranscriptionAt).toLocaleTimeString() : 'none'}</div>
-          <div className="truncate">Transcript: {cctvDiagnostics.lastTranscript || 'none'}</div>
-          <div>Wake word: {wakeWordDiagnostic || 'waiting'}</div>
-          {cctvDiagnostics.error && <div className="text-destructive break-words">Error: {cctvDiagnostics.error}</div>}
-        </div>
-      )}
 
       {/* Fullscreen button */}
       <button
