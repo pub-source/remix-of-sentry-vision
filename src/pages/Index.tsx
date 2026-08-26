@@ -992,118 +992,47 @@ export default function Index() {
             )}
           </div>
 
-          {/* Saliency-% breakdown — replaces the multimodal fusion output */}
+          {/* Saliency score — result only, no per-component breakdown */}
           <div className="bg-card rounded-md border border-primary/30 panel-glow p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono text-primary uppercase tracking-wider">
-                Saliency Score Calculation
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[13px] font-semibold text-primary uppercase tracking-wider">
+                Saliency Score
               </span>
-              <span className="text-[9px] font-mono text-muted-foreground">
-                α = 0.40·S + 0.30·A + 0.30·O
-              </span>
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-bold tabular-nums ${attentionScore > 70 ? 'text-destructive' : attentionScore > 40 ? 'text-warning' : 'text-success'}`}>
+                  {attentionScore}%
+                </span>
+                <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${attentionScore > 70 ? 'bg-destructive/20 text-destructive' : attentionScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
+                  {attentionScore > 70 ? 'ALERT' : attentionScore > 40 ? 'ELEVATED' : 'NORMAL'}
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
+              <div
+                className={`h-full rounded transition-all ${attentionScore > 70 ? 'bg-destructive' : attentionScore > 40 ? 'bg-warning' : 'bg-success'}`}
+                style={{ width: `${attentionScore}%` }}
+              />
             </div>
 
-            {(() => {
-              const audioComponent = audioFeatures.speechDetected
-                ? Math.min(100, Math.abs(audioFeatures.decibel) + 20)
-                : Math.min(100, Math.max(0, (audioFeatures.decibel + 50) * 1.5));
-              const activeObjs = cameras[1].active ? cameras[1].objects : cameras[0].objects;
-              const objectComponent = activeObjs.length > 0
-                ? Math.min(100, activeObjs.reduce((s, o) => s + o.confidence * 100, 0) / activeObjs.length)
-                : 0;
-              const sContrib = Math.round(0.4 * globalSaliencyScore);
-              const aContrib = Math.round(0.3 * audioComponent);
-              const oContrib = Math.round(0.3 * objectComponent);
-              const rows: Array<{ label: string; value: number; weight: number; contrib: number; color: string; explain: string }> = [
-                { label: 'Visual Saliency (S)', value: globalSaliencyScore, weight: 40, contrib: sContrib, color: 'bg-primary',     explain: 'Edge + motion energy from CAM 1 frame' },
-                { label: 'Audio Energy (A)',    value: Math.round(audioComponent), weight: 30, contrib: aContrib, color: 'bg-warning',     explain: audioFeatures.speechDetected ? 'Speech + dB level' : 'Ambient dB level' },
-                { label: 'Object Confidence (O)', value: Math.round(objectComponent), weight: 30, contrib: oContrib, color: 'bg-accent',    explain: `${activeObjs.length} object(s) avg confidence` },
-              ];
-              return (
-                <div className="space-y-1.5">
-                  {rows.map(r => (
-                    <div key={r.label} className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[9px] font-mono">
-                        <span className="text-foreground/80">{r.label} <span className="text-muted-foreground">× {r.weight}%</span></span>
-                        <span className="text-foreground">
-                          {r.value}% <span className="text-muted-foreground">→ +{r.contrib}</span>
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-secondary/50 rounded overflow-hidden relative">
-                        <div className={`h-full ${r.color} rounded transition-all`} style={{ width: `${r.value}%` }} />
-                      </div>
-                      <p className="text-[8px] font-mono text-muted-foreground">{r.explain}</p>
-                    </div>
-                  ))}
-                  <div className="mt-2 flex items-center gap-3 bg-secondary/20 rounded p-2">
-                    <span className="text-[9px] font-mono text-muted-foreground">FUSED α =</span>
-                    <span className={`text-sm font-mono font-bold ${attentionScore > 70 ? 'text-destructive' : attentionScore > 40 ? 'text-warning' : 'text-success'}`}>
-                      {attentionScore}%
-                    </span>
-                    <div className="flex-1 h-2 bg-secondary/50 rounded overflow-hidden">
-                      <div className={`h-full rounded transition-all ${attentionScore > 70 ? 'bg-destructive' : attentionScore > 40 ? 'bg-warning' : 'bg-success'}`} style={{ width: `${attentionScore}%` }} />
-                    </div>
-                    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${attentionScore > 70 ? 'bg-destructive/20 text-destructive' : attentionScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
-                      {attentionScore > 70 ? 'ALERT' : attentionScore > 40 ? 'ELEVATED' : 'NORMAL'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Fire + Face distress strip */}
-            <div className="mt-2 grid grid-cols-3 gap-2 items-start">
-              <div className={`rounded p-2 border col-span-2 ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Flame className={`w-3 h-3 ${fireStatus.detected ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
-                  <span className="text-[9px] font-mono text-foreground/80">
-                    Fire {Math.round(fireStatus.confidence * 100)}% · Smoke {Math.round(fireStatus.smokeRatio * 100)}% · Vis {fireStatus.visibility}
+            {/* Fire, then Sound + Facial distress side by side */}
+            <div className="mt-3 space-y-2">
+              <div className={`rounded p-2.5 border ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <Flame className={`w-4 h-4 ${fireStatus.detected ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
+                    <span className="text-[13px] font-semibold text-foreground">Fire &amp; Smoke</span>
+                  </span>
+                  <span className={`text-[14px] font-bold tabular-nums ${fireStatus.saliency && fireStatus.saliency.total > 50 ? 'text-destructive' : fireStatus.saliency && fireStatus.saliency.total > 20 ? 'text-warning' : 'text-muted-foreground'}`}>
+                    {fireStatus.saliency ? `${fireStatus.saliency.total}/100` : `${Math.round(fireStatus.confidence * 100)}%`}
                   </span>
                 </div>
-                <p className="text-[8px] font-mono text-muted-foreground">
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
                   {fireStatus.fireDetected
-                    ? 'Real fire signature (color + flicker)'
+                    ? 'Real fire signature detected'
                     : fireStatus.smokeEmergency
-                      ? `Smoke emergency - visibility ${fireStatus.visibility}/100`
+                      ? `Smoke emergency — visibility ${fireStatus.visibility}/100`
                       : fireStatus.reason || 'No fire signature'}
                 </p>
-                {fireStatus.saliency && (
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono text-foreground/70">Fire saliency</span>
-                      <span className={`text-[10px] font-mono font-bold ${fireStatus.saliency.total > 50 ? 'text-destructive' : fireStatus.saliency.total > 20 ? 'text-warning' : 'text-muted-foreground'}`}>
-                        {fireStatus.saliency.total}/100
-                      </span>
-                    </div>
-                    <div className="flex h-1.5 w-full overflow-hidden rounded bg-secondary/40">
-                      {([
-                        ['bg-destructive', fireStatus.saliency.fireColor],
-                        ['bg-warning', fireStatus.saliency.flicker],
-                        ['bg-muted-foreground', fireStatus.saliency.smoke],
-                        ['bg-primary', fireStatus.saliency.visibility],
-                      ] as const).map(([cls, v], i) => (
-                        <div key={i} className={cls} style={{ width: `${Math.max(0, v)}%` }} />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-2 text-[8px] font-mono text-muted-foreground">
-                      <span>Fire color +{fireStatus.saliency.fireColor}</span>
-                      <span>Flicker +{fireStatus.saliency.flicker}</span>
-                      <span>Smoke +{fireStatus.saliency.smoke}</span>
-                      <span>Vis loss +{fireStatus.saliency.visibility}</span>
-                      <span className={fireStatus.saliency.screenSuppression < 0 ? 'text-destructive' : ''}>
-                        Screen flag {fireStatus.saliency.screenSuppression}
-                      </span>
-                      <span className={fireStatus.saliency.otherSuppression < 0 ? 'text-destructive' : ''}>
-                        Other filter {fireStatus.saliency.otherSuppression}
-                      </span>
-                    </div>
-                    {fireStatus.saliency.suppressionLabel && (
-                      <p className="text-[8px] font-mono text-destructive/80">
-                        Suppressed: {fireStatus.saliency.suppressionLabel}
-                      </p>
-                    )}
-                  </div>
-                )}
                 {fireStatus.detected && (
                   <DetectionFeedback
                     householdId={householdId}
@@ -1113,58 +1042,56 @@ export default function Index() {
                   />
                 )}
               </div>
-              <div className={`rounded p-2 border col-span-1 ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[9px] font-mono text-foreground/80">
-                    YAMNet Distress ({yamnet.distressScore}%)
-                  </span>
-                </div>
-                <p className="text-[8px] font-mono text-muted-foreground">
-                  {yamnet.error ? yamnet.error :
-                   !yamnet.ready ? 'Loading AudioSet model…' :
-                   `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
-                </p>
-                {yamnet.distressScore >= 30 && (
-                  <DetectionFeedback
-                    householdId={householdId}
-                    eventType="audio_scream"
-                    confidence={yamnet.topScore}
-                    audioEvent={yamnet.topLabel}
-                  />
-                )}
-              </div>
-              <div className={`rounded p-2 border col-span-3 ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[9px] font-mono text-foreground/80">
-                    Facial Distress ({faceDistress.distress.distressScore}%)
-                  </span>
-                </div>
-                <p className="text-[8px] font-mono text-muted-foreground">
-                  {!faceDistress.ready ? 'Loading model…' :
-                   faceDistress.error ? faceDistress.error :
-                   !faceDistress.distress.hasFace ? 'No face detected' :
-                   `${faceDistress.distress.expression} (${Math.round(faceDistress.distress.probability * 100)}%)`}
-                </p>
-                {faceDistress.distress.distressLevel !== 'none' && (
-                  <DetectionFeedback
-                    householdId={householdId}
-                    eventType="facial_distress"
-                    confidence={faceDistress.distress.probability}
-                    audioEvent={audioFeatures.audioEvent}
-                    visualContext={{
-                      expression: faceDistress.distress.expression,
-                      score: faceDistress.distress.distressScore,
-                    }}
-                  />
-                )}
-              </div>
-            </div>
 
-            {/* Model cache controls + stats */}
-            <div className="mt-2">
-              <ModelCachePanel />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+                <div className={`rounded p-2.5 border ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-foreground">Sound Distress</span>
+                    <span className="text-[14px] font-bold tabular-nums text-foreground">{yamnet.distressScore}%</span>
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">
+                    {yamnet.error ? yamnet.error :
+                     !yamnet.ready ? 'Loading sound model…' :
+                     `${yamnet.topLabel} (${Math.round(yamnet.topScore * 100)}%)`}
+                  </p>
+                  {yamnet.distressScore >= 30 && (
+                    <DetectionFeedback
+                      householdId={householdId}
+                      eventType="audio_scream"
+                      confidence={yamnet.topScore}
+                      audioEvent={yamnet.topLabel}
+                    />
+                  )}
+                </div>
+
+                <div className={`rounded p-2.5 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-foreground">Facial Distress</span>
+                    <span className="text-[14px] font-bold tabular-nums text-foreground">{faceDistress.distress.distressScore}%</span>
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">
+                    {!faceDistress.ready ? 'Loading model…' :
+                     faceDistress.error ? faceDistress.error :
+                     !faceDistress.distress.hasFace ? 'No face detected' :
+                     `${faceDistress.distress.expression} (${Math.round(faceDistress.distress.probability * 100)}%)`}
+                  </p>
+                  {faceDistress.distress.distressLevel !== 'none' && (
+                    <DetectionFeedback
+                      householdId={householdId}
+                      eventType="facial_distress"
+                      confidence={faceDistress.distress.probability}
+                      audioEvent={audioFeatures.audioEvent}
+                      visualContext={{
+                        expression: faceDistress.distress.expression,
+                        score: faceDistress.distress.distressScore,
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Bottom: Timeline */}
           <div className="bg-card rounded-md border border-border panel-glow p-3">
