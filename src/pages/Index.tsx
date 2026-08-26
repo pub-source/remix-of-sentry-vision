@@ -23,6 +23,8 @@ import { useIpCamera } from '@/hooks/useIpCamera';
 import { announce } from '@/lib/voiceGuide';
 import { useCctvSpeech } from '@/hooks/useCctvSpeech';
 import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
+import { sendAlertEmail } from '@/lib/alertEmail';
+import type { DetectionEvent } from '@/types/multicam';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
@@ -231,6 +233,7 @@ export default function Index() {
   // CAM 1..4 selector for the main frame (display only — never disconnects).
   const { slots: camSlots } = useCameraSlots();
   const [selectedCam, setSelectedCam] = useState(1);
+  const [camListOpen, setCamListOpen] = useState(true);
 
   // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
   useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
