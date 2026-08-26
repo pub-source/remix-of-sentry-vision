@@ -17,13 +17,24 @@ export interface MsdsDesktopEnv {
   localServer?: LocalServerStatus;
 }
 
+export interface LocalServerBootstrap {
+  /** idle | venv | deps | binaries | starting | ready | error | skipped */
+  phase: string;
+  message: string;
+  /** true when this launch had to create the Python environment from scratch. */
+  firstRun: boolean;
+}
+
 export interface LocalServerStatus {
   /** true when Electron itself spawned camera_server.py */
   managed: boolean;
   /** /status answered on http://127.0.0.1:5000 */
   running: boolean;
   error: string | null;
+  /** First-run environment bootstrap progress (venv, pip install, binaries). */
+  bootstrap?: LocalServerBootstrap;
 }
+
 
 interface MsdsBridge {
   isElectron: true;
