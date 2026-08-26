@@ -71,6 +71,13 @@ def start_one(camera_id: str):
             time.sleep(0.4)
         if not cam.running():
             return {"success": False, "error": cam.last_video_error()}
+        if not cam.hls_ready(force=True):
+            cam.stop()
+            return {
+                "success": False,
+                "error": "The camera connected but did not provide a playable HLS stream. "
+                         "Check the RTSP path, camera username/password, and confirm H.264 is enabled.",
+            }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
     return {"success": True, "stream": cam.status(lan_ip())["stream"]}

@@ -168,9 +168,12 @@ function SlotCard({
       }]);
       const res = await startCamera(server, id);
       if (!res.success) { setError(res.error || 'The local server could not start FFmpeg for this camera.'); return; }
-      if (res.stream) { pushedRef.current = true; onConnected({ connected: true, streamUrl: res.stream }); onStream?.(res.stream); }
-      setMessage(`Online — publishing ${slotPath(slot)} through MediaMTX.`);
-      await check(true);
+      setMessage(`Camera accepted. Waiting for the live video…`);
+      const ready = await check(true);
+      if (!ready?.hls_ready) {
+        setError(ready?.error || 'The camera did not produce a playable video stream. Check its RTSP setting, username, and password.');
+        return;
+      }
     } catch {
       setError(backendHint(server) || `Could not reach the local server at ${server}.`);
     } finally { setBusy(''); }
