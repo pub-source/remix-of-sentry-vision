@@ -320,8 +320,8 @@ async function startLocalServer() {
 
   const ready = await waitForReady();
   if (ready) {
-    log('ready at', STATUS_URL);
-    return { managed: true, running: true, error: null, pythonPath: python.exe, dir };
+    setPhase('ready', `ready at ${STATUS_URL}`);
+    return { managed: true, running: true, error: null, pythonPath: python.exe, dir, bootstrap: getBootstrapStatus() };
   }
 
   const error =
@@ -329,8 +329,10 @@ async function startLocalServer() {
     'streaming/Whisper will be unavailable until it starts. Check the log above, or run ' +
     'local-server\\start_server.bat manually.';
   logErr(error);
-  return { managed: true, running: false, error, pythonPath: python.exe, dir };
+  bootstrap = { ...bootstrap, phase: 'error', message: error };
+  return { managed: true, running: false, error, pythonPath: python.exe, dir, bootstrap: getBootstrapStatus() };
 }
+
 
 /**
  * Kill the bridge and every descendant (MediaMTX, ffmpeg).
