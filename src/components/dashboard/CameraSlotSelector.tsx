@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
-import { VideoOff, Video, Flame, Users, Mic, Smile, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { VideoOff, Video, Flame, Users, Mic, Smile } from 'lucide-react';
+import FusedDetectionView from '@/components/dashboard/FusedDetectionView';
+import type { AudioFeatures } from '@/types/dashboard';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
 import { slotCamera, slotSettings, type CameraSlot } from '@/hooks/useCameraSlots';
 import { useCctvTalk } from '@/hooks/useCctvTalk';
