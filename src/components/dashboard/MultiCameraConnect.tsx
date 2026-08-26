@@ -344,7 +344,7 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 rounded-lg bg-secondary/30 border border-border">
         <Dot ok={!!backend} label="Local server" />
         <Dot ok={!!backend?.mediamtx} label="MediaMTX" />
-        <Dot ok={!!backend?.whisper} label="Audio (Whisper)" />
+        <Dot ok={!!backend?.whisper} label="Camera audio" />
       </div>
       {desktopStatus && (
         <p className={`text-[15px] font-semibold ${desktopStatus.running ? 'text-success' : desktopStatus.error ? 'text-destructive' : 'text-muted-foreground'}`} role="status">

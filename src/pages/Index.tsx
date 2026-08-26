@@ -310,6 +310,8 @@ export default function Index() {
       trigger?: string;
       cameraLabel?: string;
       details?: Record<string, string | number | boolean | null | undefined>;
+      snapshotDataUrl?: string;
+      snapshotInfo?: string;
     },
   ) => {
     const key = `${message}-${cameraId}`;
@@ -345,10 +347,10 @@ export default function Index() {
         saliencyScore: detail?.saliencyScore,
         trigger: detail?.trigger,
         details: detail?.details,
-        snapshotDataUrl: snapshot?.dataUrl,
-        snapshotInfo: snapshot
+        snapshotDataUrl: detail?.snapshotDataUrl ?? snapshot?.dataUrl,
+        snapshotInfo: detail?.snapshotInfo ?? (snapshot
           ? `${snapshot.reason}; captured ${snapshot.timestamp.toISOString()}`
-          : 'No safe snapshot was available for this alert.',
+          : 'No safe snapshot was available for this alert.'),
       });
     }
   }, [householdId, snapshots]);
@@ -367,6 +369,8 @@ export default function Index() {
       cameraLabel: `${evt.cameraName} (CAM ${camIndex})`,
       trigger: `${evt.type} detected by the independent pipeline of ${evt.cameraName}`,
       details: { Location: evt.location || undefined, Detection: evt.label },
+      snapshotDataUrl: evt.snapshot,
+      snapshotInfo: evt.snapshot ? `Captured by ${evt.cameraName} at ${evt.timestamp}` : undefined,
     });
   }, [addAlert]);
 
@@ -419,7 +423,7 @@ export default function Index() {
     const detected = await enumerateDevices();
     // Require a connected camera (webcam OR IP/CCTV) before enabling any
     // detection pipeline. Simulation mode bypasses the requirement.
-    let hasCamera = simulationMode || ipCam.connected;
+    let hasCamera = simulationMode || ipCam.connected || camSlots.some(slot => slot.connected);
     if (!simulationMode) {
       try {
         const started = await startCameras(quality);
@@ -472,7 +476,7 @@ export default function Index() {
   useEffect(() => {
     if (!running) return;
     if (simulationMode) return;
-    const anyActive = cameras.some(c => c.active) || ipCam.connected;
+    const anyActive = cameras.some(c => c.active) || ipCam.connected || camSlots.some(slot => slot.connected);
     if (!anyActive) {
       const more = devices.length > 0;
       const msg = more
@@ -482,7 +486,7 @@ export default function Index() {
       addAlert(msg, 'high', 1);
       handleStop();
     }
-  }, [running, simulationMode, cameras, ipCam.connected, handleStop, addAlert, devices.length]);
+  }, [running, simulationMode, cameras, ipCam.connected, camSlots, handleStop, addAlert, devices.length]);
 
   // Listen for underlying MediaStreamTrack ended events (USB unplug, IP cam drop)
   useEffect(() => {
@@ -993,8 +997,6 @@ export default function Index() {
                     active={running}
                     transcript={listenTranscript}
                     interimTranscript={listenInterim}
-                    speechListening={listening}
-                    onToggleSpeech={() => {}}
                     talking={cctvTalk.talking}
                     talkError={cctvTalk.error}
                     onTalkStart={cctvTalk.startTalk}
