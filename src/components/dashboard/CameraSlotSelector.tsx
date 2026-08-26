@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { VideoOff, Video, ChevronLeft, ChevronRight, Flame, Users, Mic, Smile } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { VideoOff, Video, Flame, Users, Mic, Smile, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
 import { slotCamera, slotSettings, type CameraSlot } from '@/hooks/useCameraSlots';
+import { useCctvTalk } from '@/hooks/useCctvTalk';
 import type { CameraConfig, DetectionEvent } from '@/types/multicam';
 
 /**
@@ -36,10 +37,9 @@ export function CameraSlotSelector({
         onClick={() => onToggleOpen(true)}
         aria-label="Show camera list"
         title="Show camera list"
-        className="self-start flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-2 text-[13px] font-bold text-primary hover:border-primary/60 transition-colors"
+        className="self-start px-2 py-1 text-xl font-black text-primary hover:text-primary/80 transition-colors"
       >
-        <ChevronRight className="w-4 h-4" /> <span aria-hidden="true">&gt;&gt;</span>
-        <span className="lg:[writing-mode:vertical-rl] lg:rotate-180">CAM {selected}</span>
+        <span aria-hidden="true">&gt;&gt;</span>
       </button>
     );
   }
@@ -54,9 +54,9 @@ export function CameraSlotSelector({
         onClick={() => onToggleOpen(false)}
         aria-label="Hide camera list"
         title="Hide camera list"
-        className="flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+        className="flex items-center justify-center px-2 py-1 text-xl font-black text-primary hover:text-primary/80 transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" /> <span aria-hidden="true">&lt;&lt;</span> Hide
+        <span aria-hidden="true">&lt;&lt;</span>
       </button>
       {[1, 2, 3, 4].map(index => {
         const slot = slots.find(s => s.index === index);
@@ -120,6 +120,10 @@ export function SlotPipelineView({
   );
   const settings = useMemo(() => slotSettings(slot), [slot]);
   const { videoRef, runtime } = useCameraPipeline({ camera, settings, onEvent, onTranscript });
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const talk = useCctvTalk(settings.pythonServer, camera.id);
 
   const connected = camera.enabled;
   const badge = (ok: boolean, Icon: typeof Flame, text: string) => (
@@ -130,6 +134,7 @@ export function SlotPipelineView({
 
   return (
     <div
+      ref={frameRef}
       aria-hidden={!visible}
       className={
         visible
@@ -149,11 +154,52 @@ export function SlotPipelineView({
 
       <video
         ref={videoRef}
-        muted
+        muted={!audioEnabled}
         playsInline
         autoPlay
         className="w-full aspect-video object-contain bg-background"
       />
+
+      {visible && connected && (
+        <div className="absolute right-2 bottom-10 z-20 flex items-center gap-2 rounded-md border border-border bg-background/90 p-1.5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setAudioEnabled(value => !value)}
+            className="flex h-10 w-10 items-center justify-center rounded hover:bg-muted"
+            title={audioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
+            aria-label={audioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
+          >
+            {audioEnabled ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+          </button>
+          <button
+            type="button"
+            onMouseDown={talk.startTalk}
+            onMouseUp={talk.stopTalk}
+            onMouseLeave={() => talk.talking && talk.stopTalk()}
+            onTouchStart={event => { event.preventDefault(); void talk.startTalk(); }}
+            onTouchEnd={event => { event.preventDefault(); talk.stopTalk(); }}
+            className={`flex h-10 w-10 items-center justify-center rounded hover:bg-muted ${talk.talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground'}`}
+            title="Hold to talk through this camera"
+            aria-label="Hold to talk through this camera"
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!frameRef.current) return;
+              if (document.fullscreenElement) void document.exitFullscreen();
+              else void frameRef.current.requestFullscreen();
+              setFullscreen(!document.fullscreenElement);
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-primary"
+            title={fullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+            aria-label={fullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+          >
+            {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+          </button>
+        </div>
+      )}
 
       {connected && (
         <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-wrap items-center gap-1.5 px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">

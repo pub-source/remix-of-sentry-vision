@@ -11,6 +11,7 @@ import {
   startCamera,
   stopCamera,
   syncCameras,
+  testCamera,
   type BackendCameraStatus,
   type BackendStatus,
 } from '@/lib/multiCamServer';
@@ -162,15 +163,25 @@ function SlotCard({
     if (!slot.ip.trim()) { setError('Enter the camera IP address first.'); return; }
     setBusy('start'); setError(''); setMessage(`Connecting ${slot.name}…`);
     try {
+      const rtsp = slotRtsp(slot);
+      const probe = await testCamera(server, rtsp);
+      if (!probe.success) {
+        setError(probe.error || 'The camera stream could not be opened. Check the RTSP address and camera login.');
+        setMessage('');
+        return;
+      }
       await syncCameras(server, [{
-        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: slotRtsp(slot),
+        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: rtsp,
         enabled: true, aiEnabled: slot.aiEnabled, recording: false, createdAt: new Date().toISOString(),
       }]);
       const res = await startCamera(server, id);
       if (!res.success) { setError(res.error || 'The local server could not start FFmpeg for this camera.'); return; }
-      if (res.stream) { pushedRef.current = true; onConnected({ connected: true, streamUrl: res.stream }); onStream?.(res.stream); }
-      setMessage(`Online — publishing ${slotPath(slot)} through MediaMTX.`);
-      await check(true);
+      setMessage(`Camera accepted. Waiting for the live video…`);
+      const ready = await check(true);
+      if (!ready?.hls_ready) {
+        setError(ready?.error || 'The camera did not produce a playable video stream. Check its RTSP setting, username, and password.');
+        return;
+      }
     } catch {
       setError(backendHint(server) || `Could not reach the local server at ${server}.`);
     } finally { setBusy(''); }
@@ -211,12 +222,12 @@ function SlotCard({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[14px] font-semibold">Camera IP address</label>
+          <label className="text-[14px] font-semibold">Camera IP or RTSP address</label>
           <div className="flex items-center gap-2">
             <input
               value={slot.ip}
               onChange={e => onIp(e.target.value)}
-              placeholder="192.168.18.98"
+              placeholder="192.168.18.98 or rtsp://user:password@192.168.18.98:554/path"
               className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <IpAddressHelp />

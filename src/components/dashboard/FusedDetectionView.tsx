@@ -301,7 +301,7 @@ export default function FusedDetectionView({
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
         <span className="text-[10px] font-mono text-primary uppercase tracking-wider">
-          CAM 2 — Fused Detection
+          CAM 1 — Fused Detection
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-accent/20 text-accent">AI+DISTRESS</span>
@@ -325,52 +325,25 @@ export default function FusedDetectionView({
           rendered so the operator sees a clean video frame. */}
 
 
-      {/* Fullscreen button */}
-      <button
-        onClick={toggleFullscreen}
-        className="absolute bottom-2 right-2 z-20 p-1.5 rounded bg-background/70 hover:bg-background border border-border hover:border-primary/50 transition-all group-hover:opacity-100 opacity-60"
-        title={isFullscreen ? 'Exit fullscreen' : 'Fit to screen'}
-      >
-        {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-primary" /> : <Maximize2 className="w-3.5 h-3.5 text-primary" />}
-      </button>
-
-      {/* CCTV speaker toggle — hear the camera's own audio */}
-      <button
-        onClick={() => onToggleCctvAudio?.()}
-        disabled={!cctvAudioAvailable}
-        className={`absolute bottom-2 right-[4.5rem] z-20 p-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-          cctvAudioEnabled
-            ? 'bg-primary/20 border-primary/60'
-            : 'bg-background/70 border-border hover:border-primary/50'
-        }`}
-        title={
-          !cctvAudioAvailable
-            ? 'Connect a CCTV stream to hear its audio'
-            : cctvAudioEnabled
-              ? 'Speaker ON — you hear the camera. Muting only stops playback; wake-word listening keeps running.'
-              : 'Speaker OFF (playback muted). Wake-word listening and audio analysis keep running.'
-        }
-        aria-label="Toggle CCTV speaker playback (does not affect microphone listening)"
-        aria-pressed={cctvAudioEnabled}
-
-      >
-        {cctvAudioEnabled
-          ? <Volume2 className="w-3.5 h-3.5 text-primary animate-pulse" />
-          : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
-      </button>
-
-      {/* Push-to-talk — speak out of the CCTV speaker */}
-      <button
+      {/* Camera controls stay clearly visible over the lower-right corner. */}
+      <div className="absolute bottom-2 right-2 z-20 flex items-center gap-2 rounded-md border border-border bg-background/90 p-1.5 shadow-sm">
+        <button
+          onClick={() => onToggleCctvAudio?.()}
+          disabled={!cctvAudioAvailable}
+          className={`flex h-10 w-10 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${cctvAudioEnabled ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+          title={cctvAudioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
+          aria-label={cctvAudioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
+          aria-pressed={cctvAudioEnabled}
+        >
+          {cctvAudioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+        </button>
+        <button
         onMouseDown={() => onTalkStart?.()}
         onMouseUp={() => onTalkStop?.()}
         onMouseLeave={() => talking && onTalkStop?.()}
         onTouchStart={e => { e.preventDefault(); onTalkStart?.(); }}
         onTouchEnd={e => { e.preventDefault(); onTalkStop?.(); }}
-        className={`absolute bottom-2 right-10 z-20 p-1.5 rounded border transition-all ${
-          talking
-            ? 'bg-destructive/30 border-destructive'
-            : 'bg-background/70 border-border hover:border-primary/50'
-        }`}
+        className={`flex h-10 w-10 items-center justify-center rounded transition-colors ${talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground hover:bg-muted'}`}
         title={
           talkError
             ? `Talk failed: ${talkError}`
@@ -382,11 +355,20 @@ export default function FusedDetectionView({
         aria-pressed={talking}
       >
         {talking ? (
-          <Mic className="w-3.5 h-3.5 text-destructive animate-pulse" />
+          <Mic className="h-5 w-5 animate-pulse" />
         ) : (
-          <MicOff className="w-3.5 h-3.5 text-muted-foreground" />
+          <MicOff className="h-5 w-5" />
         )}
-      </button>
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          className="flex h-10 w-10 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+          title={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+        >
+          {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+        </button>
+      </div>
 
       {/* Status badges */}
       <div className="absolute bottom-2 left-1 z-10 flex gap-1">
