@@ -330,12 +330,12 @@ export default function FusedDetectionView({
         <button
           onClick={() => onToggleCctvAudio?.()}
           disabled={!cctvAudioAvailable}
-          className={`flex h-10 w-10 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${cctvAudioEnabled ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+          className={`flex h-8 w-8 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${cctvAudioEnabled ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
           title={cctvAudioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
           aria-label={cctvAudioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
           aria-pressed={cctvAudioEnabled}
         >
-          {cctvAudioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          {cctvAudioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
         <button
         onMouseDown={() => onTalkStart?.()}
@@ -343,7 +343,7 @@ export default function FusedDetectionView({
         onMouseLeave={() => talking && onTalkStop?.()}
         onTouchStart={e => { e.preventDefault(); onTalkStart?.(); }}
         onTouchEnd={e => { e.preventDefault(); onTalkStop?.(); }}
-        className={`flex h-10 w-10 items-center justify-center rounded transition-colors ${talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground hover:bg-muted'}`}
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground hover:bg-muted'}`}
         title={
           talkError
             ? `Talk failed: ${talkError}`
@@ -355,18 +355,18 @@ export default function FusedDetectionView({
         aria-pressed={talking}
       >
         {talking ? (
-          <Mic className="h-5 w-5 animate-pulse" />
+          <Mic className="h-4 w-4 animate-pulse" />
         ) : (
-          <MicOff className="h-5 w-5" />
+          <MicOff className="h-4 w-4" />
         )}
         </button>
         <button
           onClick={toggleFullscreen}
-          className="flex h-10 w-10 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+          className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
           title={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
           aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
         >
-          {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </div>
 
