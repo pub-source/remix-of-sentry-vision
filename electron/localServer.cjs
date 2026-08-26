@@ -359,4 +359,4 @@ function stopLocalServer() {
   child = null;
 }
 
-module.exports = { startLocalServer, stopLocalServer, probeStatus, shouldManage };
+module.exports = { startLocalServer, stopLocalServer, probeStatus, shouldManage, getBootstrapStatus };
