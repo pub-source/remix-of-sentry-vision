@@ -214,12 +214,12 @@ function SlotCard({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[14px] font-semibold">Camera IP address</label>
+          <label className="text-[14px] font-semibold">Camera IP or RTSP address</label>
           <div className="flex items-center gap-2">
             <input
               value={slot.ip}
               onChange={e => onIp(e.target.value)}
-              placeholder="192.168.18.98"
+              placeholder="192.168.18.98 or rtsp://user:password@192.168.18.98:554/path"
               className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <IpAddressHelp />
