@@ -13,7 +13,7 @@
  */
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { startLocalServer, stopLocalServer } = require('./localServer.cjs');
+const { startLocalServer, stopLocalServer, getBootstrapStatus } = require('./localServer.cjs');
 
 const isDev = !app.isPackaged || process.env.MSDS_ELECTRON_DEV === '1';
 const DEV_URL = process.env.MSDS_DEV_URL || 'http://localhost:8080';
@@ -68,10 +68,13 @@ ipcMain.handle('msds:env', () => ({
   appVersion: app.getVersion(),
   localServiceUrl: LOCAL_SERVICE_URL,
   cameraServerUrl: LOCAL_CAMERA_SERVER_URL,
-  localServer: localServerStatus,
+  localServer: { ...localServerStatus, bootstrap: getBootstrapStatus() },
 }));
 
-ipcMain.handle('msds:localServerStatus', () => localServerStatus);
+ipcMain.handle('msds:localServerStatus', () => ({
+  ...localServerStatus,
+  bootstrap: getBootstrapStatus(),
+}));
 
 ipcMain.handle('msds:openExternal', (_evt, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
