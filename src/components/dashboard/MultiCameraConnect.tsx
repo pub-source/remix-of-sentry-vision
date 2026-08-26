@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import PrefetchModelsButton from '@/components/dashboard/PrefetchModelsButton';
 import {
   Play, Square, RefreshCw, CheckCircle2, XCircle, Loader2, Grid2x2,
   Square as SquareIcon, Columns2, Brain, VideoOff,
@@ -270,6 +271,7 @@ function SlotCard({
         <Dot ok={!!status?.hls_ready} label="HLS" />
         <Dot ok={slot.aiEnabled} label="AI detection" />
         <Dot ok={live} label="Camera" />
+        <PrefetchModelsButton className="ml-auto" />
       </div>
 
       {message && <p className="text-[14px] text-success break-all">{message}</p>}
