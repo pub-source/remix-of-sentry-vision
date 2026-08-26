@@ -884,16 +884,19 @@ export default function Index() {
             </div>
 
             {/* CAM 1..4 selector + main frame. Switching only changes what is
-                shown — other cameras keep streaming and keep audio monitoring. */}
+                shown — CAM 2..4 keep streaming and keep running their own
+                independent saliency + CCTV audio pipelines in the background. */}
             <div className="flex flex-col lg:flex-row gap-2">
               <CameraSlotSelector
                 slots={camSlots}
                 selected={selectedCam}
                 onSelect={setSelectedCam}
                 primaryLive={ipCam.connected || cameras.some(c => c.active)}
+                open={camListOpen}
+                onToggleOpen={setCamListOpen}
               />
-              <div className="flex-1 min-w-0">
-                {selectedCam === 1 ? (
+              <div className="flex-1 min-w-0 relative">
+                {selectedCam === 1 && (
                   <FusedDetectionView
                     sourceCanvas={cam2SourceCanvas || sourceCanvas}
                     objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
@@ -915,15 +918,20 @@ export default function Index() {
                     cctvAudioEnabled={ipCam.audioEnabled}
                     cctvAudioAvailable={ipCam.connected}
                     onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
-                    cctvDiagnostics={cctvSpeech.diagnostics}
-                    wakeWordDiagnostic={wakeWordDiagnostic}
-                    listeningActive={cctvListenEnabled}
                   />
-                ) : (
-                  <SlotLiveView slot={camSlots.find(s => s.index === selectedCam)} />
                 )}
+                {camSlots.filter(s => s.index > 1).map(slot => (
+                  <SlotPipelineView
+                    key={slot.index}
+                    slot={slot}
+                    monitoring={running}
+                    visible={selectedCam === slot.index}
+                    onEvent={handleSlotEvent}
+                  />
+                ))}
               </div>
             </div>
+
           </div>
 
 
