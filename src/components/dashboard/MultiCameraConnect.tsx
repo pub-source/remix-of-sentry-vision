@@ -11,6 +11,7 @@ import {
   startCamera,
   stopCamera,
   syncCameras,
+  testCamera,
   type BackendCameraStatus,
   type BackendStatus,
 } from '@/lib/multiCamServer';
@@ -162,8 +163,15 @@ function SlotCard({
     if (!slot.ip.trim()) { setError('Enter the camera IP address first.'); return; }
     setBusy('start'); setError(''); setMessage(`Connecting ${slot.name}…`);
     try {
+      const rtsp = slotRtsp(slot);
+      const probe = await testCamera(server, rtsp);
+      if (!probe.success) {
+        setError(probe.error || 'The camera stream could not be opened. Check the RTSP address and camera login.');
+        setMessage('');
+        return;
+      }
       await syncCameras(server, [{
-        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: slotRtsp(slot),
+        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: rtsp,
         enabled: true, aiEnabled: slot.aiEnabled, recording: false, createdAt: new Date().toISOString(),
       }]);
       const res = await startCamera(server, id);
