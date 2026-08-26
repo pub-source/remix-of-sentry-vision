@@ -88,6 +88,46 @@ Deno.serve(async (req) => {
     const senderName = Deno.env.get('BREVO_SENDER_NAME') ?? 'MSDS Sentry Vision';
     const subject = `[${severity.toUpperCase()}] ${alertType}${cameraLabel ? ` — ${cameraLabel}` : ''}`;
 
+    const SEV_COLOR: Record<string, string> = {
+      low: '#2563eb', medium: '#d97706', high: '#ea580c', critical: '#dc2626',
+    };
+    const accent = SEV_COLOR[severity] ?? '#dc2626';
+
+    const rows: [string, string][] = [
+      ['Severity', severity.toUpperCase()],
+      ['Detection', alertType],
+      ...(cameraLabel ? [['Camera', cameraLabel] as [string, string]] : []),
+      ['Detected at (UTC)', occurredAt.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')],
+      ...(Number.isFinite(confidence) ? [['Model confidence', `${Math.round(confidence * 100)}%`] as [string, string]] : []),
+      ...(Number.isFinite(saliencyScore) ? [['Saliency score', `${Math.round(saliencyScore)}/100`] as [string, string]] : []),
+      ...(trigger ? [['Trigger', trigger] as [string, string]] : []),
+      ...details,
+      ...(alertId ? [['Alert ID', alertId] as [string, string]] : []),
+    ];
+
+    const rowsHtml = rows
+      .map(([k, v], i) => `<tr style="background:${i % 2 ? '#ffffff' : '#f7f8fa'}">
+            <td style="padding:8px 12px;color:#475569;white-space:nowrap">${escapeHtml(k)}</td>
+            <td style="padding:8px 12px;color:#0f172a;font-weight:600">${escapeHtml(v)}</td>
+          </tr>`)
+      .join('');
+
+    const htmlContent = `<div style="font-family:Inter,Arial,sans-serif;font-size:16px;line-height:1.6;color:#0f172a;max-width:640px">
+          <div style="border-left:6px solid ${accent};padding:4px 0 4px 14px;margin-bottom:16px">
+            <h2 style="margin:0;font-size:22px">${escapeHtml(alertType)}</h2>
+            <p style="margin:4px 0 0;color:${accent};font-weight:700;letter-spacing:.04em">${escapeHtml(severity.toUpperCase())} PRIORITY ALERT</p>
+          </div>
+          <p style="margin:0 0 16px;padding:14px;background:#f1f5f9;border-radius:10px;font-size:17px">${escapeHtml(message)}</p>
+          <table style="border-collapse:collapse;width:100%;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:15px">
+            ${rowsHtml}
+          </table>
+          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
+            Sent automatically by MSDS Sentry Vision. Repeated alerts of the same type are grouped
+            for a few minutes to avoid flooding your inbox. Manage recipients and the severity
+            threshold on the Household page.
+          </p>
+        </div>`;
+
     const res = await fetch(BREVO_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
@@ -95,15 +135,10 @@ Deno.serve(async (req) => {
         sender: { name: senderName, email: senderEmail },
         to,
         subject: subject.slice(0, 200),
-        htmlContent: `<div style="font-family:Inter,Arial,sans-serif;font-size:16px;line-height:1.6">
-          <h2 style="margin:0 0 12px">${escapeHtml(alertType)}</h2>
-          <p style="margin:0 0 8px"><strong>Severity:</strong> ${escapeHtml(severity.toUpperCase())}</p>
-          ${cameraLabel ? `<p style="margin:0 0 8px"><strong>Camera:</strong> ${escapeHtml(cameraLabel)}</p>` : ''}
-          <p style="margin:0 0 8px"><strong>Time:</strong> ${new Date().toISOString()}</p>
-          <p style="margin:16px 0 0;padding:12px;background:#f5f5f5;border-radius:8px">${escapeHtml(message)}</p>
-        </div>`,
+        htmlContent,
       }),
     });
+
 
     if (!res.ok) {
       const details = await res.text();
