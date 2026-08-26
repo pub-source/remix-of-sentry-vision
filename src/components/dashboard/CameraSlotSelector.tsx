@@ -160,16 +160,16 @@ export function SlotPipelineView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {visible && connected && (
+      {visible && (
         <div className="absolute right-2 bottom-10 z-20 flex items-center gap-2 rounded-md border border-border bg-background/90 p-1.5 shadow-sm">
           <button
             type="button"
             onClick={() => setAudioEnabled(value => !value)}
-            className="flex h-10 w-10 items-center justify-center rounded hover:bg-muted"
+            className="flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
             title={audioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
             aria-label={audioEnabled ? 'Mute camera speaker' : 'Hear camera audio'}
           >
-            {audioEnabled ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+            {audioEnabled ? <Volume2 className="h-4 w-4 text-primary" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
           </button>
           <button
             type="button"
@@ -178,11 +178,11 @@ export function SlotPipelineView({
             onMouseLeave={() => talk.talking && talk.stopTalk()}
             onTouchStart={event => { event.preventDefault(); void talk.startTalk(); }}
             onTouchEnd={event => { event.preventDefault(); talk.stopTalk(); }}
-            className={`flex h-10 w-10 items-center justify-center rounded hover:bg-muted ${talk.talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground'}`}
+            className={`flex h-8 w-8 items-center justify-center rounded hover:bg-muted ${talk.talking ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground'}`}
             title="Hold to talk through this camera"
             aria-label="Hold to talk through this camera"
           >
-            <Mic className="h-5 w-5" />
+            <Mic className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -192,11 +192,11 @@ export function SlotPipelineView({
               else void frameRef.current.requestFullscreen();
               setFullscreen(!document.fullscreenElement);
             }}
-            className="flex h-10 w-10 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-primary"
+            className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-primary"
             title={fullscreen ? 'Exit fullscreen' : 'View fullscreen'}
             aria-label={fullscreen ? 'Exit fullscreen' : 'View fullscreen'}
           >
-            {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
         </div>
       )}
