@@ -189,6 +189,17 @@ export default function NotificationSettings({ householdId }: { householdId: str
         </form>
       </div>
 
+      <div className="space-y-2 border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={sendTest}
+          className="w-full px-4 py-3 rounded-lg border border-primary text-primary text-base font-semibold hover:bg-primary/10"
+        >
+          Send test email
+        </button>
+        {testResult && <p className="text-sm text-foreground break-words">{testResult}</p>}
+      </div>
+
       <div className="flex items-start gap-2 text-sm text-muted-foreground border-t border-border pt-4">
         <ShieldCheck className="w-4 h-4 mt-0.5 text-primary shrink-0" />
         <span>Email is delivered by <strong>Brevo</strong> from the secure backend. The API key is stored as a server secret and is never available to this app.</span>
