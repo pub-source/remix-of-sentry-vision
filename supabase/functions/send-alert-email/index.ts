@@ -2,6 +2,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_SENDERS_URL = 'https://api.brevo.com/v3/senders';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const escapeHtml = (s: string) =>
@@ -23,9 +24,12 @@ Deno.serve(async (req) => {
     if (!apiKey) return respond({ error: 'Email provider not configured' }, 503);
 
     const authHeader = req.headers.get('Authorization') ?? '';
+    const backendUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!backendUrl || !anonKey) return respond({ error: 'Backend configuration is unavailable' }, 503);
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
+      backendUrl,
+      anonKey,
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: userData } = await supabase.auth.getUser();
@@ -86,8 +90,40 @@ Deno.serve(async (req) => {
 
     if (!to.length) return respond({ sent: false, reason: 'no_recipients' });
 
-    const senderEmail = Deno.env.get('BREVO_SENDER_EMAIL') ?? 'alerts@msds-sentry.app';
+    let senderEmail = Deno.env.get('BREVO_SENDER_EMAIL')?.trim() ?? '';
     const senderName = Deno.env.get('BREVO_SENDER_NAME') ?? 'MSDS Sentry Vision';
+
+    // A recipient can be any valid address, but Brevo requires a separate verified
+    // sender. If one was not configured explicitly, use the first active Brevo sender.
+    if (!EMAIL_RE.test(senderEmail)) {
+      const sendersRes = await fetch(BREVO_SENDERS_URL, {
+        headers: { accept: 'application/json', 'api-key': apiKey },
+      });
+      const sendersBody = await sendersRes.text();
+      if (!sendersRes.ok) {
+        console.error(`Brevo sender lookup failed [${sendersRes.status}]: ${sendersBody}`);
+        return respond({
+          error: 'Brevo sender lookup failed',
+          status: sendersRes.status,
+          details: sendersBody,
+        }, sendersRes.status);
+      }
+
+      const parsedSenders = JSON.parse(sendersBody) as {
+        senders?: Array<{ email?: string; active?: boolean }>;
+      };
+      const activeSender = parsedSenders.senders?.find(
+        (sender) => sender.active === true && EMAIL_RE.test(sender.email ?? ''),
+      );
+      if (!activeSender?.email) {
+        return respond({
+          error: 'No verified Brevo sender is available',
+          details: 'Add and verify one sender address in Brevo, then press Send test email again.',
+        }, 422);
+      }
+      senderEmail = activeSender.email;
+    }
+
     const subject = `[${severity.toUpperCase()}] ${alertType}${cameraLabel ? ` — ${cameraLabel}` : ''}`;
 
     const SEV_COLOR: Record<string, string> = {
@@ -149,7 +185,12 @@ Deno.serve(async (req) => {
     }
 
     const result = await res.json();
-    return respond({ sent: true, recipients: to.length, messageId: result?.messageId ?? null });
+    return respond({
+      sent: true,
+      recipients: to.length,
+      messageId: result?.messageId ?? null,
+      sender: senderEmail,
+    });
   } catch (e) {
     console.error('send-alert-email error:', e instanceof Error ? e.message : String(e));
     return respond({ error: 'Unexpected error sending alert email' }, 500);
