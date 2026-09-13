@@ -58,15 +58,17 @@ Deno.serve(async (req) => {
     if (!message.trim()) return respond({ error: 'message is required' }, 400);
 
 
-    // Membership check — RLS-scoped read
+    // Membership check — RLS-scoped read.
+    // No settings row yet => email alerts are ON by default (threshold: high).
     const { data: settings, error: settingsErr } = await supabase
       .from('notification_settings')
       .select('email_enabled, severity_threshold')
       .eq('household_id', householdId)
       .maybeSingle();
     if (settingsErr) return respond({ error: settingsErr.message }, 403);
-    if (!settings?.email_enabled) return respond({ sent: false, reason: 'email_disabled' });
-    if (SEVERITY_RANK[severity] < SEVERITY_RANK[settings.severity_threshold ?? 'high']) {
+    const emailEnabled = settings ? settings.email_enabled !== false : true;
+    if (!emailEnabled) return respond({ sent: false, reason: 'email_disabled' });
+    if (SEVERITY_RANK[severity] < SEVERITY_RANK[settings?.severity_threshold ?? 'high']) {
       return respond({ sent: false, reason: 'below_threshold' });
     }
 
