@@ -22,7 +22,7 @@ const DEFAULTS: Settings = {
   in_app_enabled: true,
   sound_enabled: true,
   sound_volume: 0.8,
-  email_enabled: false,
+  email_enabled: true,
   severity_threshold: 'high',
   cooldown_seconds: 300,
 };
