@@ -22,7 +22,7 @@ const DEFAULTS: Settings = {
   in_app_enabled: true,
   sound_enabled: true,
   sound_volume: 0.8,
-  email_enabled: false,
+  email_enabled: true,
   severity_threshold: 'high',
   cooldown_seconds: 300,
 };
@@ -35,6 +35,7 @@ export default function NotificationSettings({ householdId }: { householdId: str
   const [newEmail, setNewEmail] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [testResult, setTestResult] = useState('');
 
   const load = useCallback(async () => {
     const [sRes, rRes] = await Promise.all([
@@ -68,6 +69,29 @@ export default function NotificationSettings({ householdId }: { householdId: str
     setNewEmail('');
     setError('');
     load();
+  };
+
+  const sendTest = async () => {
+    setTestResult('Sending…');
+    setError('');
+    const { data, error: err } = await supabase.functions.invoke('send-alert-email', {
+      body: {
+        householdId,
+        severity: 'critical',
+        alertType: 'Test alert',
+        message: 'This is a test alert from your MSDS dashboard.',
+        trigger: 'Manual test',
+      },
+    });
+    if (err) {
+      const detail = (err as { context?: { text?: () => Promise<string> } }).context?.text
+        ? await (err as { context: { text: () => Promise<string> } }).context.text()
+        : err.message;
+      setTestResult(`Failed: ${detail}`);
+      return;
+    }
+    const res = data as { sent?: boolean; reason?: string; recipients?: number } | null;
+    setTestResult(res?.sent ? `Sent to ${res.recipients} recipient(s). Check your inbox and spam folder.` : `Not sent (${res?.reason ?? 'unknown'})`);
   };
 
   const removeRecipient = async (id: string) => {
@@ -163,6 +187,17 @@ export default function NotificationSettings({ householdId }: { householdId: str
             <Plus className="w-4 h-4" /> Add
           </button>
         </form>
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={sendTest}
+          className="w-full px-4 py-3 rounded-lg border border-primary text-primary text-base font-semibold hover:bg-primary/10"
+        >
+          Send test email
+        </button>
+        {testResult && <p className="text-sm text-foreground break-words">{testResult}</p>}
       </div>
 
       <div className="flex items-start gap-2 text-sm text-muted-foreground border-t border-border pt-4">
