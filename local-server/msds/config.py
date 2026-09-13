@@ -25,10 +25,19 @@ HLS_PROBE_TTL = 3.0
 MEDIAMTX_CONFIG = os.path.join(BASE_DIR, "mediamtx.yml")
 
 DISTRESS_KEYWORDS = {
+    # English
     "help": 0.95, "help me": 0.98, "fire": 0.97, "emergency": 0.95,
     "call 911": 0.98, "someone help": 0.97, "i fell": 0.93, "i can't breathe": 0.98,
     "stop": 0.8, "get away": 0.9, "don't hurt me": 0.97, "please stop": 0.92,
     "ambulance": 0.95, "police": 0.9, "i'm hurt": 0.95, "save me": 0.97,
+    # Tagalog / Filipino
+    "tulong": 0.95, "tulungan mo ako": 0.98, "saklolo": 0.98, "sunog": 0.97,
+    "may sunog": 0.98, "nasusunog": 0.97, "nahulog ako": 0.93, "natumba ako": 0.93,
+    "hindi ako makahinga": 0.98, "masakit": 0.9, "ang sakit": 0.93,
+    "tumawag ka ng pulis": 0.97, "pulis": 0.9, "ambulansya": 0.95,
+    "tama na": 0.9, "huwag": 0.85, "wag mo akong saktan": 0.97,
+    "iligtas mo ako": 0.97, "may magnanakaw": 0.95, "magnanakaw": 0.93,
+    "aray": 0.85, "inaatake ako": 0.97,
 }
 
 
