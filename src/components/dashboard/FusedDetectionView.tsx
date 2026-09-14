@@ -341,6 +341,9 @@ export default function FusedDetectionView({
             {interimTranscript && (
               <span className="text-muted-foreground">{transcript ? ' ' : ''}{interimTranscript}</span>
             )}
+            {!transcript && !interimTranscript && (
+              <span className="text-muted-foreground">Listening… no speech yet</span>
+            )}
           </p>
         </div>
       )}
