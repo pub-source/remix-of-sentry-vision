@@ -25,6 +25,8 @@ const emptyRuntime = (cameraId: string): CameraRuntime => ({
   smoke: { detected: false, confidence: 0 },
   faceDistress: { detected: false, label: '', confidence: 0 },
   audioDistress: { detected: false, keyword: '', confidence: 0, transcript: '' },
+  transcript: '',
+  audioListening: false,
   lastDetectionAt: null,
   detections: 0,
   alerts: 0,
@@ -266,13 +268,24 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
   // ---- Audio: RTSP audio -> ffmpeg -> Whisper on the backend ---------------
   // The browser never opens a microphone.
   useEffect(() => {
-    if (!camera.enabled || !camera.aiEnabled) return;
+    if (!camera.enabled || !camera.aiEnabled) {
+      patch({ audioListening: false });
+      return;
+    }
     let stopped = false;
+    patch({ audioListening: true });
     const poll = async () => {
       try {
         const { events } = await getAudioEvents(settings.pythonServer, camera.id, lastAudioRef.current);
         if (stopped || !events?.length) return;
         lastAudioRef.current = events[events.length - 1].timestamp;
+        // Every transcript is shown live; only confident distress hits raise an event.
+        const spoken = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
+        if (spoken) {
+          patch({
+            transcript: `${runtimeRef.current.transcript} ${spoken}`.trim().slice(-600),
+          });
+        }
         for (const e of events) {
           if (e.confidence < settings.audioThreshold) continue;
           patch({
@@ -284,9 +297,9 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
         }
       } catch { /* backend offline — video keeps running */ }
     };
-    const id = window.setInterval(poll, 3000);
+    const id = window.setInterval(poll, 1500);
     void poll();
-    return () => { stopped = true; window.clearInterval(id); };
+    return () => { stopped = true; window.clearInterval(id); patch({ audioListening: false }); };
   }, [camera.enabled, camera.aiEnabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
 
   const reconnect = useCallback(() => {

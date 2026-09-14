@@ -68,6 +68,10 @@ export interface CameraRuntime {
   smoke: { detected: boolean; confidence: number };
   faceDistress: { detected: boolean; label: string; confidence: number };
   audioDistress: { detected: boolean; keyword: string; confidence: number; transcript: string };
+  /** Rolling live transcription of everything heard on this camera. */
+  transcript: string;
+  /** True while transcripts are being polled from the backend. */
+  audioListening: boolean;
   lastDetectionAt: string | null;
   detections: number;
   alerts: number;
