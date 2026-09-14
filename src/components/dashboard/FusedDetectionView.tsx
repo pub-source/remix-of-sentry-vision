@@ -327,7 +327,7 @@ export default function FusedDetectionView({
 
       {/* Live CCTV transcription. Keep diagnostics hidden, but let the operator
           see the words being used by the wake-word and distress checks. */}
-      {(transcript || interimTranscript) && (
+      {(
         <div
           className="absolute left-2 top-7 z-10 max-w-[min(78%,32rem)] border border-border bg-background/90 px-2 py-1.5 shadow-sm"
           role="status"
