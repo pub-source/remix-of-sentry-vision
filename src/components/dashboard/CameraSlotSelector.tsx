@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { VideoOff, Video, ChevronLeft, ChevronRight, Flame, Users, Mic, Smile } from 'lucide-react';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
 import { slotCamera, slotSettings, type CameraSlot } from '@/hooks/useCameraSlots';
+import { testCameraAudio } from '@/lib/multiCamServer';
 import type { DetectionEvent } from '@/types/multicam';
+
 
 /**
  * Left-hand CAM 1..4 selector for the main monitoring frame.
