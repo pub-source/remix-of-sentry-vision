@@ -164,8 +164,23 @@ export const getAudioEvents = (server: string, id: string, since?: string) =>
   req<{ events: AudioEvent[]; status: CctvAudioStatus }>(
     `${base(server)}/cameras/${id}/audio-events${since ? `?since=${encodeURIComponent(since)}` : ''}`,
     undefined,
-    8000,
+    20000,
   );
+
+export interface AudioTestReport {
+  success: boolean;
+  error?: string | null;
+  transcript?: string;
+  probe?: { ok: boolean; error: string | null; has_audio_track: boolean | null; audio_codec: string | null; streams: unknown[] };
+  capture?: { returncode: number; bytes: number; seconds: number; ffmpeg_error: string | null };
+  whisper?: { available: boolean; state: string; error: string | null };
+  available_camera_ids?: string[];
+}
+
+/** One-shot diagnostic of a camera's RTSP audio path (probe + capture + Whisper). */
+export const testCameraAudio = (server: string, id: string) =>
+  req<AudioTestReport>(`${base(server)}/cameras/${id}/audio-test`, { method: 'POST' }, 60000);
+
 
 export function backendHint(server: string) {
   const httpsPage = typeof location !== 'undefined' && location.protocol === 'https:';
