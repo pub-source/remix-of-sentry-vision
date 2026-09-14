@@ -93,6 +93,7 @@ function SlotCard({
   onRename,
   onIp,
   onAi,
+  onPatch,
   onConnected,
   onStream,
 }: {
@@ -103,13 +104,18 @@ function SlotCard({
   onRename: (v: string) => void;
   onIp: (v: string) => void;
   onAi: (v: boolean) => void;
+  onPatch: (v: Partial<CameraSlot>) => void;
   onConnected: (v: { connected: boolean; streamUrl: string }) => void;
   onStream?: (url: string) => void;
 }) {
   const [status, setStatus] = useState<BackendCameraStatus | null>(null);
-  const [busy, setBusy] = useState<'' | 'check' | 'start' | 'stop'>('');
+  const [busy, setBusy] = useState<'' | 'check' | 'start' | 'stop' | 'test'>('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const pushedRef = useRef(false);
   const lastRef = useRef('');
   const id = `slot-${slot.index}`;
