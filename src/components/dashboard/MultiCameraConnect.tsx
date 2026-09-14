@@ -197,6 +197,30 @@ function SlotCard({
     } finally { setBusy(''); }
   };
 
+  const rtspUrl = slotRtsp(slot);
+
+  const handleCopy = async () => {
+    if (!rtspUrl) return;
+    try {
+      await navigator.clipboard.writeText(rtspUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked */ }
+  };
+
+  const handleTest = async () => {
+    if (!rtspUrl) { setTestResult({ ok: false, text: 'Enter the camera IP address first.' }); return; }
+    setBusy('test'); setTestResult(null);
+    try {
+      const res = await testCamera(server, rtspUrl);
+      setTestResult(res.success
+        ? { ok: true, text: res.info || 'Connection successful — the camera answered.' }
+        : { ok: false, text: res.error || 'The camera did not answer on this address.' });
+    } catch {
+      setTestResult({ ok: false, text: backendHint(server) || `Could not reach the local server at ${server}.` });
+    } finally { setBusy(''); }
+  };
+
   const live = !!status?.ffmpeg && !!status?.hls_ready;
   const streamUrl = live ? (status?.stream_local || status?.stream || '') : '';
 
