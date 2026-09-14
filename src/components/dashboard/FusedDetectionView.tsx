@@ -325,9 +325,25 @@ export default function FusedDetectionView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {/* The CCTV audio -> Whisper wake-word pipeline keeps running in the
-          background; its transcript/diagnostics overlay is intentionally not
-          rendered so the operator sees a clean video frame. */}
+      {/* Live CCTV transcription. Keep diagnostics hidden, but let the operator
+          see the words being used by the wake-word and distress checks. */}
+      {(transcript || interimTranscript) && (
+        <div
+          className="absolute left-2 top-7 z-10 max-w-[min(78%,32rem)] border border-border bg-background/90 px-2 py-1.5 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="mb-0.5 text-[10px] font-mono font-bold uppercase text-primary">
+            Live transcription
+          </div>
+          <p className="max-h-20 overflow-hidden text-sm font-semibold leading-relaxed text-foreground">
+            {transcript}
+            {interimTranscript && (
+              <span className="text-muted-foreground">{transcript ? ' ' : ''}{interimTranscript}</span>
+            )}
+          </p>
+        </div>
+      )}
 
 
       {/* Fullscreen button */}
