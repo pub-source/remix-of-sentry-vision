@@ -153,6 +153,22 @@ export function SlotPipelineView({
         className="w-full aspect-video object-contain bg-background"
       />
 
+      {/* Live transcription of what this camera hears */}
+      {connected && (
+        <div className="absolute top-8 left-2 z-10 max-w-[70%] rounded-md bg-background/85 border border-border px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <Mic className="w-3 h-3" /> Live transcription
+          </div>
+          <p aria-live="polite" className="mt-0.5 text-[13px] leading-snug text-foreground">
+            {runtime.transcript || (
+              <span className="text-muted-foreground">
+                {runtime.audioListening ? 'Listening… no speech yet' : 'Start monitoring to listen'}
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+
       {connected && (
         <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-wrap items-center gap-1.5 px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">
           {badge(runtime.fire.detected, Flame, `Fire ${Math.round(runtime.fire.confidence * 100)}%`)}
