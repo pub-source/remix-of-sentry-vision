@@ -266,41 +266,84 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
   }, [face.distress, patch, emit]);
 
   // ---- Audio: RTSP audio -> ffmpeg -> Whisper on the backend ---------------
-  // The browser never opens a microphone.
+  // The browser never opens a microphone. Listening runs whenever the camera is
+  // connected, independently of the AI detection switch.
   useEffect(() => {
-    if (!camera.enabled || !camera.aiEnabled) {
-      patch({ audioListening: false });
+    if (!camera.enabled) {
+      patch({
+        audioListening: false,
+        audioMessage: 'Connect this camera to start listening.',
+        audioTone: 'wait',
+      });
       return;
     }
     let stopped = false;
-    patch({ audioListening: true });
+    let inFlight = false;
+    patch({ audioListening: true, audioMessage: 'Starting to listen…', audioTone: 'wait' });
+
     const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        const { events } = await getAudioEvents(settings.pythonServer, camera.id, lastAudioRef.current);
-        if (stopped || !events?.length) return;
-        lastAudioRef.current = events[events.length - 1].timestamp;
-        // Every transcript is shown live; only confident distress hits raise an event.
-        const spoken = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
-        if (spoken) {
-          patch({
-            transcript: `${runtimeRef.current.transcript} ${spoken}`.trim().slice(-600),
-          });
+        const { events, status } = await getAudioEvents(
+          settings.pythonServer, camera.id, lastAudioRef.current,
+        );
+        if (stopped) return;
+        const described = describeAudioStatus(status, true);
+        patch({
+          audio: status,
+          audioBackendReachable: true,
+          audioMessage: described.message,
+          audioTone: described.tone,
+        });
+
+        // New events are authoritative; when a poll brings none but the backend
+        // already holds a transcript we still show it, so the panel is never
+        // stuck on "no speech yet" while the backend has words.
+        const fresh = events ?? [];
+        if (fresh.length) {
+          lastAudioRef.current = fresh[fresh.length - 1].timestamp;
+          const spoken = fresh.map(e => e.transcript).filter(Boolean).join(' ').trim();
+          if (spoken && spoken !== lastShownRef.current) {
+            lastShownRef.current = spoken;
+            patch({ transcript: `${runtimeRef.current.transcript} ${spoken}`.trim().slice(-600) });
+          }
+          for (const e of fresh) {
+            if (e.confidence < settings.audioThreshold) continue;
+            patch({
+              audioDistress: {
+                detected: true, keyword: e.keyword, confidence: e.confidence, transcript: e.transcript,
+              },
+            });
+            emit('audio-distress', e.keyword || e.transcript, e.confidence);
+          }
+        } else if (
+          status?.last_transcript
+          && !runtimeRef.current.transcript
+          && status.last_transcript !== lastShownRef.current
+        ) {
+          lastShownRef.current = status.last_transcript;
+          patch({ transcript: status.last_transcript.slice(-600) });
         }
-        for (const e of events) {
-          if (e.confidence < settings.audioThreshold) continue;
-          patch({
-            audioDistress: {
-              detected: true, keyword: e.keyword, confidence: e.confidence, transcript: e.transcript,
-            },
-          });
-          emit('audio-distress', e.keyword || e.transcript, e.confidence);
-        }
-      } catch { /* backend offline — video keeps running */ }
+      } catch (err) {
+        if (stopped) return;
+        const message = err instanceof Error ? err.message : String(err);
+        const described = describeAudioStatus(null, false);
+        patch({
+          audioBackendReachable: false,
+          audioMessage: `${described.message} (${message})`,
+          audioTone: 'error',
+        });
+      } finally {
+        inFlight = false;
+      }
     };
+
     const id = window.setInterval(poll, 1500);
     void poll();
     return () => { stopped = true; window.clearInterval(id); patch({ audioListening: false }); };
-  }, [camera.enabled, camera.aiEnabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
+  }, [camera.enabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
+
 
   const reconnect = useCallback(() => {
     hlsRef.current?.destroy();
