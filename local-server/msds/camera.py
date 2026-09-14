@@ -597,6 +597,8 @@ class Camera:
             "audio_probe_error": self.audio_probe_error,
             "audio_probed_at": self.audio_probed_at,
             "audio_restarts": self.audio_restarts,
+            "audio_source": self.audio_source,
+            "audio_sources_tried": list(self.audio_sources_tried),
             "chunk_seconds": AUDIO_CHUNK_SECONDS,
             "whisper_available": WHISPER.available,
             "whisper_state": WHISPER.state,
