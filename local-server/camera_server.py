@@ -45,11 +45,21 @@ def main() -> None:
     print(f"MSDSystem multi-camera bridge on http://0.0.0.0:{API_PORT} (HLS :{HLS_PORT})")
     print(f"python   : {sys.executable}")
     if WHISPER.available:
-        print(f"whisper  : faster-whisper installed (model '{WHISPER_MODEL}', downloaded on first use)")
+        print(f"whisper  : faster-whisper installed (model '{WHISPER_MODEL}', loading in background)")
+
+        def _preload():
+            try:
+                WHISPER.load()
+                print(f"whisper  : model '{WHISPER_MODEL}' ready", flush=True)
+            except Exception as exc:
+                print(f"whisper  : model failed to load -> {exc}", flush=True)
+
+        threading.Thread(target=_preload, daemon=True).start()
     else:
         print("whisper  : NOT AVAILABLE - CCTV wake-word transcription is disabled")
         print(f"           {WHISPER.error}")
         print("           Video/CCTV streaming keeps working without it.")
+
 
     uvicorn.run(app, host="0.0.0.0", port=API_PORT, log_level="warning")
 

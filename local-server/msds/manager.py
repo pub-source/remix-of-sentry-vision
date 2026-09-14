@@ -88,8 +88,9 @@ def watchdog() -> None:
     while True:
         time.sleep(5)
         for cam in snapshot():
-            if (cam.enabled and not cam.stop_flag.is_set()
-                    and cam.video_proc and cam.video_proc.poll() is not None):
+            if not cam.enabled or cam.stop_flag.is_set():
+                continue
+            if cam.video_proc and cam.video_proc.poll() is not None:
                 cam.restarts += 1
                 cam.error = f"Stream disconnected: {cam.last_video_error()}. Reconnecting…"
                 try:
@@ -97,3 +98,10 @@ def watchdog() -> None:
                     cam.start_video()
                 except Exception as exc:
                     cam.error = str(exc)
+            # The audio worker must stay alive for as long as the camera is on.
+            if cam.video_proc and not (cam.audio_thread and cam.audio_thread.is_alive()):
+                try:
+                    cam.start_audio()
+                except Exception as exc:
+                    cam.audio_error = str(exc)
+
