@@ -84,9 +84,22 @@ export const hlsHostFor = (host: string) => `http://${cleanHost(host) || '127.0.
 /** Each slot publishes its own MediaMTX section: cam1, cam2, cam4. */
 export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
 
-/** RTSP derived from the camera IP the user typed. */
-export const slotRtsp = (slot: CameraSlot) =>
-  cleanHost(slot.ip) ? `rtsp://${cleanHost(slot.ip)}:554/live/ch00_1` : '';
+/** RTSP derived from the camera fields: rtsp://user:pass@ip:port/path */
+export const slotRtsp = (slot: CameraSlot) => {
+  const host = cleanHost(slot.ip);
+  if (!host) return '';
+  const user = (slot.username || '').trim();
+  const pass = slot.password || '';
+  const auth = user ? `${encodeURIComponent(user)}:${encodeURIComponent(pass)}@` : '';
+  const port = Number(slot.port) > 0 ? Number(slot.port) : DEFAULT_RTSP_PORT;
+  const raw = (slot.streamPath || DEFAULT_STREAM_PATH).trim();
+  const path = raw ? (raw.startsWith('/') ? raw : `/${raw}`) : DEFAULT_STREAM_PATH;
+  return `rtsp://${auth}${host}:${port}${path}`;
+};
+
+/** Same URL with the password masked — safe for display. */
+export const slotRtspMasked = (slot: CameraSlot) =>
+  slot.password ? slotRtsp(slot).replace(`:${encodeURIComponent(slot.password)}@`, ':••••••@') : slotRtsp(slot);
 
 /** Independent pipeline settings for one slot (its own section + audio events). */
 export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => {
