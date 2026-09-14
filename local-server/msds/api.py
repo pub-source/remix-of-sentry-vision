@@ -109,16 +109,40 @@ def audio_events(camera_id: str, since: Optional[str] = None):
         return {
             "events": [],
             "status": {
-                "connected": False, "thread_running": False,
-                "error": f"unknown camera id '{camera_id}'",
+                "connected": False, "thread_running": False, "capturing": False,
+                "chunks_received": 0, "bytes_received": 0,
+                "last_chunk_at": None, "last_transcription_at": None,
+                "last_transcript": "", "has_audio_track": None,
+                "whisper_available": WHISPER.available,
+                "whisper_state": WHISPER.state,
+                "whisper_error": WHISPER.error,
+                "error": (f"This camera is not registered on the local bridge "
+                          f"(id '{camera_id}'). Known ids: "
+                          f"{', '.join(CAMERAS) or 'none'}."),
+                "ffmpeg_error": None,
                 "available_camera_ids": list(CAMERAS),
             },
         }
+    # Self-heal: if the camera is enabled but its audio worker died, restart it.
+    if cam.enabled and not cam.stop_flag.is_set():
+        cam.start_audio()
     with cam.lock:
         events = list(cam.events)
     if since:
         events = [e for e in events if e["timestamp"] > since]
     return {"events": events, "status": cam.audio_status()}
+
+
+@app.post("/cameras/{camera_id}/audio-test")
+@app.get("/cameras/{camera_id}/audio-test")
+def audio_test(camera_id: str):
+    """Independent RTSP-audio diagnostic: probe + 5 s capture + transcription."""
+    cam = CAMERAS.get(camera_id)
+    if not cam:
+        return {"success": False, "error": f"unknown camera id '{camera_id}'",
+                "available_camera_ids": list(CAMERAS)}
+    return cam.audio_test()
+
 
 
 @app.post("/cameras/{camera_id}/talk")
