@@ -26,6 +26,10 @@ interface SlotState {
   slots: CameraSlot[];
 }
 
+/** Defaults — structured so they can be made configurable per camera later. */
+export const DEFAULT_RTSP_PORT = 554;
+export const DEFAULT_STREAM_PATH = '/stream1';
+
 const KEY = 'msd-camera-slots-v1';
 const EVT = 'msd-camera-slots-changed';
 
