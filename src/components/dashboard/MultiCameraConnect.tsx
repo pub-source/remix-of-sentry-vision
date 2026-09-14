@@ -4,6 +4,7 @@ import PrefetchModelsButton from '@/components/dashboard/PrefetchModelsButton';
 import {
   Play, Square, RefreshCw, CheckCircle2, XCircle, Loader2, Grid2x2,
   Square as SquareIcon, Columns2, Brain, VideoOff,
+  ChevronDown, ChevronUp, Eye, EyeOff, Copy, Check, Wifi,
 } from 'lucide-react';
 import {
   backendHint,
@@ -11,6 +12,7 @@ import {
   startCamera,
   stopCamera,
   syncCameras,
+  testCamera,
   type BackendCameraStatus,
   type BackendStatus,
 } from '@/lib/multiCamServer';
@@ -20,6 +22,8 @@ import {
   slotRtsp,
   loadServerHost,
   serverUrlFor,
+  DEFAULT_RTSP_PORT,
+  DEFAULT_STREAM_PATH,
   type CameraSlot,
   type SlotCount,
 } from '@/hooks/useCameraSlots';
