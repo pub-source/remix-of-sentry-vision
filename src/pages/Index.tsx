@@ -989,6 +989,10 @@ export default function Index() {
                     transcript={listenTranscript}
                     interimTranscript={listenInterim}
                     speechListening={listening}
+                    audioMessage={cctvAudioMessage}
+                    audioTone={cctvAudioTone}
+                    audioDiagnostic={cctvAudioDiagnostic}
+
                     onToggleSpeech={() => {}}
                     talking={cctvTalk.talking}
                     talkError={cctvTalk.error}
