@@ -27,7 +27,8 @@ def find_camera(camera_id: str):
     """Resolve a camera by its registered id, its MediaMTX path, or the
     slot-N / camN alias — so a frontend/bridge naming mismatch can never
     silently break audio or control routes."""
-    cam = find_camera(camera_id)
+    cam = CAMERAS.get(camera_id)
+
     if cam:
         return cam
     ident = (camera_id or "").strip().lower()
