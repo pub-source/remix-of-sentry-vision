@@ -8,6 +8,12 @@ export interface CameraSlot {
   index: number;          // 1-based -> cam1, cam2, cam4...
   name: string;
   ip: string;             // e.g. 192.168.18.93
+  /** Optional RTSP credentials (kept in local storage only, never in source). */
+  username: string;
+  password: string;
+  /** RTSP port + stream path — configurable, defaults 554 and /stream1. */
+  port: number;
+  streamPath: string;
   aiEnabled: boolean;
   /** HLS URL reported by the backend after Connect. */
   streamUrl?: string;
