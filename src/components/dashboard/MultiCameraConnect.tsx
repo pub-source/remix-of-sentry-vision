@@ -233,8 +233,8 @@ function SlotCard({
         </span>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2">
-        <div className="space-y-1">
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 items-end">
+        <div className="space-y-1 min-w-0">
           <label className="text-[14px] font-semibold">Camera name</label>
           <input
             value={slot.name}
@@ -243,19 +243,130 @@ function SlotCard({
             className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <div className="space-y-1">
+
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Hide camera login details' : 'Show camera login details'}
+          title={expanded ? 'Hide login details' : 'Show login details'}
+          className="justify-self-center h-9 w-9 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        <div className="space-y-1 min-w-0">
           <label className="text-[14px] font-semibold">Camera IP address</label>
           <div className="flex items-center gap-2">
             <input
               value={slot.ip}
               onChange={e => onIp(e.target.value)}
               placeholder="192.168.18.98"
-              className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full min-w-0 text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <IpAddressHelp />
           </div>
         </div>
       </div>
+
+      {expanded && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1 min-w-0">
+              <label className="text-[14px] font-semibold">Username</label>
+              <input
+                value={slot.username ?? ''}
+                onChange={e => onPatch({ username: e.target.value })}
+                autoComplete="off"
+                placeholder="admin"
+                className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[14px] font-semibold">Password</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={slot.password ?? ''}
+                  onChange={e => onPatch({ password: e.target.value })}
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  className="w-full min-w-0 text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1 min-w-0">
+              <label className="text-[14px] font-semibold">Stream path</label>
+              <input
+                value={slot.streamPath ?? DEFAULT_STREAM_PATH}
+                onChange={e => onPatch({ streamPath: e.target.value })}
+                placeholder={DEFAULT_STREAM_PATH}
+                className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[14px] font-semibold">Port</label>
+              <input
+                inputMode="numeric"
+                value={String(slot.port ?? DEFAULT_RTSP_PORT)}
+                onChange={e => onPatch({ port: Number(e.target.value.replace(/\D/g, '')) || DEFAULT_RTSP_PORT })}
+                placeholder={String(DEFAULT_RTSP_PORT)}
+                className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1 min-w-0">
+            <label className="text-[14px] font-semibold">RTSP URL (Auto-generated)</label>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={showPassword ? rtspUrl : slotRtspMasked(slot)}
+                placeholder="rtsp://username:password@192.168.18.98:554/stream1"
+                className="w-full min-w-0 text-[15px] px-3 py-2.5 rounded-lg border border-input bg-muted/60 text-muted-foreground focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCopy}
+                aria-label="Copy RTSP URL"
+                className="shrink-0 flex items-center gap-1.5 text-[14px] font-semibold px-3 py-2.5 rounded-lg border border-border bg-background hover:bg-muted"
+              >
+                {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={busy !== ''}
+              className="flex items-center gap-2 text-[15px] font-semibold px-3 py-2.5 rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-50"
+            >
+              {busy === 'test' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+              Test connection
+            </button>
+            {testResult && (
+              <span className={`text-[14px] font-semibold break-all ${testResult.ok ? 'text-success' : 'text-destructive'}`}>
+                {testResult.text}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
 
       <Preview url={streamUrl} />
 
