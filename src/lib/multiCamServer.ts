@@ -182,6 +182,9 @@ export interface AudioTestReport {
   success: boolean;
   error?: string | null;
   transcript?: string;
+  /** Which route produced usable sound: mediamtx | camera-tcp | camera-udp. */
+  source?: string | null;
+  attempts?: { source: string; url: string; transport: string; returncode: number | null; bytes: number; seconds: number; ffmpeg_error: string | null }[];
   probe?: { ok: boolean; error: string | null; has_audio_track: boolean | null; audio_codec: string | null; streams: unknown[] };
   capture?: { returncode: number; bytes: number; seconds: number; ffmpeg_error: string | null };
   whisper?: { available: boolean; state: string; error: string | null };

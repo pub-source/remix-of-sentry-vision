@@ -7,6 +7,7 @@ export interface CctvSpeechDiagnostics {
   audioConnected: boolean;
   threadRunning: boolean;
   hasAudioTrack: boolean | null;
+  audioSource: string | null;
   chunksReceived: number;
   whisperState: string | null;
   lastTranscriptionAt: string | null;
@@ -20,7 +21,7 @@ export interface CctvSpeechDiagnostics {
 
 const IDLE: CctvSpeechDiagnostics = {
   polling: false, backendReachable: false, audioConnected: false, threadRunning: false,
-  hasAudioTrack: null, chunksReceived: 0, whisperState: null, lastTranscriptionAt: null,
+  hasAudioTrack: null, audioSource: null, chunksReceived: 0, whisperState: null, lastTranscriptionAt: null,
   lastTranscript: '', ffmpegError: null, error: null,
   message: 'Connect the camera to start listening.', tone: 'wait',
 };
@@ -57,6 +58,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
         audioConnected: status.connected,
         threadRunning: status.thread_running,
         hasAudioTrack: status.has_audio_track ?? null,
+        audioSource: status.audio_source ?? null,
         chunksReceived: status.chunks_received ?? 0,
         whisperState: status.whisper_state ?? null,
         lastTranscriptionAt: status.last_transcription_at,
