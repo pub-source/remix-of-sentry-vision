@@ -153,7 +153,7 @@ export function SlotPipelineView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {/* Live transcription of what this camera hears */}
+      {/* Live transcription of what this camera hears + why it is silent */}
       {connected && (
         <div className="absolute top-8 left-2 z-10 max-w-[70%] rounded-md bg-background/85 border border-border px-2.5 py-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -161,13 +161,31 @@ export function SlotPipelineView({
           </div>
           <p aria-live="polite" className="mt-0.5 text-[13px] leading-snug text-foreground">
             {runtime.transcript || (
-              <span className="text-muted-foreground">
-                {runtime.audioListening ? 'Listening… no speech yet' : 'Start monitoring to listen'}
+              <span className={runtime.audioTone === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+                {runtime.audioMessage}
               </span>
             )}
           </p>
+          {runtime.transcript && runtime.audioTone === 'error' && (
+            <p className="mt-0.5 text-[11px] leading-snug text-destructive">{runtime.audioMessage}</p>
+          )}
+          <p className="mt-1 text-[10px] font-mono text-muted-foreground">
+            {runtime.audio?.thread_running ? 'worker on' : 'worker off'}
+            {' · '}{runtime.audio?.connected ? 'audio in' : 'no audio'}
+            {' · '}{runtime.audio?.chunks_received ?? 0} chunks
+            {' · '}{runtime.audio?.whisper_state ?? (runtime.audioBackendReachable ? '—' : 'offline')}
+            {runtime.audio?.last_transcription_at
+              ? ` · ${new Date(runtime.audio.last_transcription_at).toLocaleTimeString()}`
+              : ''}
+          </p>
+          {runtime.audio?.ffmpeg_error && (
+            <p className="mt-0.5 max-h-8 overflow-hidden text-[10px] font-mono text-muted-foreground">
+              {runtime.audio.ffmpeg_error}
+            </p>
+          )}
         </div>
       )}
+
 
       {connected && (
         <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-wrap items-center gap-1.5 px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">
