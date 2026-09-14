@@ -23,6 +23,28 @@ app.add_middleware(
 )
 
 
+def find_camera(camera_id: str):
+    """Resolve a camera by its registered id, its MediaMTX path, or the
+    slot-N / camN alias — so a frontend/bridge naming mismatch can never
+    silently break audio or control routes."""
+    cam = CAMERAS.get(camera_id)
+
+    if cam:
+        return cam
+    ident = (camera_id or "").strip().lower()
+    if not ident:
+        return None
+    aliases = {ident}
+    digits = "".join(ch for ch in ident if ch.isdigit())
+    if digits:
+        aliases.update({f"slot-{digits}", f"cam{digits}", f"camera-{digits}", digits})
+    for cam in list(CAMERAS.values()):
+        if cam.id.lower() in aliases or (cam.path or "").lower() in aliases:
+            return cam
+    return None
+
+
+
 @app.get("/status")
 def status():
     host = lan_ip()
@@ -60,7 +82,7 @@ async def sync(request: Request):
 
 @app.post("/cameras/{camera_id}/start")
 def start_one(camera_id: str):
-    cam = CAMERAS.get(camera_id)
+    cam = find_camera(camera_id)
     if not cam:
         return {"success": False, "error": "unknown camera"}
     start_mediamtx()
@@ -78,7 +100,7 @@ def start_one(camera_id: str):
 
 @app.post("/cameras/{camera_id}/stop")
 def stop_one(camera_id: str):
-    cam = CAMERAS.get(camera_id)
+    cam = find_camera(camera_id)
     if cam:
         cam.stop()
     return {"success": True}
@@ -104,7 +126,7 @@ def stop_all():
 
 @app.get("/cameras/{camera_id}/audio-events")
 def audio_events(camera_id: str, since: Optional[str] = None):
-    cam = CAMERAS.get(camera_id)
+    cam = find_camera(camera_id)
     if not cam:
         return {
             "events": [],
@@ -137,7 +159,7 @@ def audio_events(camera_id: str, since: Optional[str] = None):
 @app.get("/cameras/{camera_id}/audio-test")
 def audio_test(camera_id: str):
     """Independent RTSP-audio diagnostic: probe + 5 s capture + transcription."""
-    cam = CAMERAS.get(camera_id)
+    cam = find_camera(camera_id)
     if not cam:
         return {"success": False, "error": f"unknown camera id '{camera_id}'",
                 "available_camera_ids": list(CAMERAS)}
@@ -148,7 +170,7 @@ def audio_test(camera_id: str):
 @app.post("/cameras/{camera_id}/talk")
 async def talk_to_camera(camera_id: str, audio: UploadFile = File(...)):
     """Push-to-talk: laptop microphone -> CCTV speaker (G.711 mu-law back-channel)."""
-    cam = CAMERAS.get(camera_id)
+    cam = find_camera(camera_id)
     if not cam:
         return {"success": False, "error": "camera not connected"}
     ffmpeg = resolve_exe("ffmpeg", "FFMPEG_EXE")

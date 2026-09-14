@@ -58,7 +58,11 @@ export interface CctvAudioStatus {
   audio_codec?: string | null;
   audio_probe_error?: string | null;
   audio_restarts?: number;
+  /** Which route the sound is coming from: mediamtx | camera-tcp | camera-udp. */
+  audio_source?: string | null;
+  audio_sources_tried?: string[];
   chunk_seconds?: number;
+
   whisper_available?: boolean;
   whisper_state?: string;
   whisper_model?: string;
@@ -98,13 +102,20 @@ export function describeAudioStatus(
     return { message: status.error || 'Listening has not started yet.', tone: 'error' };
   }
   if (!status.connected) {
-    return { message: status.error || 'Waiting for sound from the camera…', tone: 'wait' };
+    return {
+      message: status.error
+        || (status.chunks_received > 0
+          ? 'Sound from the camera stopped — reconnecting…'
+          : 'Waiting for sound from the camera…'),
+      tone: 'wait',
+    };
   }
   if (!status.last_transcript) {
     return { message: 'Listening… no speech heard yet.', tone: 'wait' };
   }
   return { message: 'Listening.', tone: 'ok' };
 }
+
 
 
 const base = (url: string) => url.trim().replace(/\/+$/, '');
@@ -171,6 +182,9 @@ export interface AudioTestReport {
   success: boolean;
   error?: string | null;
   transcript?: string;
+  /** Which route produced usable sound: mediamtx | camera-tcp | camera-udp. */
+  source?: string | null;
+  attempts?: { source: string; url: string; transport: string; returncode: number | null; bytes: number; seconds: number; ffmpeg_error: string | null }[];
   probe?: { ok: boolean; error: string | null; has_audio_track: boolean | null; audio_codec: string | null; streams: unknown[] };
   capture?: { returncode: number; bytes: number; seconds: number; ffmpeg_error: string | null };
   whisper?: { available: boolean; state: string; error: string | null };

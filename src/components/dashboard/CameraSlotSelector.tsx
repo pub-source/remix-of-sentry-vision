@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { VideoOff, Video, ChevronLeft, ChevronRight, Flame, Users, Mic, Smile } from 'lucide-react';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
 import { slotCamera, slotSettings, type CameraSlot } from '@/hooks/useCameraSlots';
+import { testCameraAudio } from '@/lib/multiCamServer';
 import type { DetectionEvent } from '@/types/multicam';
+
 
 /**
  * Left-hand CAM 1..4 selector for the main monitoring frame.
@@ -120,6 +122,9 @@ export function SlotPipelineView({
   const { videoRef, runtime } = useCameraPipeline({ camera, settings, onEvent });
 
   const connected = camera.enabled;
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState('');
+
   const badge = (ok: boolean, Icon: typeof Flame, text: string) => (
     <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ok ? 'bg-destructive/20 text-destructive' : 'bg-secondary/40 text-muted-foreground'}`}>
       <Icon className="w-3 h-3" /> {text}
@@ -172,6 +177,7 @@ export function SlotPipelineView({
           <p className="mt-1 text-[10px] font-mono text-muted-foreground">
             {runtime.audio?.thread_running ? 'worker on' : 'worker off'}
             {' · '}{runtime.audio?.connected ? 'audio in' : 'no audio'}
+            {runtime.audio?.audio_source ? ` · via ${runtime.audio.audio_source}` : ''}
             {' · '}{runtime.audio?.chunks_received ?? 0} chunks
             {' · '}{runtime.audio?.whisper_state ?? (runtime.audioBackendReachable ? '—' : 'offline')}
             {runtime.audio?.last_transcription_at
@@ -183,8 +189,36 @@ export function SlotPipelineView({
               {runtime.audio.ffmpeg_error}
             </p>
           )}
+          <button
+            type="button"
+            onClick={async () => {
+              setTesting(true); setTestResult('Testing the camera sound…');
+              try {
+                const r = await testCameraAudio(settings.pythonServer, camera.id);
+                setTestResult(
+                  r.success
+                    ? `Sound OK via ${r.source ?? 'camera'} — heard: "${r.transcript || '(silence)'}"`
+                    : `No sound: ${r.error ?? 'unknown problem'}`,
+                );
+              } catch (err) {
+                setTestResult(err instanceof Error ? err.message : String(err));
+              } finally {
+                setTesting(false);
+              }
+            }}
+            disabled={testing}
+            className="mt-1 rounded border border-border px-2 py-0.5 text-[11px] font-semibold text-foreground hover:bg-secondary/50 disabled:opacity-60"
+          >
+            {testing ? 'Testing…' : 'Test camera sound'}
+          </button>
+          {testResult && (
+            <p className="mt-0.5 max-h-10 overflow-hidden text-[10px] leading-snug text-muted-foreground">
+              {testResult}
+            </p>
+          )}
         </div>
       )}
+
 
 
       {connected && (

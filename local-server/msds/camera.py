@@ -25,13 +25,13 @@ NO_AUDIO_MESSAGE = (
 )
 
 
-def probe_streams(rtsp: str, timeout: int = 20) -> dict:
-    """ffprobe the RTSP URL and return {ok, streams, error}."""
+def probe_streams(rtsp: str, transport: str = "tcp", timeout: int = 20) -> dict:
+    """ffprobe an RTSP URL and return {ok, streams, error}."""
     ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
     if not ffprobe:
         return {"ok": False, "streams": [], "error": install_hint("ffprobe", "FFPROBE_EXE")}
     cmd = [
-        ffprobe, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+        ffprobe, "-v", "error", "-rtsp_transport", transport, "-rw_timeout", "15000000",
         "-show_entries", "stream=index,codec_type,codec_name,sample_rate,channels",
         "-of", "json", rtsp,
     ]
@@ -50,6 +50,7 @@ def probe_streams(rtsp: str, timeout: int = 20) -> dict:
     except json.JSONDecodeError:
         streams = []
     return {"ok": True, "streams": streams, "error": None}
+
 
 
 @dataclass
@@ -84,6 +85,9 @@ class Camera:
     audio_probe_error: Optional[str] = None
     audio_probed_at: Optional[str] = None
     audio_restarts: int = 0
+    audio_source: Optional[str] = None          # which URL/transport is working
+    audio_sources_tried: List[str] = field(default_factory=list)
+
     _hls_ok: bool = False
     _hls_checked: float = 0.0
 
@@ -136,30 +140,75 @@ class Camera:
                          args=(self.video_proc,), daemon=True).start()
 
     # ---- audio ------------------------------------------------------------- #
-    def probe_audio(self) -> dict:
-        """Detect whether the RTSP URL really carries an audio track."""
-        result = probe_streams(self.rtsp)
-        self.audio_probed_at = now_iso()
-        if not result["ok"]:
-            self.audio_probe_error = result["error"]
-            # Unknown rather than "no audio": the probe itself failed.
-            self.has_audio_track = None
-            return result
-        audio = [s for s in result["streams"] if s.get("codec_type") == "audio"]
-        self.audio_probe_error = None
-        self.has_audio_track = bool(audio)
-        self.audio_codec = audio[0].get("codec_name") if audio else None
-        return result
+    def _audio_candidates(self) -> List[dict]:
+        """Every way we know of to reach this camera's microphone.
 
-    def _segmenter_cmd(self, ffmpeg: str, pattern: str) -> List[str]:
+        The republished MediaMTX stream comes first: the video pipeline already
+        holds one RTSP session to the camera and many cheap cameras refuse a
+        second one, which is the most common reason audio never arrives.
+        """
+        candidates: List[dict] = []
+        if self.running():
+            candidates.append({
+                "label": "mediamtx",
+                "url": f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}",
+                "transport": "tcp",
+            })
+        if self.rtsp:
+            candidates.append({"label": "camera-tcp", "url": self.rtsp, "transport": "tcp"})
+            candidates.append({"label": "camera-udp", "url": self.rtsp, "transport": "udp"})
+        return candidates
+
+    def probe_audio(self) -> dict:
+        """Detect whether this camera really exposes an audio track anywhere.
+
+        Only a probe that succeeded and found no audio proves the camera is
+        mute — a failed probe leaves `has_audio_track` unknown so capture is
+        still attempted.
+        """
+        self.audio_probed_at = now_iso()
+        candidates = self._audio_candidates()
+        if not candidates:
+            self.audio_probe_error = "no RTSP URL configured for this camera"
+            self.has_audio_track = None
+            return {"ok": False, "streams": [], "error": self.audio_probe_error}
+
+        last_error = None
+        probed_ok = False
+        last_result = {"ok": False, "streams": [], "error": "not probed"}
+        for cand in candidates:
+            result = probe_streams(cand["url"], cand["transport"])
+            last_result = result
+            if not result["ok"]:
+                last_error = f"{cand['label']}: {result['error']}"
+                continue
+            probed_ok = True
+            audio = [s for s in result["streams"] if s.get("codec_type") == "audio"]
+            if audio:
+                self.audio_probe_error = None
+                self.has_audio_track = True
+                self.audio_codec = audio[0].get("codec_name")
+                return result
+        if probed_ok:
+            # At least one probe worked and none of them saw audio.
+            self.audio_probe_error = None
+            self.has_audio_track = False
+            self.audio_codec = None
+        else:
+            self.audio_probe_error = last_error
+            self.has_audio_track = None
+        return last_result
+
+    def _segmenter_cmd(self, ffmpeg: str, cand: dict, pattern: str) -> List[str]:
         return [
             ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning",
-            "-rtsp_transport", "tcp",
+            "-rtsp_transport", cand["transport"],
             "-rw_timeout", "15000000",
             "-use_wallclock_as_timestamps", "1",
             "-fflags", "+genpts+discardcorrupt",
-            "-i", self.rtsp,
+            "-i", cand["url"],
             "-vn", "-sn", "-dn",
+            # `a:0` picks the first audio stream whatever its index is.
             "-map", "0:a:0",
             "-af", "aresample=async=1",
             "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
@@ -167,6 +216,7 @@ class Camera:
             "-reset_timestamps", "1",
             "-y", pattern,
         ]
+
 
     def _drain_audio_stderr(self, proc: subprocess.Popen):
         if not proc.stderr:
@@ -220,11 +270,17 @@ class Camera:
         print(f"[Audio {self.id}] transcript: {transcript}", flush=True)
 
     def _audio_loop(self):
-        """Continuous RTSP audio capture: one long-lived ffmpeg segmenter whose
-        finished WAV segments are transcribed as soon as they close."""
+        """Continuous RTSP audio capture.
+
+        A long-lived ffmpeg segmenter writes WAV segments that are transcribed
+        as soon as they close. If a source never produces a chunk we rotate to
+        the next candidate (MediaMTX republish -> camera TCP -> camera UDP) so a
+        camera that only allows one RTSP session still gets transcribed.
+        """
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
         pattern = os.path.join(tmpdir, "chunk-%05d.wav")
         last_probe = 0.0
+        cand_index = 0
 
         # Load Whisper once up-front so the failure is visible immediately
         # instead of only after the first chunk.
@@ -252,7 +308,15 @@ class Camera:
                     self.audio_error = (f"Could not inspect the camera's audio track "
                                         f"({self.audio_probe_error}); trying anyway.")
 
-                # 2. Start the segmenter.
+                # 2. Pick the next audio source to try.
+                candidates = self._audio_candidates()
+                if not candidates:
+                    self.audio_connected = False
+                    self.audio_error = "No RTSP URL is configured for this camera."
+                    self.stop_flag.wait(10)
+                    continue
+                cand = candidates[cand_index % len(candidates)]
+
                 try:
                     ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
                 except MissingExecutable as exc:
@@ -270,7 +334,7 @@ class Camera:
 
                 try:
                     self.audio_proc = subprocess.Popen(
-                        self._segmenter_cmd(ffmpeg, pattern),
+                        self._segmenter_cmd(ffmpeg, cand, pattern),
                         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                         creationflags=no_window_flags(),
                     )
@@ -283,6 +347,12 @@ class Camera:
                     continue
 
                 self.audio_ffmpeg_error = None
+                self.audio_source = cand["label"]
+                if cand["label"] not in self.audio_sources_tried:
+                    self.audio_sources_tried.append(cand["label"])
+                print(f"[Audio {self.id}] capturing from {cand['label']} ({cand['url']})",
+                      flush=True)
+                chunks_before = self.audio_chunks
                 threading.Thread(target=self._drain_audio_stderr,
                                  args=(self.audio_proc,), daemon=True).start()
 
@@ -308,16 +378,26 @@ class Camera:
                     break
 
                 code = self.audio_proc.poll()
+                produced = self.audio_chunks > chunks_before
                 self.audio_connected = False
                 self.audio_restarts += 1
                 detail = self.audio_ffmpeg_error or "no details"
-                if code not in (0, None):
+                if not produced:
+                    # This source never delivered sound — try the next one.
+                    cand_index += 1
+                    nxt = candidates[cand_index % len(candidates)]["label"]
+                    self.audio_error = (
+                        f"No audio from {cand['label']} (exit {code}): {detail}. "
+                        f"Trying {nxt}…"
+                    )
+                elif code not in (0, None):
                     self.audio_error = (f"FFmpeg audio capture stopped (exit {code}): {detail}. "
                                         "Reconnecting…")
                 else:
                     self.audio_error = "Camera audio stream ended; reconnecting…"
                 # force a re-probe on the next round
                 self.has_audio_track = None
+
                 last_probe = 0.0
                 self.stop_flag.wait(3)
         finally:
@@ -331,13 +411,16 @@ class Camera:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     def audio_test(self) -> dict:
-        """One-shot diagnostic: probe the RTSP streams, grab a short WAV and
-        transcribe it. Lets the audio path be tested without the UI."""
+        """One-shot diagnostic: probe the streams, then try to grab a short WAV
+        from every audio source in turn and transcribe the first good one."""
         report: dict = {
             "camera_id": self.id,
+            "rtsp": self.rtsp,
             "rtsp_configured": bool(self.rtsp),
             "probe": None,
+            "attempts": [],
             "capture": None,
+            "source": None,
             "whisper": {
                 "available": WHISPER.available,
                 "state": WHISPER.state,
@@ -370,40 +453,60 @@ class Camera:
             return report
 
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audiotest-{self.path}-")
-        wav = os.path.join(tmpdir, "test.wav")
+        good_wav = None
         try:
-            out = subprocess.run(
-                [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
-                 "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
-                 "-vn", "-map", "0:a:0", "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
-                 "-t", "5", "-f", "wav", "-y", wav],
-                capture_output=True, text=True, timeout=40,
-                creationflags=no_window_flags(),
-            )
-            size = os.path.getsize(wav) if os.path.exists(wav) else 0
-            report["capture"] = {
-                "returncode": out.returncode,
-                "bytes": size,
-                "seconds": round(max(0, size - 44) / 32000, 2),
-                "ffmpeg_error": (out.stderr or "").strip()[-500:] or None,
-            }
-            if out.returncode != 0 or size < 16000:
-                report["error"] = ((out.stderr or "").strip()[-300:]
-                                   or "no usable audio captured from the RTSP stream")
+            for cand in self._audio_candidates():
+                wav = os.path.join(tmpdir, f"test-{cand['label']}.wav")
+                attempt = {"source": cand["label"], "url": cand["url"],
+                           "transport": cand["transport"], "returncode": None,
+                           "bytes": 0, "seconds": 0.0, "ffmpeg_error": None}
+                try:
+                    out = subprocess.run(
+                        [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+                         "-rtsp_transport", cand["transport"], "-rw_timeout", "15000000",
+                         "-i", cand["url"], "-vn", "-map", "0:a:0",
+                         "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
+                         "-t", "5", "-f", "wav", "-y", wav],
+                        capture_output=True, text=True, timeout=40,
+                        creationflags=no_window_flags(),
+                    )
+                    size = os.path.getsize(wav) if os.path.exists(wav) else 0
+                    attempt.update({
+                        "returncode": out.returncode,
+                        "bytes": size,
+                        "seconds": round(max(0, size - 44) / 32000, 2),
+                        "ffmpeg_error": (out.stderr or "").strip()[-500:] or None,
+                    })
+                    report["attempts"].append(attempt)
+                    if out.returncode == 0 and size >= 16000:
+                        good_wav = wav
+                        report["capture"] = attempt
+                        report["source"] = cand["label"]
+                        break
+                except subprocess.TimeoutExpired:
+                    attempt["ffmpeg_error"] = "timed out capturing audio"
+                    report["attempts"].append(attempt)
+                except Exception as exc:
+                    attempt["ffmpeg_error"] = str(exc)
+                    report["attempts"].append(attempt)
+
+            if not good_wav:
+                worst = next((a["ffmpeg_error"] for a in reversed(report["attempts"])
+                              if a.get("ffmpeg_error")), None)
+                report["error"] = worst or "no usable audio captured from any source"
                 return report
             if not WHISPER.available:
                 report["error"] = WHISPER.error or "Whisper is unavailable"
                 return report
-            report["transcript"] = WHISPER.transcribe(wav)
+            report["transcript"] = WHISPER.transcribe(good_wav)
             report["whisper"]["state"] = WHISPER.state
             report["success"] = True
-        except subprocess.TimeoutExpired:
-            report["error"] = "timed out capturing audio from the camera"
         except Exception as exc:
             report["error"] = str(exc)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         return report
+
 
     # ---- lifecycle --------------------------------------------------------- #
     def start(self):
@@ -494,6 +597,8 @@ class Camera:
             "audio_probe_error": self.audio_probe_error,
             "audio_probed_at": self.audio_probed_at,
             "audio_restarts": self.audio_restarts,
+            "audio_source": self.audio_source,
+            "audio_sources_tried": list(self.audio_sources_tried),
             "chunk_seconds": AUDIO_CHUNK_SECONDS,
             "whisper_available": WHISPER.available,
             "whisper_state": WHISPER.state,

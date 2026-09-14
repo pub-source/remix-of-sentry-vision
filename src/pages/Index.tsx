@@ -262,6 +262,7 @@ export default function Index() {
     ? [
         cctvSpeech.diagnostics.threadRunning ? 'worker on' : 'worker off',
         cctvSpeech.diagnostics.audioConnected ? 'audio in' : 'no audio',
+        cctvSpeech.diagnostics.audioSource ? `via ${cctvSpeech.diagnostics.audioSource}` : '',
         `${cctvSpeech.diagnostics.chunksReceived} chunks`,
         cctvSpeech.diagnostics.whisperState
           ?? (cctvSpeech.diagnostics.backendReachable ? '—' : 'offline'),
