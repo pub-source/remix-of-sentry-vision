@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import { detectObjects, loadDetector } from '@/lib/detectionEngine';
 import { computeSaliency, computeSaliencyScore } from '@/lib/saliency';
 import { createFireState, detectFire } from '@/lib/fireDetection';
-import { getAudioEvents } from '@/lib/multiCamServer';
+import { describeAudioStatus, getAudioEvents } from '@/lib/multiCamServer';
 import { useFaceDistress } from '@/hooks/useFaceDistress';
 import type {
   CameraConfig, CameraRuntime, DetectionEvent, MultiCamSettings,
@@ -27,10 +27,15 @@ const emptyRuntime = (cameraId: string): CameraRuntime => ({
   audioDistress: { detected: false, keyword: '', confidence: 0, transcript: '' },
   transcript: '',
   audioListening: false,
+  audio: null,
+  audioMessage: 'Connect this camera to start listening.',
+  audioTone: 'wait',
+  audioBackendReachable: true,
   lastDetectionAt: null,
   detections: 0,
   alerts: 0,
 });
+
 
 interface Options {
   camera: CameraConfig;
@@ -53,6 +58,8 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
   const framesRef = useRef(0);
   const lastFpsRef = useRef(Date.now());
   const lastAudioRef = useRef<string | undefined>(undefined);
+  const lastShownRef = useRef<string>('');
+
   const cooldownRef = useRef<Record<string, number>>({});
   const retryRef = useRef(0);
   const runtimeRef = useRef<CameraRuntime>(emptyRuntime(camera.id));
