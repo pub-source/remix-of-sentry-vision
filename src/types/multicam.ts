@@ -1,4 +1,6 @@
 import type { DetectedObject } from '@/types/dashboard';
+import type { CctvAudioStatus } from '@/lib/multiCamServer';
+
 
 export type CameraStatus = 'offline' | 'connecting' | 'online' | 'error';
 export type GridLayout = '1x1' | '2x2' | '3x3' | '4x4';
