@@ -12,7 +12,13 @@ interface FusedDetectionViewProps {
   transcript: string;
   interimTranscript: string;
   speechListening: boolean;
+  /** Plain-language state of the camera's audio/Whisper path. */
+  audioMessage?: string;
+  audioTone?: 'ok' | 'wait' | 'error';
+  /** Compact technical line (worker/chunks/Whisper state). */
+  audioDiagnostic?: string;
   onToggleSpeech: () => void;
+
   fireBbox?: [number, number, number, number];
   fireFrameWidth?: number;
   fireFrameHeight?: number;
@@ -110,6 +116,10 @@ export default function FusedDetectionView({
   transcript,
   interimTranscript,
   speechListening,
+  audioMessage,
+  audioTone,
+  audioDiagnostic,
+
   onToggleSpeech,
   fireBbox,
   fireFrameWidth,
@@ -325,8 +335,7 @@ export default function FusedDetectionView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {/* Live CCTV transcription. Keep diagnostics hidden, but let the operator
-          see the words being used by the wake-word and distress checks. */}
+      {/* Live CCTV transcription with a plain-language reason when silent. */}
       {(
         <div
           className="absolute left-2 top-7 z-10 max-w-[min(78%,32rem)] border border-border bg-background/90 px-2 py-1.5 shadow-sm"
@@ -342,11 +351,17 @@ export default function FusedDetectionView({
               <span className="text-muted-foreground">{transcript ? ' ' : ''}{interimTranscript}</span>
             )}
             {!transcript && !interimTranscript && (
-              <span className="text-muted-foreground">Listening… no speech yet</span>
+              <span className={audioTone === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+                {audioMessage || (speechListening ? 'Listening… no speech yet' : 'Listening is off')}
+              </span>
             )}
           </p>
+          {audioDiagnostic && (
+            <p className="mt-1 text-[10px] font-mono text-muted-foreground">{audioDiagnostic}</p>
+          )}
         </div>
       )}
+
 
 
       {/* Fullscreen button */}

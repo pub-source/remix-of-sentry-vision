@@ -1,4 +1,6 @@
 import type { DetectedObject } from '@/types/dashboard';
+import type { CctvAudioStatus } from '@/lib/multiCamServer';
+
 
 export type CameraStatus = 'offline' | 'connecting' | 'online' | 'error';
 export type GridLayout = '1x1' | '2x2' | '3x3' | '4x4';
@@ -72,9 +74,17 @@ export interface CameraRuntime {
   transcript: string;
   /** True while transcripts are being polled from the backend. */
   audioListening: boolean;
+  /** Compact per-camera audio/Whisper diagnostics from the local bridge. */
+  audio: CctvAudioStatus | null;
+  /** Human-readable reason transcription is (not) producing words. */
+  audioMessage: string;
+  audioTone: 'ok' | 'wait' | 'error';
+  /** False when the local bridge could not be reached on the last poll. */
+  audioBackendReachable: boolean;
   lastDetectionAt: string | null;
   detections: number;
   alerts: number;
+
 }
 
 export const DEFAULT_SETTINGS: MultiCamSettings = {

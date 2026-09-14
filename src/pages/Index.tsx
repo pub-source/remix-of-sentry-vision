@@ -245,7 +245,9 @@ export default function Index() {
   const cctvServer = serverUrlFor(loadServerHost());
   // INPUT pipeline (microphone / Whisper wake words) is independent from the
   // OUTPUT pipeline (speaker playback). Muting the speaker never stops listening.
-  const cctvListenEnabled = running && ipCam.connected;
+  // Listening starts as soon as the camera is connected — it does not wait for
+  // the monitoring switch, and muting the speaker never stops it.
+  const cctvListenEnabled = ipCam.connected;
   // Camera Management registers camera 1 as `slot-1` (its MediaMTX path is
   // `cam1`, but API routes use the camera ID, not the path).
   const cctvCameraId = 'slot-1';
@@ -254,6 +256,21 @@ export default function Index() {
   const listenTranscript = ipCam.connected ? cctvSpeech.transcript : transcript;
   const listenInterim = ipCam.connected ? '' : interimTranscript;
   const listening = ipCam.connected ? cctvSpeech.listening : speechListening;
+  const cctvAudioMessage = ipCam.connected ? cctvSpeech.diagnostics.message : '';
+  const cctvAudioTone = ipCam.connected ? cctvSpeech.diagnostics.tone : 'wait';
+  const cctvAudioDiagnostic = ipCam.connected
+    ? [
+        cctvSpeech.diagnostics.threadRunning ? 'worker on' : 'worker off',
+        cctvSpeech.diagnostics.audioConnected ? 'audio in' : 'no audio',
+        `${cctvSpeech.diagnostics.chunksReceived} chunks`,
+        cctvSpeech.diagnostics.whisperState
+          ?? (cctvSpeech.diagnostics.backendReachable ? '—' : 'offline'),
+        cctvSpeech.diagnostics.lastTranscriptionAt
+          ? new Date(cctvSpeech.diagnostics.lastTranscriptionAt).toLocaleTimeString()
+          : '',
+      ].filter(Boolean).join(' · ')
+    : '';
+
 
 
 
@@ -972,6 +989,10 @@ export default function Index() {
                     transcript={listenTranscript}
                     interimTranscript={listenInterim}
                     speechListening={listening}
+                    audioMessage={cctvAudioMessage}
+                    audioTone={cctvAudioTone}
+                    audioDiagnostic={cctvAudioDiagnostic}
+
                     onToggleSpeech={() => {}}
                     talking={cctvTalk.talking}
                     talkError={cctvTalk.error}

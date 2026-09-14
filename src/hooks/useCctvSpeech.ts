@@ -1,15 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
+import { describeAudioStatus, getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
 
 export interface CctvSpeechDiagnostics {
   polling: boolean;
   backendReachable: boolean;
   audioConnected: boolean;
+  threadRunning: boolean;
+  hasAudioTrack: boolean | null;
   chunksReceived: number;
+  whisperState: string | null;
   lastTranscriptionAt: string | null;
   lastTranscript: string;
+  ffmpegError: string | null;
   error: string | null;
+  /** Short sentence for the operator: why words are (not) appearing. */
+  message: string;
+  tone: 'ok' | 'wait' | 'error';
 }
+
+const IDLE: CctvSpeechDiagnostics = {
+  polling: false, backendReachable: false, audioConnected: false, threadRunning: false,
+  hasAudioTrack: null, chunksReceived: 0, whisperState: null, lastTranscriptionAt: null,
+  lastTranscript: '', ffmpegError: null, error: null,
+  message: 'Connect the camera to start listening.', tone: 'wait',
+};
 
 /**
  * Speech coming from the CCTV camera itself.
@@ -20,32 +34,37 @@ export interface CctvSpeechDiagnostics {
 export function useCctvSpeech(server: string, cameraId: string, enabled: boolean) {
   const [transcript, setTranscript] = useState('');
   const [listening, setListening] = useState(false);
-  const [diagnostics, setDiagnostics] = useState<CctvSpeechDiagnostics>({
-    polling: false, backendReachable: false, audioConnected: false,
-    chunksReceived: 0, lastTranscriptionAt: null, lastTranscript: '', error: null,
-  });
+  const [diagnostics, setDiagnostics] = useState<CctvSpeechDiagnostics>(IDLE);
   const sinceRef = useRef<string | undefined>(undefined);
+  const lastShownRef = useRef('');
 
   useEffect(() => {
     if (!enabled) {
       setListening(false);
-      setDiagnostics(prev => ({ ...prev, polling: false }));
+      setDiagnostics(prev => ({ ...prev, polling: false, message: IDLE.message, tone: 'wait' }));
       return;
     }
     let cancelled = false;
     let inFlight = false;
     setListening(true);
-    setDiagnostics(prev => ({ ...prev, polling: true, error: null }));
+    setDiagnostics(prev => ({ ...prev, polling: true, error: null, message: 'Starting to listen…', tone: 'wait' }));
 
     const applyStatus = (status: CctvAudioStatus) => {
+      const described = describeAudioStatus(status, true);
       setDiagnostics({
         polling: true,
         backendReachable: true,
         audioConnected: status.connected,
+        threadRunning: status.thread_running,
+        hasAudioTrack: status.has_audio_track ?? null,
         chunksReceived: status.chunks_received ?? 0,
+        whisperState: status.whisper_state ?? null,
         lastTranscriptionAt: status.last_transcription_at,
         lastTranscript: status.last_transcript ?? '',
+        ffmpegError: status.ffmpeg_error ?? null,
         error: status.error,
+        message: described.message,
+        tone: described.tone,
       });
     };
 
@@ -57,18 +76,35 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
         if (cancelled) return;
         applyStatus(res.status);
         const events = res?.events ?? [];
-        if (!events.length) return;
-        sinceRef.current = events[events.length - 1].timestamp;
-        const text = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
-        if (text) {
-          console.info(`[CCTV Speech ${cameraId}]`, text);
-          setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
+        if (events.length) {
+          sinceRef.current = events[events.length - 1].timestamp;
+          const text = events.map(e => e.transcript).filter(Boolean).join(' ').trim();
+          if (text && text !== lastShownRef.current) {
+            lastShownRef.current = text;
+            console.info(`[CCTV Speech ${cameraId}]`, text);
+            setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
+          }
+          return;
+        }
+        // No new event this poll, but the backend may already hold words.
+        const last = res.status?.last_transcript ?? '';
+        if (last && last !== lastShownRef.current) {
+          lastShownRef.current = last;
+          setTranscript(prev => (prev ? prev : last).slice(-600));
         }
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : String(error);
           console.warn(`[CCTV Speech ${cameraId}] polling failed:`, message);
-          setDiagnostics(prev => ({ ...prev, polling: true, backendReachable: false, audioConnected: false, error: message }));
+          setDiagnostics(prev => ({
+            ...prev,
+            polling: true,
+            backendReachable: false,
+            audioConnected: false,
+            error: message,
+            message: `${describeAudioStatus(null, false).message} (${message})`,
+            tone: 'error',
+          }));
         }
       } finally {
         inFlight = false;
