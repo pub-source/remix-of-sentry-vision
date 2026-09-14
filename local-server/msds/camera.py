@@ -1,6 +1,8 @@
 """One fully independent pipeline per camera (video + audio + Whisper)."""
 from __future__ import annotations
 
+import glob
+import json
 import os
 import shutil
 import subprocess
@@ -11,9 +13,43 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .binaries import MissingExecutable, install_hint, need_exe, no_window_flags, now_iso
+from .binaries import (MissingExecutable, install_hint, need_exe, no_window_flags,
+                       now_iso, resolve_exe)
 from .config import AUDIO_CHUNK_SECONDS, HLS_PORT, HLS_PROBE_TTL, RTSP_PORT, match_distress
 from .whisper_engine import WHISPER
+
+NO_AUDIO_MESSAGE = (
+    "This camera's RTSP stream does not expose a usable audio track, so there is "
+    "nothing to transcribe. Enable the microphone in the camera's own settings "
+    "(or use an RTSP sub-stream that carries audio)."
+)
+
+
+def probe_streams(rtsp: str, timeout: int = 20) -> dict:
+    """ffprobe the RTSP URL and return {ok, streams, error}."""
+    ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
+    if not ffprobe:
+        return {"ok": False, "streams": [], "error": install_hint("ffprobe", "FFPROBE_EXE")}
+    cmd = [
+        ffprobe, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+        "-show_entries", "stream=index,codec_type,codec_name,sample_rate,channels",
+        "-of", "json", rtsp,
+    ]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                             creationflags=no_window_flags())
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "streams": [], "error": "ffprobe timed out reaching the camera"}
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"ok": False, "streams": [], "error": f"could not run ffprobe: {exc}"}
+    if out.returncode != 0:
+        return {"ok": False, "streams": [],
+                "error": (out.stderr or "").strip()[:400] or "ffprobe failed"}
+    try:
+        streams = json.loads(out.stdout or "{}").get("streams", [])
+    except json.JSONDecodeError:
+        streams = []
+    return {"ok": True, "streams": streams, "error": None}
 
 
 @dataclass
@@ -42,6 +78,12 @@ class Camera:
     last_audio_chunk_at: Optional[str] = None
     last_transcription_at: Optional[str] = None
     last_transcript: str = ""
+    # audio track discovery
+    has_audio_track: Optional[bool] = None   # None = not probed yet
+    audio_codec: Optional[str] = None
+    audio_probe_error: Optional[str] = None
+    audio_probed_at: Optional[str] = None
+    audio_restarts: int = 0
     _hls_ok: bool = False
     _hls_checked: float = 0.0
 
@@ -93,111 +135,292 @@ class Camera:
         threading.Thread(target=self._capture_video_errors,
                          args=(self.video_proc,), daemon=True).start()
 
-    # ---- audio: RTSP audio -> 5s WAV chunks -> Whisper --------------------- #
+    # ---- audio ------------------------------------------------------------- #
+    def probe_audio(self) -> dict:
+        """Detect whether the RTSP URL really carries an audio track."""
+        result = probe_streams(self.rtsp)
+        self.audio_probed_at = now_iso()
+        if not result["ok"]:
+            self.audio_probe_error = result["error"]
+            # Unknown rather than "no audio": the probe itself failed.
+            self.has_audio_track = None
+            return result
+        audio = [s for s in result["streams"] if s.get("codec_type") == "audio"]
+        self.audio_probe_error = None
+        self.has_audio_track = bool(audio)
+        self.audio_codec = audio[0].get("codec_name") if audio else None
+        return result
+
+    def _segmenter_cmd(self, ffmpeg: str, pattern: str) -> List[str]:
+        return [
+            ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning",
+            "-rtsp_transport", "tcp",
+            "-rw_timeout", "15000000",
+            "-use_wallclock_as_timestamps", "1",
+            "-fflags", "+genpts+discardcorrupt",
+            "-i", self.rtsp,
+            "-vn", "-sn", "-dn",
+            "-map", "0:a:0",
+            "-af", "aresample=async=1",
+            "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
+            "-f", "segment", "-segment_time", str(AUDIO_CHUNK_SECONDS),
+            "-reset_timestamps", "1",
+            "-y", pattern,
+        ]
+
+    def _drain_audio_stderr(self, proc: subprocess.Popen):
+        if not proc.stderr:
+            return
+        try:
+            for raw in iter(proc.stderr.readline, b""):
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                print(f"[FFmpeg audio {self.id}] {line}", flush=True)
+                self.audio_ffmpeg_error = line[-500:]
+        except Exception:
+            pass
+
+    def _handle_chunk(self, wav: str):
+        size = os.path.getsize(wav)
+        # 16 kHz mono s16 == 32 000 bytes/s; require ~0.5 s of real PCM.
+        if size < 16000:
+            return
+        self.audio_connected = True
+        self.audio_chunks += 1
+        self.audio_bytes += size
+        self.last_audio_chunk_at = now_iso()
+
+        if not WHISPER.available:
+            self.audio_error = WHISPER.error or "Whisper is unavailable"
+            return
+        try:
+            transcript = WHISPER.transcribe(wav)
+            self.audio_error = None
+        except Exception as exc:
+            self.audio_error = f"Whisper transcription failed: {exc}"
+            self.error = self.audio_error
+            return
+        if not transcript:
+            return
+
+        keyword, confidence = match_distress(transcript)
+        timestamp = now_iso()
+        self.last_transcription_at = timestamp
+        self.last_transcript = transcript
+        with self.lock:
+            self.events.append({
+                "camera_id": self.id,
+                "timestamp": timestamp,
+                "transcript": transcript,
+                "keyword": keyword,
+                "confidence": confidence,
+            })
+            self.events = self.events[-200:]
+        print(f"[Audio {self.id}] transcript: {transcript}", flush=True)
+
     def _audio_loop(self):
+        """Continuous RTSP audio capture: one long-lived ffmpeg segmenter whose
+        finished WAV segments are transcribed as soon as they close."""
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
+        pattern = os.path.join(tmpdir, "chunk-%05d.wav")
+        last_probe = 0.0
+
+        # Load Whisper once up-front so the failure is visible immediately
+        # instead of only after the first chunk.
+        if WHISPER.available:
+            try:
+                WHISPER.load()
+            except Exception as exc:
+                self.audio_error = str(exc)
+        else:
+            self.audio_error = WHISPER.error or "Whisper is unavailable"
+
         try:
             while not self.stop_flag.is_set():
+                # 1. Is there an audio track at all?
+                if self.has_audio_track is not True and time.time() - last_probe > 45:
+                    last_probe = time.time()
+                    self.probe_audio()
+                if self.has_audio_track is False:
+                    self.audio_connected = False
+                    self.audio_error = NO_AUDIO_MESSAGE
+                    self.stop_flag.wait(30)
+                    continue
+                if self.has_audio_track is None and self.audio_probe_error:
+                    # Probe failed; still try to capture — some cameras refuse ffprobe.
+                    self.audio_error = (f"Could not inspect the camera's audio track "
+                                        f"({self.audio_probe_error}); trying anyway.")
+
+                # 2. Start the segmenter.
                 try:
                     ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
                 except MissingExecutable as exc:
                     self.audio_connected = False
                     self.audio_error = str(exc)
                     self.error = self.audio_error
-                    self.stop_flag.wait(5)
+                    self.stop_flag.wait(10)
                     continue
 
-                wav = os.path.join(tmpdir, f"chunk-{int(time.time())}.wav")
-                cmd = [
-                    ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning",
-                    "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
-                    "-map", "0:a:0", "-vn", "-acodec", "pcm_s16le",
-                    "-ac", "1", "-ar", "16000", "-f", "wav",
-                    "-t", str(AUDIO_CHUNK_SECONDS), "-y", wav,
-                ]
+                for stale in glob.glob(os.path.join(tmpdir, "chunk-*.wav")):
+                    try:
+                        os.remove(stale)
+                    except OSError:
+                        pass
+
                 try:
                     self.audio_proc = subprocess.Popen(
-                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                        self._segmenter_cmd(ffmpeg, pattern),
+                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                         creationflags=no_window_flags(),
                     )
-                    _out, stderr = self.audio_proc.communicate(timeout=AUDIO_CHUNK_SECONDS + 15)
-                    error_text = stderr.decode("utf-8", errors="replace").strip() if stderr else ""
-                    self.audio_ffmpeg_error = error_text[-1000:] or None
-                    if self.audio_proc.returncode != 0:
-                        self.audio_connected = False
-                        self.audio_error = (
-                            f"FFmpeg audio extraction failed ({self.audio_proc.returncode}): "
-                            f"{error_text[-500:] or 'unknown error'}"
-                        )
-                except subprocess.TimeoutExpired:
-                    if self.audio_proc and self.audio_proc.poll() is None:
-                        self.audio_proc.kill()
-                        self.audio_proc.communicate()
-                    self.audio_connected = False
-                    self.audio_error = "FFmpeg audio extraction timed out; retrying"
                 except (OSError, subprocess.SubprocessError) as exc:
                     self.audio_connected = False
-                    self.audio_error = (f"Could not start FFmpeg audio extraction: {exc}. "
+                    self.audio_error = (f"Could not start FFmpeg audio capture: {exc}. "
                                         f"{install_hint('ffmpeg', 'FFMPEG_EXE')}")
                     self.error = self.audio_error
+                    self.stop_flag.wait(10)
+                    continue
+
+                self.audio_ffmpeg_error = None
+                threading.Thread(target=self._drain_audio_stderr,
+                                 args=(self.audio_proc,), daemon=True).start()
+
+                # 3. Consume closed segments while ffmpeg keeps running.
+                while not self.stop_flag.is_set() and self.audio_proc.poll() is None:
+                    files = sorted(glob.glob(os.path.join(tmpdir, "chunk-*.wav")))
+                    # the newest file is still being written to
+                    for wav in files[:-1]:
+                        if self.stop_flag.is_set():
+                            break
+                        try:
+                            self._handle_chunk(wav)
+                        except Exception as exc:  # keep this camera alive
+                            self.audio_error = f"Audio chunk failed: {exc}"
+                        finally:
+                            try:
+                                os.remove(wav)
+                            except OSError:
+                                pass
+                    self.stop_flag.wait(0.5)
 
                 if self.stop_flag.is_set():
                     break
 
-                if os.path.exists(wav) and os.path.getsize(wav) > 4000:
-                    self.audio_connected = True
-                    self.audio_chunks += 1
-                    self.audio_bytes += os.path.getsize(wav)
-                    self.last_audio_chunk_at = now_iso()
-                    self.audio_error = None
-                    try:
-                        transcript = WHISPER.transcribe(wav)
-                    except Exception as exc:  # keep this camera alive
-                        transcript = ""
-                        self.audio_error = f"Whisper transcription failed: {exc}"
-                        self.error = self.audio_error
-                    if transcript:
-                        keyword, confidence = match_distress(transcript)
-                        timestamp = now_iso()
-                        self.last_transcription_at = timestamp
-                        self.last_transcript = transcript
-                        # Publish every transcript; the frontend owns custom
-                        # household wake-word matching.
-                        with self.lock:
-                            self.events.append({
-                                "camera_id": self.id,
-                                "timestamp": timestamp,
-                                "transcript": transcript,
-                                "keyword": keyword,
-                                "confidence": confidence,
-                            })
-                            self.events = self.events[-200:]
-                        print(f"[Audio {self.id}] transcript: {transcript}", flush=True)
+                code = self.audio_proc.poll()
+                self.audio_connected = False
+                self.audio_restarts += 1
+                detail = self.audio_ffmpeg_error or "no details"
+                if code not in (0, None):
+                    self.audio_error = (f"FFmpeg audio capture stopped (exit {code}): {detail}. "
+                                        "Reconnecting…")
                 else:
-                    self.audio_connected = False
-                    if not self.audio_error:
-                        self.audio_error = ("No valid audio chunk received "
-                                            "(camera may have no RTSP audio track)")
-                try:
-                    os.remove(wav)
-                except OSError:
-                    pass
-                if self.audio_error and not self.stop_flag.is_set():
-                    self.stop_flag.wait(2)
+                    self.audio_error = "Camera audio stream ended; reconnecting…"
+                # force a re-probe on the next round
+                self.has_audio_track = None
+                last_probe = 0.0
+                self.stop_flag.wait(3)
         finally:
             self.audio_connected = False
+            if self.audio_proc and self.audio_proc.poll() is None:
+                try:
+                    self.audio_proc.terminate()
+                    self.audio_proc.wait(timeout=5)
+                except Exception:
+                    self.audio_proc.kill()
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def audio_test(self) -> dict:
+        """One-shot diagnostic: probe the RTSP streams, grab a short WAV and
+        transcribe it. Lets the audio path be tested without the UI."""
+        report: dict = {
+            "camera_id": self.id,
+            "rtsp_configured": bool(self.rtsp),
+            "probe": None,
+            "capture": None,
+            "whisper": {
+                "available": WHISPER.available,
+                "state": WHISPER.state,
+                "error": WHISPER.error,
+            },
+            "transcript": "",
+            "success": False,
+            "error": None,
+        }
+        if not self.rtsp:
+            report["error"] = "no RTSP URL configured for this camera"
+            return report
+
+        probe = self.probe_audio()
+        report["probe"] = {
+            "ok": probe["ok"],
+            "error": probe["error"],
+            "has_audio_track": self.has_audio_track,
+            "audio_codec": self.audio_codec,
+            "streams": probe["streams"],
+        }
+        if self.has_audio_track is False:
+            report["error"] = NO_AUDIO_MESSAGE
+            return report
+
+        try:
+            ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
+        except MissingExecutable as exc:
+            report["error"] = str(exc)
+            return report
+
+        tmpdir = tempfile.mkdtemp(prefix=f"msd-audiotest-{self.path}-")
+        wav = os.path.join(tmpdir, "test.wav")
+        try:
+            out = subprocess.run(
+                [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+                 "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", self.rtsp,
+                 "-vn", "-map", "0:a:0", "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
+                 "-t", "5", "-f", "wav", "-y", wav],
+                capture_output=True, text=True, timeout=40,
+                creationflags=no_window_flags(),
+            )
+            size = os.path.getsize(wav) if os.path.exists(wav) else 0
+            report["capture"] = {
+                "returncode": out.returncode,
+                "bytes": size,
+                "seconds": round(max(0, size - 44) / 32000, 2),
+                "ffmpeg_error": (out.stderr or "").strip()[-500:] or None,
+            }
+            if out.returncode != 0 or size < 16000:
+                report["error"] = ((out.stderr or "").strip()[-300:]
+                                   or "no usable audio captured from the RTSP stream")
+                return report
+            if not WHISPER.available:
+                report["error"] = WHISPER.error or "Whisper is unavailable"
+                return report
+            report["transcript"] = WHISPER.transcribe(wav)
+            report["whisper"]["state"] = WHISPER.state
+            report["success"] = True
+        except subprocess.TimeoutExpired:
+            report["error"] = "timed out capturing audio from the camera"
+        except Exception as exc:
+            report["error"] = str(exc)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        return report
 
     # ---- lifecycle --------------------------------------------------------- #
     def start(self):
         self.stop_flag.clear()
         self.error = None
         self.start_video()
-        if WHISPER.available and (self.audio_thread is None or not self.audio_thread.is_alive()):
-            self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
-            self.audio_thread.start()
-        elif not WHISPER.available:
-            self.audio_error = WHISPER.error or "Whisper is unavailable"
+        self.start_audio()
+
+    def start_audio(self):
+        """Audio capture runs whenever the camera is enabled — even if Whisper
+        is broken — so the diagnostics can tell capture apart from transcription."""
+        if self.stop_flag.is_set():
+            return
+        if self.audio_thread and self.audio_thread.is_alive():
+            return
+        self.audio_thread = threading.Thread(target=self._audio_loop, daemon=True)
+        self.audio_thread.start()
 
     def stop(self):
         self.stop_flag.set()
@@ -210,6 +433,7 @@ class Camera:
                     proc.kill()
         self.video_proc = None
         self.audio_proc = None
+        self.audio_connected = False
         self._hls_ok = False
         self._hls_checked = 0.0
 
@@ -249,14 +473,32 @@ class Camera:
         }
 
     def audio_status(self) -> dict:
+        thread_running = bool(self.audio_thread and self.audio_thread.is_alive())
+        error = self.audio_error
+        if self.has_audio_track is False:
+            error = NO_AUDIO_MESSAGE
+        elif not thread_running and not error:
+            error = "Audio worker is not running; start the camera to begin listening."
         return {
-            "thread_running": bool(self.audio_thread and self.audio_thread.is_alive()),
+            "thread_running": thread_running,
             "connected": self.audio_connected,
+            "capturing": bool(self.audio_proc and self.audio_proc.poll() is None),
             "chunks_received": self.audio_chunks,
             "bytes_received": self.audio_bytes,
+            "seconds_captured": round(max(0, self.audio_bytes) / 32000, 1),
             "last_chunk_at": self.last_audio_chunk_at,
             "last_transcription_at": self.last_transcription_at,
             "last_transcript": self.last_transcript,
-            "error": self.audio_error or WHISPER.error,
+            "has_audio_track": self.has_audio_track,
+            "audio_codec": self.audio_codec,
+            "audio_probe_error": self.audio_probe_error,
+            "audio_probed_at": self.audio_probed_at,
+            "audio_restarts": self.audio_restarts,
+            "chunk_seconds": AUDIO_CHUNK_SECONDS,
+            "whisper_available": WHISPER.available,
+            "whisper_state": WHISPER.state,
+            "whisper_model": WHISPER.model_name,
+            "whisper_error": WHISPER.error,
+            "error": error or WHISPER.error,
             "ffmpeg_error": self.audio_ffmpeg_error,
         }

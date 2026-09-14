@@ -10,7 +10,7 @@ import re
 from .binaries import pip_install_command
 from .config import WHISPER_MODEL
 
-# Languages the household actually speaks. Anything else detected with low
+# Languages the household actually speaks. Anything else detected with very low
 # confidence is treated as noise rather than speech.
 ALLOWED_LANGUAGES = {"en", "tl", "fil"}
 
@@ -35,9 +35,17 @@ HALLUCINATION_PATTERNS = [
 ]
 _HALLUCINATION_RE = [re.compile(p, re.IGNORECASE) for p in HALLUCINATION_PATTERNS]
 
+# Short distress words must never be filtered out as "too short / noise".
+KEEP_ALWAYS = {
+    "help", "fire", "stop", "police", "tulong", "saklolo", "sunog", "aray",
+    "pulis", "ambulansya", "masakit", "huwag", "wag",
+}
+
 
 def is_hallucination(text: str) -> bool:
     stripped = text.strip()
+    if stripped.lower().strip(" .!?,").replace("!", "") in KEEP_ALWAYS:
+        return False
     if len(stripped) < 2:
         return True
     return any(rx.match(stripped) for rx in _HALLUCINATION_RE)
@@ -47,11 +55,13 @@ class WhisperEngine:
     """`state` distinguishes:
       - "package_missing"  -> faster-whisper is not installed in THIS interpreter
       - "model_error"      -> package present but model download/load failed
+      - "loading"          -> model is being fetched/loaded right now
       - "ready" / "idle"   -> usable
     """
 
     def __init__(self) -> None:
         self.model = None
+        self.model_name = WHISPER_MODEL
         self.available = False
         self.state = "idle"
         self.error: Optional[str] = None
@@ -70,10 +80,14 @@ class WhisperEngine:
     def load(self):
         if self.model is not None:
             return self.model
+        if not self.available:
+            raise RuntimeError(self.error or "faster-whisper is not installed")
         with self.lock:
             if self.model is None:
                 from faster_whisper import WhisperModel
+                self.state = "loading"
                 try:
+                    # CPU-only, int8: works on every laptop, no GPU required.
                     self.model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
                     self.error = None
                     self.state = "ready"
@@ -90,12 +104,12 @@ class WhisperEngine:
     def transcribe(self, wav_path: str) -> str:
         """Multilingual (English + Tagalog) transcription with hallucination guards.
 
-        Whisper invents filler sentences on silence/noise, so we run a strict VAD,
-        drop low-confidence / high no-speech segments, and filter known phantom
-        phrases before returning anything.
+        Filters are tuned for real CCTV microphones: quiet, reverberant and noisy.
+        They must reject silence-driven phantom sentences without discarding
+        genuine (often short) speech such as "tulong" or "help".
         """
         if not self.available:
-            return ""
+            raise RuntimeError(self.error or "faster-whisper is not installed")
         model = self.load()
         with self.lock:
             segments, info = model.transcribe(
@@ -103,18 +117,24 @@ class WhisperEngine:
                 language=None,              # auto-detect (Tagalog, English, ...)
                 task="transcribe",          # never translate — keep "tulong" as "tulong"
                 vad_filter=True,
-                vad_parameters={"min_silence_duration_ms": 400, "threshold": 0.6},
+                vad_parameters={
+                    "min_silence_duration_ms": 300,
+                    "threshold": 0.35,       # permissive: CCTV mics are quiet
+                    "min_speech_duration_ms": 200,
+                    "speech_pad_ms": 250,
+                },
                 condition_on_previous_text=False,  # stops repeat/echo hallucinations
-                no_speech_threshold=0.5,
-                log_prob_threshold=-0.8,
-                temperature=0.0,
+                no_speech_threshold=0.7,
+                log_prob_threshold=-1.2,
+                temperature=[0.0, 0.2, 0.4],
                 beam_size=5,
+                initial_prompt="Tagalog at English na usapan sa bahay. Help, tulong, saklolo, sunog.",
             )
             lang = getattr(info, "language", "") or ""
             lang_prob = getattr(info, "language_probability", 1.0) or 0.0
-            # Unrecognisable audio usually detects as a random language with low
-            # confidence — that is where the phantom sentences come from.
-            if lang not in ALLOWED_LANGUAGES and lang_prob < 0.6:
+            # Only reject when the detector is *really* unsure about a language
+            # nobody in the household speaks — that is where phantoms come from.
+            if lang not in ALLOWED_LANGUAGES and lang_prob < 0.35:
                 return ""
 
             kept = []
@@ -122,9 +142,9 @@ class WhisperEngine:
                 text = (seg.text or "").strip()
                 if not text:
                     continue
-                if getattr(seg, "no_speech_prob", 0.0) > 0.6:
+                if getattr(seg, "no_speech_prob", 0.0) > 0.85:
                     continue
-                if getattr(seg, "avg_logprob", 0.0) < -1.0:
+                if getattr(seg, "avg_logprob", 0.0) < -1.4:
                     continue
                 if is_hallucination(text):
                     continue
