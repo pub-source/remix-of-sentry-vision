@@ -270,11 +270,17 @@ class Camera:
         print(f"[Audio {self.id}] transcript: {transcript}", flush=True)
 
     def _audio_loop(self):
-        """Continuous RTSP audio capture: one long-lived ffmpeg segmenter whose
-        finished WAV segments are transcribed as soon as they close."""
+        """Continuous RTSP audio capture.
+
+        A long-lived ffmpeg segmenter writes WAV segments that are transcribed
+        as soon as they close. If a source never produces a chunk we rotate to
+        the next candidate (MediaMTX republish -> camera TCP -> camera UDP) so a
+        camera that only allows one RTSP session still gets transcribed.
+        """
         tmpdir = tempfile.mkdtemp(prefix=f"msd-audio-{self.path}-")
         pattern = os.path.join(tmpdir, "chunk-%05d.wav")
         last_probe = 0.0
+        cand_index = 0
 
         # Load Whisper once up-front so the failure is visible immediately
         # instead of only after the first chunk.
@@ -302,7 +308,15 @@ class Camera:
                     self.audio_error = (f"Could not inspect the camera's audio track "
                                         f"({self.audio_probe_error}); trying anyway.")
 
-                # 2. Start the segmenter.
+                # 2. Pick the next audio source to try.
+                candidates = self._audio_candidates()
+                if not candidates:
+                    self.audio_connected = False
+                    self.audio_error = "No RTSP URL is configured for this camera."
+                    self.stop_flag.wait(10)
+                    continue
+                cand = candidates[cand_index % len(candidates)]
+
                 try:
                     ffmpeg = need_exe("ffmpeg", "FFMPEG_EXE")
                 except MissingExecutable as exc:
@@ -320,7 +334,7 @@ class Camera:
 
                 try:
                     self.audio_proc = subprocess.Popen(
-                        self._segmenter_cmd(ffmpeg, pattern),
+                        self._segmenter_cmd(ffmpeg, cand, pattern),
                         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                         creationflags=no_window_flags(),
                     )
@@ -333,6 +347,12 @@ class Camera:
                     continue
 
                 self.audio_ffmpeg_error = None
+                self.audio_source = cand["label"]
+                if cand["label"] not in self.audio_sources_tried:
+                    self.audio_sources_tried.append(cand["label"])
+                print(f"[Audio {self.id}] capturing from {cand['label']} ({cand['url']})",
+                      flush=True)
+                chunks_before = self.audio_chunks
                 threading.Thread(target=self._drain_audio_stderr,
                                  args=(self.audio_proc,), daemon=True).start()
 
@@ -358,16 +378,26 @@ class Camera:
                     break
 
                 code = self.audio_proc.poll()
+                produced = self.audio_chunks > chunks_before
                 self.audio_connected = False
                 self.audio_restarts += 1
                 detail = self.audio_ffmpeg_error or "no details"
-                if code not in (0, None):
+                if not produced:
+                    # This source never delivered sound — try the next one.
+                    cand_index += 1
+                    nxt = candidates[cand_index % len(candidates)]["label"]
+                    self.audio_error = (
+                        f"No audio from {cand['label']} (exit {code}): {detail}. "
+                        f"Trying {nxt}…"
+                    )
+                elif code not in (0, None):
                     self.audio_error = (f"FFmpeg audio capture stopped (exit {code}): {detail}. "
                                         "Reconnecting…")
                 else:
                     self.audio_error = "Camera audio stream ended; reconnecting…"
                 # force a re-probe on the next round
                 self.has_audio_track = None
+
                 last_probe = 0.0
                 self.stop_flag.wait(3)
         finally:
