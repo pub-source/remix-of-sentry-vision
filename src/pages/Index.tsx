@@ -434,10 +434,16 @@ export default function Index() {
     stopAudio();
     stopSpeech();
     clearSpeech();
+    // Stopping monitoring also drops the CCTV/IP stream so nothing keeps
+    // running in the background after the operator presses Stop.
+    if (ipCam.connected) {
+      ipCam.disconnect();
+      attachStream(ipTargetSlot, null);
+    }
     setAttentionScore(0);
     setGlobalSaliencyScore(0);
     perfMonitor.reset();
-  }, [stopCameras, stopAudio, stopSpeech, clearSpeech]);
+  }, [stopCameras, stopAudio, stopSpeech, clearSpeech, ipCam, attachStream, ipTargetSlot]);
 
   // Watch for camera disconnect mid-run: if no active webcam and no IP cam,
   // stop detection and surface a reconnect message in the existing feed area.
