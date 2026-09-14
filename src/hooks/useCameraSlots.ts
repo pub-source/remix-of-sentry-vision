@@ -8,6 +8,12 @@ export interface CameraSlot {
   index: number;          // 1-based -> cam1, cam2, cam4...
   name: string;
   ip: string;             // e.g. 192.168.18.93
+  /** Optional RTSP credentials (kept in local storage only, never in source). */
+  username: string;
+  password: string;
+  /** RTSP port + stream path — configurable, defaults 554 and /stream1. */
+  port: number;
+  streamPath: string;
   aiEnabled: boolean;
   /** HLS URL reported by the backend after Connect. */
   streamUrl?: string;
@@ -20,6 +26,10 @@ interface SlotState {
   slots: CameraSlot[];
 }
 
+/** Defaults — structured so they can be made configurable per camera later. */
+export const DEFAULT_RTSP_PORT = 554;
+export const DEFAULT_STREAM_PATH = '/stream1';
+
 const KEY = 'msd-camera-slots-v1';
 const EVT = 'msd-camera-slots-changed';
 
@@ -27,6 +37,10 @@ export const makeSlot = (index: number): CameraSlot => ({
   index,
   name: `Camera ${index}`,
   ip: '',
+  username: '',
+  password: '',
+  port: DEFAULT_RTSP_PORT,
+  streamPath: DEFAULT_STREAM_PATH,
   aiEnabled: true,
   streamUrl: '',
   connected: false,
@@ -70,9 +84,22 @@ export const hlsHostFor = (host: string) => `http://${cleanHost(host) || '127.0.
 /** Each slot publishes its own MediaMTX section: cam1, cam2, cam4. */
 export const slotPath = (slot: CameraSlot) => `cam${slot.index}`;
 
-/** RTSP derived from the camera IP the user typed. */
-export const slotRtsp = (slot: CameraSlot) =>
-  cleanHost(slot.ip) ? `rtsp://${cleanHost(slot.ip)}:554/live/ch00_1` : '';
+/** RTSP derived from the camera fields: rtsp://user:pass@ip:port/path */
+export const slotRtsp = (slot: CameraSlot) => {
+  const host = cleanHost(slot.ip);
+  if (!host) return '';
+  const user = (slot.username || '').trim();
+  const pass = slot.password || '';
+  const auth = user ? `${encodeURIComponent(user)}:${encodeURIComponent(pass)}@` : '';
+  const port = Number(slot.port) > 0 ? Number(slot.port) : DEFAULT_RTSP_PORT;
+  const raw = (slot.streamPath || DEFAULT_STREAM_PATH).trim();
+  const path = raw ? (raw.startsWith('/') ? raw : `/${raw}`) : DEFAULT_STREAM_PATH;
+  return `rtsp://${auth}${host}:${port}${path}`;
+};
+
+/** Same URL with the password masked — safe for display. */
+export const slotRtspMasked = (slot: CameraSlot) =>
+  slot.password ? slotRtsp(slot).replace(`:${encodeURIComponent(slot.password)}@`, ':••••••@') : slotRtsp(slot);
 
 /** Independent pipeline settings for one slot (its own section + audio events). */
 export const slotSettings = (slot: CameraSlot, base: MultiCamSettings = DEFAULT_SETTINGS): MultiCamSettings => {
