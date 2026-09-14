@@ -116,6 +116,10 @@ export default function FusedDetectionView({
   transcript,
   interimTranscript,
   speechListening,
+  audioMessage,
+  audioTone,
+  audioDiagnostic,
+
   onToggleSpeech,
   fireBbox,
   fireFrameWidth,
