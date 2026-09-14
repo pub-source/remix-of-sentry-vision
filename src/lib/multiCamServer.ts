@@ -46,15 +46,66 @@ export interface AudioEvent {
 export interface CctvAudioStatus {
   thread_running: boolean;
   connected: boolean;
+  capturing?: boolean;
   chunks_received: number;
   bytes_received: number;
+  seconds_captured?: number;
   last_chunk_at: string | null;
   last_transcription_at: string | null;
   last_transcript: string;
+  /** null = not probed yet, false = the RTSP stream carries no audio track. */
+  has_audio_track?: boolean | null;
+  audio_codec?: string | null;
+  audio_probe_error?: string | null;
+  audio_restarts?: number;
+  chunk_seconds?: number;
+  whisper_available?: boolean;
+  whisper_state?: string;
+  whisper_model?: string;
+  whisper_error?: string | null;
   error: string | null;
   ffmpeg_error: string | null;
   available_camera_ids?: string[];
 }
+
+/** One short, human-readable line describing why transcription is (not) working. */
+export function describeAudioStatus(
+  status: CctvAudioStatus | null,
+  reachable: boolean,
+): { message: string; tone: 'ok' | 'wait' | 'error' } {
+  if (!reachable || !status) {
+    return {
+      message: 'Cannot reach the local camera service — transcription is paused.',
+      tone: 'error',
+    };
+  }
+  if (status.has_audio_track === false) {
+    return {
+      message: 'This camera does not send sound over its network stream, so there is nothing to transcribe.',
+      tone: 'error',
+    };
+  }
+  if (status.whisper_available === false) {
+    return { message: status.whisper_error || 'Speech recognition is not installed.', tone: 'error' };
+  }
+  if (status.whisper_state === 'model_error') {
+    return { message: status.whisper_error || 'Speech recognition model failed to load.', tone: 'error' };
+  }
+  if (status.whisper_state === 'loading') {
+    return { message: 'Preparing speech recognition…', tone: 'wait' };
+  }
+  if (!status.thread_running) {
+    return { message: status.error || 'Listening has not started yet.', tone: 'error' };
+  }
+  if (!status.connected) {
+    return { message: status.error || 'Waiting for sound from the camera…', tone: 'wait' };
+  }
+  if (!status.last_transcript) {
+    return { message: 'Listening… no speech heard yet.', tone: 'wait' };
+  }
+  return { message: 'Listening.', tone: 'ok' };
+}
+
 
 const base = (url: string) => url.trim().replace(/\/+$/, '');
 

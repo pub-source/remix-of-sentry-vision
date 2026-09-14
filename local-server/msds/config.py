@@ -15,8 +15,10 @@ HLS_PORT = int(os.environ.get("MSD_HLS_PORT", 8888))
 RTSP_PORT = int(os.environ.get("MSD_RTSP_PORT", 8554))
 
 MAX_CAMERAS = 16
-AUDIO_CHUNK_SECONDS = 5
+# Length of each WAV segment fed to Whisper. Shorter = more responsive UI.
+AUDIO_CHUNK_SECONDS = max(2, int(os.environ.get("MSD_AUDIO_CHUNK_SECONDS", 4)))
 WHISPER_MODEL = os.environ.get("MSD_WHISPER_MODEL", "base")
+
 
 # How long a positive HLS probe stays valid (seconds). Avoids one HTTP request
 # per camera on every /status poll — the main cost with 16 cameras.
