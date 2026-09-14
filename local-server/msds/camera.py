@@ -140,30 +140,75 @@ class Camera:
                          args=(self.video_proc,), daemon=True).start()
 
     # ---- audio ------------------------------------------------------------- #
-    def probe_audio(self) -> dict:
-        """Detect whether the RTSP URL really carries an audio track."""
-        result = probe_streams(self.rtsp)
-        self.audio_probed_at = now_iso()
-        if not result["ok"]:
-            self.audio_probe_error = result["error"]
-            # Unknown rather than "no audio": the probe itself failed.
-            self.has_audio_track = None
-            return result
-        audio = [s for s in result["streams"] if s.get("codec_type") == "audio"]
-        self.audio_probe_error = None
-        self.has_audio_track = bool(audio)
-        self.audio_codec = audio[0].get("codec_name") if audio else None
-        return result
+    def _audio_candidates(self) -> List[dict]:
+        """Every way we know of to reach this camera's microphone.
 
-    def _segmenter_cmd(self, ffmpeg: str, pattern: str) -> List[str]:
+        The republished MediaMTX stream comes first: the video pipeline already
+        holds one RTSP session to the camera and many cheap cameras refuse a
+        second one, which is the most common reason audio never arrives.
+        """
+        candidates: List[dict] = []
+        if self.running():
+            candidates.append({
+                "label": "mediamtx",
+                "url": f"rtsp://127.0.0.1:{RTSP_PORT}/{self.path}",
+                "transport": "tcp",
+            })
+        if self.rtsp:
+            candidates.append({"label": "camera-tcp", "url": self.rtsp, "transport": "tcp"})
+            candidates.append({"label": "camera-udp", "url": self.rtsp, "transport": "udp"})
+        return candidates
+
+    def probe_audio(self) -> dict:
+        """Detect whether this camera really exposes an audio track anywhere.
+
+        Only a probe that succeeded and found no audio proves the camera is
+        mute — a failed probe leaves `has_audio_track` unknown so capture is
+        still attempted.
+        """
+        self.audio_probed_at = now_iso()
+        candidates = self._audio_candidates()
+        if not candidates:
+            self.audio_probe_error = "no RTSP URL configured for this camera"
+            self.has_audio_track = None
+            return {"ok": False, "streams": [], "error": self.audio_probe_error}
+
+        last_error = None
+        probed_ok = False
+        last_result = {"ok": False, "streams": [], "error": "not probed"}
+        for cand in candidates:
+            result = probe_streams(cand["url"], cand["transport"])
+            last_result = result
+            if not result["ok"]:
+                last_error = f"{cand['label']}: {result['error']}"
+                continue
+            probed_ok = True
+            audio = [s for s in result["streams"] if s.get("codec_type") == "audio"]
+            if audio:
+                self.audio_probe_error = None
+                self.has_audio_track = True
+                self.audio_codec = audio[0].get("codec_name")
+                return result
+        if probed_ok:
+            # At least one probe worked and none of them saw audio.
+            self.audio_probe_error = None
+            self.has_audio_track = False
+            self.audio_codec = None
+        else:
+            self.audio_probe_error = last_error
+            self.has_audio_track = None
+        return last_result
+
+    def _segmenter_cmd(self, ffmpeg: str, cand: dict, pattern: str) -> List[str]:
         return [
             ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning",
-            "-rtsp_transport", "tcp",
+            "-rtsp_transport", cand["transport"],
             "-rw_timeout", "15000000",
             "-use_wallclock_as_timestamps", "1",
             "-fflags", "+genpts+discardcorrupt",
-            "-i", self.rtsp,
+            "-i", cand["url"],
             "-vn", "-sn", "-dn",
+            # `a:0` picks the first audio stream whatever its index is.
             "-map", "0:a:0",
             "-af", "aresample=async=1",
             "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000",
@@ -171,6 +216,7 @@ class Camera:
             "-reset_timestamps", "1",
             "-y", pattern,
         ]
+
 
     def _drain_audio_stderr(self, proc: subprocess.Popen):
         if not proc.stderr:
