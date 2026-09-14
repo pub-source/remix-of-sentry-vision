@@ -25,13 +25,13 @@ NO_AUDIO_MESSAGE = (
 )
 
 
-def probe_streams(rtsp: str, timeout: int = 20) -> dict:
-    """ffprobe the RTSP URL and return {ok, streams, error}."""
+def probe_streams(rtsp: str, transport: str = "tcp", timeout: int = 20) -> dict:
+    """ffprobe an RTSP URL and return {ok, streams, error}."""
     ffprobe = resolve_exe("ffprobe", "FFPROBE_EXE")
     if not ffprobe:
         return {"ok": False, "streams": [], "error": install_hint("ffprobe", "FFPROBE_EXE")}
     cmd = [
-        ffprobe, "-v", "error", "-rtsp_transport", "tcp", "-rw_timeout", "15000000",
+        ffprobe, "-v", "error", "-rtsp_transport", transport, "-rw_timeout", "15000000",
         "-show_entries", "stream=index,codec_type,codec_name,sample_rate,channels",
         "-of", "json", rtsp,
     ]
@@ -50,6 +50,7 @@ def probe_streams(rtsp: str, timeout: int = 20) -> dict:
     except json.JSONDecodeError:
         streams = []
     return {"ok": True, "streams": streams, "error": None}
+
 
 
 @dataclass
@@ -84,6 +85,9 @@ class Camera:
     audio_probe_error: Optional[str] = None
     audio_probed_at: Optional[str] = None
     audio_restarts: int = 0
+    audio_source: Optional[str] = None          # which URL/transport is working
+    audio_sources_tried: List[str] = field(default_factory=list)
+
     _hls_ok: bool = False
     _hls_checked: float = 0.0
 
