@@ -23,6 +23,27 @@ app.add_middleware(
 )
 
 
+def find_camera(camera_id: str):
+    """Resolve a camera by its registered id, its MediaMTX path, or the
+    slot-N / camN alias — so a frontend/bridge naming mismatch can never
+    silently break audio or control routes."""
+    cam = CAMERAS.get(camera_id)
+    if cam:
+        return cam
+    ident = (camera_id or "").strip().lower()
+    if not ident:
+        return None
+    aliases = {ident}
+    digits = "".join(ch for ch in ident if ch.isdigit())
+    if digits:
+        aliases.update({f"slot-{digits}", f"cam{digits}", f"camera-{digits}", digits})
+    for cam in list(CAMERAS.values()):
+        if cam.id.lower() in aliases or (cam.path or "").lower() in aliases:
+            return cam
+    return None
+
+
+
 @app.get("/status")
 def status():
     host = lan_ip()
