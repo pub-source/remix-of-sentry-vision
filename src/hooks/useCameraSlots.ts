@@ -41,7 +41,7 @@ export const makeSlot = (index: number): CameraSlot => ({
   ip: '',
   username: '',
   password: '',
-  port: DEFAULT_RTSP_PORT,
+  port: 0, // 0 = Auto: the app finds a port the camera answers on
   streamPath: DEFAULT_STREAM_PATH,
   aiEnabled: true,
   streamUrl: '',
@@ -98,6 +98,10 @@ export const slotRtsp = (slot: CameraSlot) => {
   const path = raw ? (raw.startsWith('/') ? raw : `/${raw}`) : DEFAULT_STREAM_PATH;
   return `rtsp://${auth}${host}:${port}${path}`;
 };
+
+/** Same RTSP URL but forced onto a specific port — used by auto port detection. */
+export const slotRtspWithPort = (slot: CameraSlot, port: number) =>
+  slotRtsp({ ...slot, port });
 
 /** Same URL with the password masked — safe for display. */
 export const slotRtspMasked = (slot: CameraSlot) =>
