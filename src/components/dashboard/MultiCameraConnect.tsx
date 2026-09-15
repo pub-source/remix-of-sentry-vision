@@ -21,6 +21,8 @@ import {
   slotPath,
   slotRtsp,
   slotRtspMasked,
+  slotRtspWithPort,
+  AUTO_RTSP_PORTS,
   loadServerHost,
   serverUrlFor,
   DEFAULT_RTSP_PORT,
@@ -88,6 +90,7 @@ function Preview({ url }: { url: string }) {
 
 function SlotCard({
   slot,
+  allSlots,
   server,
   serverOk,
   mediamtx,
@@ -99,6 +102,8 @@ function SlotCard({
   onStream,
 }: {
   slot: CameraSlot;
+  /** Every configured slot — synced together so cameras never evict each other. */
+  allSlots: CameraSlot[];
   server: string;
   serverOk: boolean;
   mediamtx: boolean;
@@ -172,10 +177,31 @@ function SlotCard({
     if (!slot.ip.trim()) { setError('Enter the camera IP address first.'); return; }
     setBusy('start'); setError(''); setMessage(`Connecting ${slot.name}…`);
     try {
-      await syncCameras(server, [{
-        id, path: slotPath(slot), name: slot.name, location: '', rtspUrl: slotRtsp(slot),
-        enabled: true, aiEnabled: slot.aiEnabled, recording: false, createdAt: new Date().toISOString(),
-      }]);
+      // Auto port: find a port this camera actually answers on, then remember it.
+      let active = slot;
+      if (!(Number(slot.port) > 0)) {
+        setMessage(`Looking for the right port on ${slot.ip}…`);
+        for (const port of AUTO_RTSP_PORTS) {
+          try {
+            const probe = await testCamera(server, slotRtspWithPort(slot, port));
+            if (probe.success) { active = { ...slot, port }; onPatch({ port }); break; }
+          } catch { /* try the next port */ }
+        }
+        if (!(Number(active.port) > 0)) active = { ...slot, port: DEFAULT_RTSP_PORT };
+        setMessage(`Connecting ${slot.name} on port ${active.port}…`);
+      }
+
+      // Sync EVERY configured camera, otherwise the backend drops the others.
+      const configured = allSlots.filter(s => s.ip.trim());
+      const payload = (configured.length ? configured : [active]).map(s => {
+        const cur = s.index === active.index ? active : s;
+        return {
+          id: `slot-${cur.index}`, path: slotPath(cur), name: cur.name, location: '',
+          rtspUrl: slotRtsp(cur), enabled: true, aiEnabled: cur.aiEnabled,
+          recording: false, createdAt: new Date().toISOString(),
+        };
+      });
+      await syncCameras(server, payload);
       const res = await startCamera(server, id);
       if (!res.success) { setError(res.error || 'The local server could not start FFmpeg for this camera.'); return; }
       if (res.stream) { pushedRef.current = true; onConnected({ connected: true, streamUrl: res.stream }); onStream?.(res.stream); }
@@ -317,12 +343,12 @@ function SlotCard({
               />
             </div>
             <div className="space-y-1 min-w-0">
-              <label className="text-[14px] font-semibold">Port</label>
+              <label className="text-[14px] font-semibold">Port (leave empty for Auto)</label>
               <input
                 inputMode="numeric"
-                value={String(slot.port ?? DEFAULT_RTSP_PORT)}
-                onChange={e => onPatch({ port: Number(e.target.value.replace(/\D/g, '')) || DEFAULT_RTSP_PORT })}
-                placeholder={String(DEFAULT_RTSP_PORT)}
+                value={Number(slot.port) > 0 ? String(slot.port) : ''}
+                onChange={e => onPatch({ port: Number(e.target.value.replace(/\D/g, '')) || 0 })}
+                placeholder="Auto" 
                 className="w-full text-[15px] px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -482,6 +508,7 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
           <SlotCard
             key={slot.index}
             slot={slot}
+            allSlots={slots}
             server={server}
             serverOk={!!backend}
             mediamtx={!!backend?.mediamtx}
