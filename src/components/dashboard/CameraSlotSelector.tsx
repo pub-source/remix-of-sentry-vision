@@ -164,7 +164,7 @@ export function SlotPipelineView({
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
             <Mic className="w-3 h-3" /> Live transcription
           </div>
-          <p aria-live="polite" className="mt-0.5 text-[13px] leading-snug text-foreground">
+          <p aria-live="polite" className="mt-0.5 max-h-24 overflow-y-auto text-[13px] leading-snug text-foreground">
             {runtime.transcript || (
               <span className={runtime.audioTone === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
                 {runtime.audioMessage}
