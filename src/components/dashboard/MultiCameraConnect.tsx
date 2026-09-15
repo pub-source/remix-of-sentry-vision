@@ -456,7 +456,7 @@ function SlotCard({
 }
 
 export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) => {
-  const { count, activeSlots, setCount, updateSlot } = useCameraSlots();
+  const { count, slots, activeSlots, setCount, updateSlot } = useCameraSlots();
   const [backend, setBackend] = useState<BackendStatus | null>(null);
   const server = serverUrlFor(loadServerHost());
 
