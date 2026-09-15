@@ -9,6 +9,7 @@ import type {
   CameraConfig, CameraRuntime, DetectionEvent, MultiCamSettings,
 } from '@/types/multicam';
 import { hlsUrlFor } from '@/types/multicam';
+import { mergeTranscript } from '@/lib/transcript';
 
 const HUMAN_LABELS = new Set(['person']);
 
@@ -313,7 +314,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           const spoken = fresh.map(e => e.transcript).filter(Boolean).join(' ').trim();
           if (spoken && spoken !== lastShownRef.current) {
             lastShownRef.current = spoken;
-            patch({ transcript: `${runtimeRef.current.transcript} ${spoken}`.trim().slice(-600) });
+            patch({ transcript: mergeTranscript(runtimeRef.current.transcript, spoken) });
           }
           for (const e of fresh) {
             if (e.confidence < settings.audioThreshold) continue;

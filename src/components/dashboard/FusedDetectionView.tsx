@@ -315,8 +315,8 @@ export default function FusedDetectionView({
     <div ref={containerRef} className="relative bg-card rounded-md overflow-hidden border border-border panel-glow group flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
-        <span className="text-[10px] font-mono text-primary uppercase tracking-wider">
-          CAM 2 — Fused Detection
+        <span className="text-[12px] font-semibold text-primary uppercase tracking-wider">
+          CAM 1 — Fused Detection
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-accent/20 text-accent">AI+DISTRESS</span>
@@ -338,14 +338,14 @@ export default function FusedDetectionView({
       {/* Live CCTV transcription with a plain-language reason when silent. */}
       {(
         <div
-          className="absolute left-2 top-7 z-10 max-w-[min(78%,32rem)] border border-border bg-background/90 px-2 py-1.5 shadow-sm"
+          className="absolute left-2 top-8 z-10 max-w-[70%] rounded-md border border-border bg-background/85 px-2.5 py-1.5"
           role="status"
           aria-live="polite"
         >
-          <div className="mb-0.5 text-[10px] font-mono font-bold uppercase text-primary">
-            Live transcription
+          <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <Mic className="h-3 w-3" /> Live transcription
           </div>
-          <p className="max-h-20 overflow-hidden text-sm font-semibold leading-relaxed text-foreground">
+          <p className="max-h-24 overflow-y-auto text-[13px] leading-snug text-foreground">
             {transcript}
             {interimTranscript && (
               <span className="text-muted-foreground">{transcript ? ' ' : ''}{interimTranscript}</span>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { describeAudioStatus, getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
+import { mergeTranscript } from '@/lib/transcript';
 
 export interface CctvSpeechDiagnostics {
   polling: boolean;
@@ -84,7 +85,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
           if (text && text !== lastShownRef.current) {
             lastShownRef.current = text;
             console.info(`[CCTV Speech ${cameraId}]`, text);
-            setTranscript(prev => `${prev} ${text}`.trim().slice(-600));
+            setTranscript(prev => mergeTranscript(prev, text));
           }
           return;
         }
@@ -92,7 +93,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
         const last = res.status?.last_transcript ?? '';
         if (last && last !== lastShownRef.current) {
           lastShownRef.current = last;
-          setTranscript(prev => (prev ? prev : last).slice(-600));
+          setTranscript(prev => mergeTranscript(prev, last));
         }
       } catch (error) {
         if (!cancelled) {

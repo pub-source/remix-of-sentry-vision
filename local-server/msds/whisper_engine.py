@@ -42,6 +42,51 @@ KEEP_ALWAYS = {
 }
 
 
+def _normalise_repetition(text: str) -> str:
+    """Collapse Whisper loops while preserving ordinary repeated speech.
+
+    Noisy CCTV chunks can make Whisper emit the same word or sentence dozens
+    of times. Keeping at most two adjacent copies still represents emphasis
+    ("help, help") without filling the live panel with model hallucinations.
+    """
+    words = text.split()
+    if not words:
+        return ""
+
+    collapsed: list[str] = []
+    previous_key = ""
+    repeat_count = 0
+    for word in words:
+        key = re.sub(r"[^\w']", "", word, flags=re.UNICODE).lower()
+        if key and key == previous_key:
+            repeat_count += 1
+            if repeat_count > 2:
+                continue
+        else:
+            previous_key = key
+            repeat_count = 1
+        collapsed.append(word)
+
+    cleaned = " ".join(collapsed).strip()
+    # Also collapse adjacent repeated multi-word sentences/phrases.
+    parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", cleaned) if part.strip()]
+    unique_parts: list[str] = []
+    previous_part = ""
+    part_repeats = 0
+    for part in parts:
+        key = re.sub(r"[^\w']", " ", part, flags=re.UNICODE).lower()
+        key = " ".join(key.split())
+        if key and key == previous_part:
+            part_repeats += 1
+            if part_repeats > 2:
+                continue
+        else:
+            previous_part = key
+            part_repeats = 1
+        unique_parts.append(part)
+    return " ".join(unique_parts).strip()
+
+
 def is_hallucination(text: str) -> bool:
     stripped = text.strip()
     if stripped.lower().strip(" .!?,").replace("!", "") in KEEP_ALWAYS:
@@ -149,7 +194,7 @@ class WhisperEngine:
                 if is_hallucination(text):
                     continue
                 kept.append(text)
-            return " ".join(kept).strip()
+            return _normalise_repetition(" ".join(kept).strip())
 
 
 WHISPER = WhisperEngine()

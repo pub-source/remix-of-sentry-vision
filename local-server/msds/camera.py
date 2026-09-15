@@ -254,6 +254,13 @@ class Camera:
         if not transcript:
             return
 
+        # Overlapping RTSP chunks can return the same final phrase more than
+        # once. Do not publish a duplicate event to the live UI.
+        transcript_key = " ".join(transcript.lower().split()).strip(" .,!?")
+        previous_key = " ".join(self.last_transcript.lower().split()).strip(" .,!?")
+        if transcript_key and transcript_key == previous_key:
+            return
+
         keyword, confidence = match_distress(transcript)
         timestamp = now_iso()
         self.last_transcription_at = timestamp
