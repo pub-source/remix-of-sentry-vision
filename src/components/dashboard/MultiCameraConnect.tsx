@@ -20,6 +20,7 @@ import {
   useCameraSlots,
   slotPath,
   slotRtsp,
+  slotRtspMasked,
   loadServerHost,
   serverUrlFor,
   DEFAULT_RTSP_PORT,
