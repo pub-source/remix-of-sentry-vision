@@ -488,6 +488,7 @@ export const MultiCameraConnect = ({ onStream, playbackError, playing }: Props) 
             onRename={v => updateSlot(slot.index, { name: v })}
             onIp={v => updateSlot(slot.index, { ip: v })}
             onAi={v => updateSlot(slot.index, { aiEnabled: v })}
+            onPatch={v => updateSlot(slot.index, v)}
             onConnected={v => updateSlot(slot.index, v)}
             onStream={slot.index === 1 ? onStream : undefined}
           />
