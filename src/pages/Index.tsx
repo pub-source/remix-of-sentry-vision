@@ -28,6 +28,8 @@ import type { DetectionEvent } from '@/types/multicam';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
+import { stopAll as stopAllCameras, stopCamera } from '@/lib/multiCamServer';
+import { matchSafetyPhrase } from '@/lib/safetyLexicon';
 import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
 
 
@@ -231,7 +233,7 @@ export default function Index() {
   const ipCam = useIpCamera();
 
   // CAM 1..4 selector for the main frame (display only — never disconnects).
-  const { slots: camSlots } = useCameraSlots();
+  const { slots: camSlots, updateSlot: updateCamSlot } = useCameraSlots();
   const [selectedCam, setSelectedCam] = useState(1);
   const [camListOpen, setCamListOpen] = useState(true);
 
