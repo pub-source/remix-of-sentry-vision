@@ -28,6 +28,8 @@ import type { DetectionEvent } from '@/types/multicam';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
+import { stopAll as stopAllCameras, stopCamera } from '@/lib/multiCamServer';
+import { matchSafetyPhrase } from '@/lib/safetyLexicon';
 import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
 
 
@@ -231,7 +233,7 @@ export default function Index() {
   const ipCam = useIpCamera();
 
   // CAM 1..4 selector for the main frame (display only — never disconnects).
-  const { slots: camSlots } = useCameraSlots();
+  const { slots: camSlots, updateSlot: updateCamSlot } = useCameraSlots();
   const [selectedCam, setSelectedCam] = useState(1);
   const [camListOpen, setCamListOpen] = useState(true);
 
@@ -396,8 +398,28 @@ export default function Index() {
       return;
     }
     
-    const match = checkForWakeWord(combinedText);
-    setWakeWordDiagnostic(match.matched ? `Matched: ${match.phrase}` : 'Transcript received — no configured wake word matched');
+    // Household wake words first, then the built-in Tagalog + English safety
+    // and awareness library. Only words in one of those two lists are treated
+    // as recognised speech — everything else stays plain transcription.
+    const household = checkForWakeWord(combinedText);
+    const safety = matchSafetyPhrase(combinedText);
+    const match = household.matched
+      ? household
+      : safety.matched
+        ? {
+            matched: true,
+            phrase: safety.phrase,
+            isEmergency: safety.severity === 'critical',
+            actionType: 'email' as const,
+            wakeWordId: '',
+          }
+        : household;
+
+    setWakeWordDiagnostic(
+      match.matched
+        ? `Matched: ${match.phrase}${safety.matched && !household.matched ? ` (${safety.category}, ${safety.lang === 'tl' ? 'Tagalog' : 'English'})` : ''}`
+        : 'Transcript received — no safety phrase matched',
+    );
     console.info('[Wake word check]', { source: ipCam.connected ? 'CCTV' : 'browser fallback', matched: match.matched, phrase: match.phrase });
     const now = Date.now();
     if (match.matched && (match.phrase !== lastMatchedPhraseRef.current || now - lastMatchedTimeRef.current > 5000)) {
@@ -411,7 +433,7 @@ export default function Index() {
         logAlert('emergency_trigger', `Emergency phrase triggered: "${match.phrase}"`);
       }
     }
-  }, [listenTranscript, listenInterim, running, checkForWakeWord, addAlert, logAlert, logNotification]);
+  }, [listenTranscript, listenInterim, running, checkForWakeWord, addAlert, logAlert, logNotification, ipCam.connected]);
 
   const handleStart = useCallback(async () => {
     const detected = await enumerateDevices();
@@ -458,10 +480,21 @@ export default function Index() {
       ipCam.disconnect();
       attachStream(ipTargetSlot, null);
     }
+    // Stop means stop: every connected camera (CAM 1–4) is disconnected on the
+    // local service too, so no stream or audio worker keeps running.
+    const server = serverUrlFor(loadServerHost());
+    void (async () => {
+      for (const slot of camSlots) {
+        if (!slot.connected && !slot.streamUrl) continue;
+        try { await stopCamera(server, `slot-${slot.index}`); } catch { /* service offline */ }
+        updateCamSlot(slot.index, { connected: false, streamUrl: '' });
+      }
+      try { await stopAllCameras(server); } catch { /* service offline */ }
+    })();
     setAttentionScore(0);
     setGlobalSaliencyScore(0);
     perfMonitor.reset();
-  }, [stopCameras, stopAudio, stopSpeech, clearSpeech, ipCam, attachStream, ipTargetSlot]);
+  }, [stopCameras, stopAudio, stopSpeech, clearSpeech, ipCam, attachStream, ipTargetSlot, camSlots, updateCamSlot]);
 
   // Watch for camera disconnect mid-run: if no active webcam and no IP cam,
   // stop detection and surface a reconnect message in the existing feed area.
