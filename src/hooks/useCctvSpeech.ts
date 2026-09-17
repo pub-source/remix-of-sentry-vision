@@ -100,7 +100,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
           if (text && text !== lastShownRef.current) {
             lastShownRef.current = text;
             console.info(`[CCTV Speech ${cameraId}]`, text);
-            setTranscript(prev => mergeTranscript(prev, text));
+            showTranscript(text);
           }
           return;
         }
@@ -108,7 +108,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
         const last = res.status?.last_transcript ?? '';
         if (last && last !== lastShownRef.current) {
           lastShownRef.current = last;
-          setTranscript(prev => mergeTranscript(prev, last));
+          showTranscript(last);
         }
       } catch (error) {
         if (!cancelled) {
