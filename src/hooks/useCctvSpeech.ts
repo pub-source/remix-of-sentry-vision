@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { describeAudioStatus, getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
-import { mergeTranscript } from '@/lib/transcript';
+
+/** The live transcript is wiped this long after the last words were heard. */
+const TRANSCRIPT_CLEAR_MS = 5000;
 
 export interface CctvSpeechDiagnostics {
   polling: boolean;
