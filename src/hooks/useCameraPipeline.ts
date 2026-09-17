@@ -325,7 +325,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           const spoken = fresh.map(e => e.transcript).filter(Boolean).join(' ').trim();
           if (spoken && spoken !== lastShownRef.current) {
             lastShownRef.current = spoken;
-            patch({ transcript: mergeTranscript(runtimeRef.current.transcript, spoken) });
+            showTranscript(spoken);
           }
           for (const e of fresh) {
             if (e.confidence < settings.audioThreshold) continue;
@@ -342,7 +342,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           && status.last_transcript !== lastShownRef.current
         ) {
           lastShownRef.current = status.last_transcript;
-          patch({ transcript: status.last_transcript.slice(-600) });
+          showTranscript(status.last_transcript);
         }
       } catch (err) {
         if (stopped) return;
@@ -361,7 +361,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
     const id = window.setInterval(poll, 1500);
     void poll();
     return () => { stopped = true; window.clearInterval(id); patch({ audioListening: false }); };
-  }, [camera.enabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
+  }, [camera.enabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit, showTranscript]);
 
 
   const reconnect = useCallback(() => {
