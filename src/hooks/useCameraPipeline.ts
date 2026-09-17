@@ -9,9 +9,10 @@ import type {
   CameraConfig, CameraRuntime, DetectionEvent, MultiCamSettings,
 } from '@/types/multicam';
 import { hlsUrlFor } from '@/types/multicam';
-import { mergeTranscript } from '@/lib/transcript';
 
 const HUMAN_LABELS = new Set(['person']);
+/** Live CCTV text disappears this long after the last words were heard. */
+const TRANSCRIPT_CLEAR_MS = 5000;
 
 const emptyRuntime = (cameraId: string): CameraRuntime => ({
   cameraId,
