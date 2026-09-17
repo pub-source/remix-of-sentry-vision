@@ -41,6 +41,19 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
   const [diagnostics, setDiagnostics] = useState<CctvSpeechDiagnostics>(IDLE);
   const sinceRef = useRef<string | undefined>(undefined);
   const lastShownRef = useRef('');
+  const clearTimerRef = useRef<number | undefined>(undefined);
+
+  /**
+   * The newest Whisper sentence always REPLACES the previous one — CCTV text is
+   * never accumulated — and it disappears 5 s after the last words were heard.
+   */
+  const showTranscript = useCallback((text: string) => {
+    setTranscript(text);
+    if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current);
+    clearTimerRef.current = window.setTimeout(() => setTranscript(''), TRANSCRIPT_CLEAR_MS);
+  }, []);
+
+  useEffect(() => () => { if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current); }, []);
 
   useEffect(() => {
     if (!enabled) {
