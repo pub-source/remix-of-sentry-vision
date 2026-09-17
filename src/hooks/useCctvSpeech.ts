@@ -132,7 +132,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
     void tick();
     const id = window.setInterval(tick, 1500);
     return () => { cancelled = true; setListening(false); window.clearInterval(id); };
-  }, [server, cameraId, enabled]);
+  }, [server, cameraId, enabled, showTranscript]);
 
   const clear = useCallback(() => setTranscript(''), []);
 
