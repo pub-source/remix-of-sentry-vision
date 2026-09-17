@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { describeAudioStatus, getAudioEvents, type CctvAudioStatus } from '@/lib/multiCamServer';
-import { mergeTranscript } from '@/lib/transcript';
+
+/** The live transcript is wiped this long after the last words were heard. */
+const TRANSCRIPT_CLEAR_MS = 5000;
 
 export interface CctvSpeechDiagnostics {
   polling: boolean;
@@ -39,6 +41,19 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
   const [diagnostics, setDiagnostics] = useState<CctvSpeechDiagnostics>(IDLE);
   const sinceRef = useRef<string | undefined>(undefined);
   const lastShownRef = useRef('');
+  const clearTimerRef = useRef<number | undefined>(undefined);
+
+  /**
+   * The newest Whisper sentence always REPLACES the previous one — CCTV text is
+   * never accumulated — and it disappears 5 s after the last words were heard.
+   */
+  const showTranscript = useCallback((text: string) => {
+    setTranscript(text);
+    if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current);
+    clearTimerRef.current = window.setTimeout(() => setTranscript(''), TRANSCRIPT_CLEAR_MS);
+  }, []);
+
+  useEffect(() => () => { if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current); }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -85,7 +100,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
           if (text && text !== lastShownRef.current) {
             lastShownRef.current = text;
             console.info(`[CCTV Speech ${cameraId}]`, text);
-            setTranscript(prev => mergeTranscript(prev, text));
+            showTranscript(text);
           }
           return;
         }
@@ -93,7 +108,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
         const last = res.status?.last_transcript ?? '';
         if (last && last !== lastShownRef.current) {
           lastShownRef.current = last;
-          setTranscript(prev => mergeTranscript(prev, last));
+          showTranscript(last);
         }
       } catch (error) {
         if (!cancelled) {
@@ -117,7 +132,7 @@ export function useCctvSpeech(server: string, cameraId: string, enabled: boolean
     void tick();
     const id = window.setInterval(tick, 1500);
     return () => { cancelled = true; setListening(false); window.clearInterval(id); };
-  }, [server, cameraId, enabled]);
+  }, [server, cameraId, enabled, showTranscript]);
 
   const clear = useCallback(() => setTranscript(''), []);
 

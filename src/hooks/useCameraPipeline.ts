@@ -9,9 +9,10 @@ import type {
   CameraConfig, CameraRuntime, DetectionEvent, MultiCamSettings,
 } from '@/types/multicam';
 import { hlsUrlFor } from '@/types/multicam';
-import { mergeTranscript } from '@/lib/transcript';
 
 const HUMAN_LABELS = new Set(['person']);
+/** Live CCTV text disappears this long after the last words were heard. */
+const TRANSCRIPT_CLEAR_MS = 5000;
 
 const emptyRuntime = (cameraId: string): CameraRuntime => ({
   cameraId,
@@ -60,6 +61,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
   const lastFpsRef = useRef(Date.now());
   const lastAudioRef = useRef<string | undefined>(undefined);
   const lastShownRef = useRef<string>('');
+  const clearTimerRef = useRef<number | undefined>(undefined);
 
   const cooldownRef = useRef<Record<string, number>>({});
   const retryRef = useRef(0);
@@ -73,6 +75,15 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
     runtimeRef.current = { ...runtimeRef.current, ...p };
     setRuntime(runtimeRef.current);
   }, []);
+
+  /** Newest Whisper sentence replaces the old one and clears after 5 s. */
+  const showTranscript = useCallback((text: string) => {
+    patch({ transcript: text });
+    if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current);
+    clearTimerRef.current = window.setTimeout(() => patch({ transcript: '' }), TRANSCRIPT_CLEAR_MS);
+  }, [patch]);
+
+  useEffect(() => () => { if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current); }, []);
 
   const snapshot = useCallback(() => {
     const c = workRef.current;
@@ -314,7 +325,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           const spoken = fresh.map(e => e.transcript).filter(Boolean).join(' ').trim();
           if (spoken && spoken !== lastShownRef.current) {
             lastShownRef.current = spoken;
-            patch({ transcript: mergeTranscript(runtimeRef.current.transcript, spoken) });
+            showTranscript(spoken);
           }
           for (const e of fresh) {
             if (e.confidence < settings.audioThreshold) continue;
@@ -331,7 +342,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           && status.last_transcript !== lastShownRef.current
         ) {
           lastShownRef.current = status.last_transcript;
-          patch({ transcript: status.last_transcript.slice(-600) });
+          showTranscript(status.last_transcript);
         }
       } catch (err) {
         if (stopped) return;
@@ -350,7 +361,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
     const id = window.setInterval(poll, 1500);
     void poll();
     return () => { stopped = true; window.clearInterval(id); patch({ audioListening: false }); };
-  }, [camera.enabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit]);
+  }, [camera.enabled, camera.id, settings.pythonServer, settings.audioThreshold, patch, emit, showTranscript]);
 
 
   const reconnect = useCallback(() => {
