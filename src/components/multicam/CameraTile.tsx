@@ -1,16 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Maximize2, RefreshCw, Video, VideoOff, Flame, Cloud, User, Brain, Mic, Circle,
+  Maximize2, RefreshCw, Video, VideoOff, Flame, Cloud, User, Brain, Mic, MicOff,
+  Circle, Volume2, VolumeX,
 } from 'lucide-react';
 import { useCameraPipeline } from '@/hooks/useCameraPipeline';
+import { useCctvTalk } from '@/hooks/useCctvTalk';
+import { clipFileName, recordClip, saveClip } from '@/lib/clipRecorder';
 import type { CameraConfig, DetectionEvent, MultiCamSettings } from '@/types/multicam';
 
 interface Props {
   camera: CameraConfig;
   settings: MultiCamSettings;
-  onEvent: (evt: Omit<DetectionEvent, 'id'>) => void;
+  /** Returns the id of the stored event so a clip can be attached to it later. */
+  onEvent: (evt: Omit<DetectionEvent, 'id'>) => string | void;
+  onClip?: (eventId: string, clipFile: string, clipUrl: string) => void;
   onExpand?: (id: string) => void;
   compact?: boolean;
+  /** Speaker + push-to-talk are only offered on cameras that have two-way audio. */
+  audioControls?: boolean;
 }
 
 const statusStyle: Record<string, string> = {
@@ -20,9 +27,49 @@ const statusStyle: Record<string, string> = {
   offline: 'bg-muted text-muted-foreground',
 };
 
-export default function CameraTile({ camera, settings, onEvent, onExpand, compact }: Props) {
-  const { videoRef, runtime, reconnect } = useCameraPipeline({ camera, settings, onEvent });
+/** Only these really matter — object sightings are informational, never red. */
+const EMERGENCY_TYPES = new Set<DetectionEvent['type']>([
+  'fire', 'smoke', 'face-distress', 'audio-distress',
+]);
+
+export default function CameraTile({
+  camera, settings, onEvent, onClip, onExpand, compact, audioControls,
+}: Props) {
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
+  const recordingRef = useRef(false);
+  const [speaker, setSpeaker] = useState(false);
+  const [clipNote, setClipNote] = useState('');
+
+  const handleEvent = useCallback((evt: Omit<DetectionEvent, 'id'>) => {
+    const id = onEvent(evt);
+    if (!EMERGENCY_TYPES.has(evt.type) || recordingRef.current) return id;
+    const video = videoRef.current;
+    if (!video || typeof id !== 'string') return id;
+    recordingRef.current = true;
+    setClipNote('Recording a 10 second clip…');
+    void recordClip(video)
+      .then(async blob => {
+        if (!blob) { setClipNote('Could not record a clip from this camera.'); return; }
+        const name = clipFileName(camera.name, evt.type);
+        const where = await saveClip(blob, name);
+        onClip?.(id, name, URL.createObjectURL(blob));
+        setClipNote(`Clip saved to ${where}`);
+      })
+      .finally(() => {
+        recordingRef.current = false;
+        window.setTimeout(() => setClipNote(''), 6000);
+      });
+    return id;
+  }, [camera.name, onClip, onEvent]);
+
+  const { videoRef, runtime, reconnect } = useCameraPipeline({ camera, settings, onEvent: handleEvent });
+  const talk = useCctvTalk(settings.pythonServer, camera.id);
+
+  // Speaker: unmute the live feed so the operator hears the camera.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.muted = !(audioControls && speaker);
+  }, [speaker, audioControls, videoRef, runtime.status]);
 
   // Draw per-camera detection overlay (boxes + fire box)
   useEffect(() => {
@@ -57,10 +104,12 @@ export default function CameraTile({ camera, settings, onEvent, onExpand, compac
     }
   }, [runtime.objects, runtime.fire, videoRef]);
 
-  const Badge = ({ on, icon: Icon, label }: { on: boolean; icon: typeof Flame; label: string }) => (
+  const Badge = ({ on, icon: Icon, label, alert = true }: { on: boolean; icon: typeof Flame; label: string; alert?: boolean }) => (
     <span
       className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] font-semibold ${
-        on ? 'bg-destructive/20 text-destructive' : 'bg-muted/60 text-muted-foreground'
+        on
+          ? alert ? 'bg-destructive/20 text-destructive' : 'bg-primary/15 text-primary'
+          : 'bg-muted/60 text-muted-foreground'
       }`}
       title={label}
     >
@@ -85,6 +134,29 @@ export default function CameraTile({ camera, settings, onEvent, onExpand, compac
           <span className={`px-2 py-0.5 rounded-full text-[13px] font-semibold ${statusStyle[runtime.status]}`}>
             {runtime.status === 'online' ? 'Live' : runtime.status}
           </span>
+          {audioControls && (
+            <>
+              <button
+                onClick={() => setSpeaker(s => !s)}
+                className={`p-1.5 rounded hover:bg-muted ${speaker ? 'text-primary' : 'text-muted-foreground'}`}
+                title={speaker ? 'Mute camera sound' : 'Hear camera sound'}
+                aria-pressed={speaker}
+              >
+                {speaker ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onMouseDown={talk.startTalk}
+                onMouseUp={talk.stopTalk}
+                onMouseLeave={talk.stopTalk}
+                onTouchStart={talk.startTalk}
+                onTouchEnd={talk.stopTalk}
+                className={`p-1.5 rounded hover:bg-muted ${talk.talking ? 'text-destructive' : 'text-muted-foreground'}`}
+                title="Hold to talk through this camera"
+              >
+                {talk.talking ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+            </>
+          )}
           <button onClick={reconnect} className="p-1.5 rounded hover:bg-muted" title="Reconnect this camera">
             <RefreshCw className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -106,12 +178,39 @@ export default function CameraTile({ camera, settings, onEvent, onExpand, compac
           className="absolute inset-0 w-full h-full object-contain"
         />
         <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+
+        {/* Live transcription of what this camera hears */}
+        {camera.enabled && (
+          <div className="absolute top-2 left-2 z-10 max-w-[70%] rounded-md bg-background/85 border border-border px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+              <Mic className="w-3 h-3" /> Live transcription
+            </div>
+            <p aria-live="polite" className="mt-0.5 max-h-20 overflow-y-auto text-[13px] leading-snug text-foreground">
+              {runtime.transcript || (
+                <span className={runtime.audioTone === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+                  {runtime.audioMessage}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
         {runtime.status !== 'online' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-center px-3">
             <VideoOff className="w-7 h-7 text-muted-foreground" />
             <span className="text-[14px] font-semibold text-muted-foreground">
               {runtime.status === 'connecting' ? 'Connecting…' : runtime.error || 'Offline'}
             </span>
+          </div>
+        )}
+        {talk.error && (
+          <div className="absolute top-2 right-2 z-10 rounded bg-destructive/90 text-destructive-foreground text-[12px] px-2 py-1">
+            {talk.error}
+          </div>
+        )}
+        {clipNote && (
+          <div className="absolute bottom-10 left-2 z-10 rounded bg-background/90 border border-border text-[12px] px-2 py-1">
+            {clipNote}
           </div>
         )}
         {(runtime.fire.detected || runtime.audioDistress.detected) && (
@@ -124,10 +223,10 @@ export default function CameraTile({ camera, settings, onEvent, onExpand, compac
       {/* Stats */}
       {!compact && (
         <div className="px-3 py-2 flex flex-wrap items-center gap-1.5 border-t border-border">
-          <Badge on={camera.aiEnabled} icon={Brain} label={camera.aiEnabled ? 'AI on' : 'AI off'} />
+          <Badge on={camera.aiEnabled} icon={Brain} label={camera.aiEnabled ? 'AI on' : 'AI off'} alert={false} />
           <Badge on={runtime.fire.detected} icon={Flame} label="Fire" />
           <Badge on={runtime.smoke.detected} icon={Cloud} label="Smoke" />
-          <Badge on={runtime.humanCount > 0} icon={User} label={`Human ${runtime.humanCount}`} />
+          <Badge on={runtime.humanCount > 0} icon={User} label={`Human ${runtime.humanCount}`} alert={false} />
           <Badge on={runtime.audioDistress.detected} icon={Mic} label="Audio" />
           <span className="ml-auto flex items-center gap-2 text-[13px] font-mono text-muted-foreground">
             <Video className="w-3.5 h-3.5" />
