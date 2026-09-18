@@ -53,7 +53,10 @@ export interface DetectionEvent {
   confidence: number;    // 0..1
   timestamp: string;     // ISO
   snapshot?: string;     // data URL
+  /** Object URL of the 10-second emergency clip (this session only). */
   clipUrl?: string;
+  /** File name of the clip saved on the user's computer. */
+  clipFile?: string;
 }
 
 /** Live, per-camera pipeline state. Never shared between cameras. */

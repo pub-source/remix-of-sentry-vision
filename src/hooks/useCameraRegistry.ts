@@ -65,6 +65,13 @@ export function useCameraRegistry() {
     window.dispatchEvent(new Event(EVENTS_EVT));
   }, []);
 
+  const updateEvent = useCallback((id: string, patch: Partial<DetectionEvent>) => {
+    const next = loadEvents().map(e => (e.id === id ? { ...e, ...patch } : e));
+    saveEvents(next);
+    setEvents(next.slice(0, 500));
+    window.dispatchEvent(new Event(EVENTS_EVT));
+  }, []);
+
   const clearEvents = useCallback(() => {
     saveEvents([]);
     setEvents([]);
@@ -73,6 +80,6 @@ export function useCameraRegistry() {
 
   return {
     cameras, settings, events,
-    addCamera, updateCamera, deleteCamera, updateSettings, addEvent, clearEvents,
+    addCamera, updateCamera, deleteCamera, updateSettings, addEvent, updateEvent, clearEvents,
   };
 }
