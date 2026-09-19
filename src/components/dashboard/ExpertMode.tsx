@@ -517,14 +517,13 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
             </svg>
           </div>
 
-          {/* Doggie speech + code snippet */}
+          {/* Plain explanation + code snippet */}
           <div className="space-y-3">
             <div
               className="relative rounded-xl border border-fuchsia-400/40 bg-slate-950/70 p-4 animate-fade-in"
               key={`explain-${step}`}
             >
               <div className="flex items-start gap-3">
-                <div className="text-3xl shrink-0 animate-bounce">🐕</div>
                 <div>
                   <div
                     className="text-xs font-mono uppercase tracking-wider mb-1"
