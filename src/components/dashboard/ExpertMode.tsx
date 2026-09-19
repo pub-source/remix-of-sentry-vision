@@ -490,7 +490,7 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 );
               })}
 
-              {/* Doggie mascot at the current arrow */}
+              {/* Pulsing marker on the current arrow */}
               <g
                 style={{
                   transition: 'transform 700ms cubic-bezier(0.4,0,0.2,1)',
@@ -498,7 +498,7 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 }}
               >
                 <circle
-                  r={22}
+                  r={14}
                   cx={20}
                   cy={20}
                   fill="rgba(240,171,252,0.25)"
@@ -508,19 +508,11 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 >
                   <animate
                     attributeName="r"
-                    values="20;24;20"
+                    values="12;16;12"
                     dur="1.4s"
                     repeatCount="indefinite"
                   />
                 </circle>
-                <text
-                  x={20}
-                  y={28}
-                  textAnchor="middle"
-                  fontSize={26}
-                >
-                  🐕
-                </text>
               </g>
             </svg>
           </div>
