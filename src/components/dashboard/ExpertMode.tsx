@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Sparkles, Dog, Play, Pause, SkipForward, SkipBack } from 'lucide-react';
+import { X, Sparkles, Workflow, Play, Pause, SkipForward, SkipBack } from 'lucide-react';
 
 export interface SequenceStep {
   from: string;
@@ -236,15 +236,15 @@ export default function ExpertMode({ open, onClose }: { open: boolean; onClose: 
       >
         <header className="flex items-center justify-between p-5 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-3xl animate-bounce">
-              🐕
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+              <Workflow className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                 Expert Mode <Sparkles className="w-5 h-5 text-primary" />
               </h2>
               <p className="text-base text-muted-foreground">
-                Pick an algorithm — I'll walk you through it step by step.
+                Pick a part of the system to see, step by step, how it decides.
               </p>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function ExpertMode({ open, onClose }: { open: boolean; onClose: 
               className="w-full text-left bg-secondary/40 hover:bg-secondary/70 border border-border hover:border-primary/50 rounded-xl p-4 transition-all group"
             >
               <div className="flex items-start gap-3">
-                <Dog className="w-6 h-6 text-primary shrink-0 mt-1 group-hover:scale-110 transition-transform" />
+                <Workflow className="w-6 h-6 text-primary shrink-0 mt-1 group-hover:scale-110 transition-transform" />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-xl font-semibold text-foreground">{algo.name}</h3>
