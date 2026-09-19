@@ -5,7 +5,7 @@ export interface SequenceStep {
   from: string;
   to: string;
   label: string;
-  explain: string; // what the doggie says
+  explain: string; // plain-language explanation of this step
   code: string;    // code snippet highlighted at this step
   lang?: string;
 }
@@ -40,7 +40,7 @@ const ALGORITHMS: AlgorithmDoc[] = [
       {
         from: 'Frame', to: 'ColorMask',
         label: 'sample pixels',
-        explain: 'Woof! First I look at every pixel and ask: is this really fire-colored? Reds too pink or too dark get thrown out.',
+        explain: 'First I look at every pixel and ask: is this really fire-colored? Reds too pink or too dark get thrown out.',
         code: `const isFire =
   r > 200 && g >= 100 && g <= 200 && b < 100 &&
   r > g + 40 && g > b + 20;
@@ -65,7 +65,7 @@ const variance = varianceOf(history);`,
       {
         from: 'ColorMask', to: 'Rejecter',
         label: 'check bbox',
-        explain: 'If the "fire" sits inside a TV or phone bounding box from COCO-SSD, it is definitely a screen. Bark!',
+        explain: 'If the "fire" sits inside a TV or phone bounding box from COCO-SSD, it is definitely a screen.',
         code: `if (insideBBoxOf(['tv','laptop','cell phone'], region)) {
   return { fire: false, reason: 'screen' };
 }`,
@@ -168,7 +168,7 @@ const distressScore = 100 * hits.reduce((s,i) => s + scores[i], 0);`,
       {
         from: 'Filter', to: 'Alert',
         label: 'emit event',
-        explain: 'If the score crosses 60, that is critical — 35 is elevated. Woof!',
+        explain: 'If the score crosses 60, that is critical — 35 is elevated.',
         code: `if (distressScore >= 60) emit({ level: 'critical', distressScore });
 else if (distressScore >= 35) emit({ level: 'elevated', distressScore });`,
       },
@@ -244,7 +244,7 @@ export default function ExpertMode({ open, onClose }: { open: boolean; onClose: 
                 Expert Mode <Sparkles className="w-5 h-5 text-primary" />
               </h2>
               <p className="text-base text-muted-foreground">
-                Woof! Pick an algorithm — I'll walk you through it step by step.
+                Pick an algorithm — I'll walk you through it step by step.
               </p>
             </div>
           </div>
