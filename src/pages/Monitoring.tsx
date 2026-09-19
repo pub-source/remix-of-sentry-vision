@@ -1,10 +1,13 @@
 import IdleHint from '@/components/IdleHint';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, X, Camera, Filter, Trash2, Grid2x2, Square as SquareIcon, Columns2 } from 'lucide-react';
+import { Shield, X, Camera, Filter, Trash2, Grid2x2, Square as SquareIcon, Columns2, Settings, FolderOpen, Film } from 'lucide-react';
 import { useCameraRegistry } from '@/hooks/useCameraRegistry';
 import { useCameraSlots, slotCamera, slotSettings, type SlotCount } from '@/hooks/useCameraSlots';
 import CameraTile from '@/components/multicam/CameraTile';
+import {
+  clipFolderSupported, getClipFolderLabel, getClipSeconds, pickClipFolder, setClipSeconds,
+} from '@/lib/clipRecorder';
 import type { DetectionEvent } from '@/types/multicam';
 
 const typeIcon: Record<string, string> = {
@@ -14,18 +17,34 @@ const typeIcon: Record<string, string> = {
 
 export default function Monitoring() {
   const navigate = useNavigate();
-  const { settings, events, addEvent, clearEvents } = useCameraRegistry();
+  const { settings, events, addEvent, updateEvent, clearEvents } = useCameraRegistry();
   const { count, activeSlots, setCount } = useCameraSlots();
   const [focused, setFocused] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [showSettings, setShowSettings] = useState(false);
+  const [folder, setFolder] = useState(getClipFolderLabel());
+  const [seconds, setSeconds] = useState(getClipSeconds());
+  const [folderError, setFolderError] = useState('');
 
   const connected = useMemo(() => activeSlots.filter(s => s.ip.trim() && s.connected), [activeSlots]);
   const visible = focused ? connected.filter(s => `slot-${s.index}` === focused) : connected;
   const filtered = filter === 'all' ? events : events.filter(e => e.cameraId === filter);
   const alerts = filtered.filter(e => ['fire', 'smoke', 'face-distress', 'audio-distress'].includes(e.type));
 
-  const handleEvent = (evt: Omit<DetectionEvent, 'id'>) =>
-    addEvent({ ...evt, id: crypto.randomUUID() });
+  const handleEvent = (evt: Omit<DetectionEvent, 'id'>) => {
+    const id = crypto.randomUUID();
+    addEvent({ ...evt, id });
+    return id;
+  };
+
+  const chooseFolder = async () => {
+    setFolderError('');
+    try {
+      setFolder(await pickClipFolder());
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : 'Could not open the folder picker.');
+    }
+  };
 
   const gridClass = count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2';
 
@@ -93,15 +112,22 @@ export default function Monitoring() {
             </div>
           ) : (
             <div className={`grid gap-4 ${focused ? 'grid-cols-1' : gridClass}`}>
-              {visible.map(slot => (
-                <CameraTile
-                  key={slot.index}
-                  camera={slotCamera(slot)}
-                  settings={slotSettings(slot, settings)}
-                  onEvent={handleEvent}
-                  onExpand={id => setFocused(prev => (prev === id ? null : id))}
-                />
-              ))}
+              {visible.map(slot => {
+                const base = slotCamera(slot);
+                // Camera 1 streams only — its detection is off so the computer stays fast.
+                const camera = slot.index === 1 ? { ...base, aiEnabled: false } : base;
+                return (
+                  <CameraTile
+                    key={slot.index}
+                    camera={camera}
+                    settings={slotSettings(slot, settings)}
+                    onEvent={handleEvent}
+                    onClip={(id, clipFile, clipUrl) => updateEvent(id, { clipFile, clipUrl })}
+                    onExpand={id => setFocused(prev => (prev === id ? null : id))}
+                    audioControls={slot.index !== 1}
+                  />
+                );
+              })}
             </div>
           )}
         </section>
@@ -147,17 +173,64 @@ export default function Monitoring() {
                   <option key={s.index} value={`slot-${s.index}`}>{s.name}</option>
                 ))}
               </select>
+              <button
+                onClick={() => setShowSettings(v => !v)}
+                className={`p-1.5 rounded hover:bg-muted ${showSettings ? 'text-primary' : 'text-muted-foreground'}`}
+                title="Recording settings"
+                aria-expanded={showSettings}
+              >
+                <Settings className="w-4 h-4" />
+              </button>
               <button onClick={clearEvents} className="p-1.5 rounded hover:bg-muted" title="Clear history">
                 <Trash2 className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
+
+            {showSettings && (
+              <div className="px-3 py-3 border-b border-border bg-primary/5 space-y-2">
+                <p className="text-[14px] font-semibold">Where should emergency videos be saved?</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={chooseFolder}
+                    disabled={!clipFolderSupported()}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[14px] font-semibold hover:bg-muted disabled:opacity-60"
+                  >
+                    <FolderOpen className="w-4 h-4" /> Choose folder
+                  </button>
+                  <span className="text-[14px] text-muted-foreground">
+                    {folder ? `Saving to “${folder}”` : 'Saving to your Downloads folder'}
+                  </span>
+                </div>
+                {!clipFolderSupported() && (
+                  <p className="text-[13px] text-muted-foreground">
+                    This browser cannot pick a folder, so clips go to Downloads.
+                  </p>
+                )}
+                {folderError && <p className="text-[13px] text-destructive">{folderError}</p>}
+                <label className="block text-[14px] font-semibold">
+                  Clip length: {seconds} seconds
+                  <input
+                    type="range"
+                    min={5}
+                    max={30}
+                    step={5}
+                    value={seconds}
+                    onChange={e => { const v = Number(e.target.value); setSeconds(v); setClipSeconds(v); }}
+                    className="w-full mt-1"
+                  />
+                </label>
+              </div>
+            )}
+
             <div className="max-h-[420px] overflow-y-auto divide-y divide-border">
               {filtered.length === 0 && (
                 <p className="p-3 text-[14px] text-muted-foreground">No events recorded.</p>
               )}
               {filtered.slice(0, 100).map(e => (
                 <div key={e.id} className="p-2.5 flex gap-2 items-start">
-                  {e.snapshot ? (
+                  {e.clipUrl ? (
+                    <video src={e.clipUrl} controls className="w-24 h-16 rounded border border-border bg-background" />
+                  ) : e.snapshot ? (
                     <img src={e.snapshot} alt={`${e.type} snapshot from ${e.cameraName}`} className="w-16 h-12 object-cover rounded border border-border" />
                   ) : (
                     <div className="w-16 h-12 rounded bg-muted flex items-center justify-center text-lg">{typeIcon[e.type]}</div>
@@ -168,6 +241,11 @@ export default function Monitoring() {
                       {e.cameraName}{e.location ? ` · ${e.location}` : ''} · {(e.confidence * 100).toFixed(0)}%
                     </div>
                     <div className="text-[13px] text-muted-foreground">{new Date(e.timestamp).toLocaleString()}</div>
+                    {e.clipFile && (
+                      <div className="flex items-center gap-1 text-[13px] text-primary truncate">
+                        <Film className="w-3.5 h-3.5 shrink-0" /> {e.clipFile}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

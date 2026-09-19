@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { X, Sparkles, Dog, Play, Pause, SkipForward, SkipBack } from 'lucide-react';
+import { X, Sparkles, Workflow, Play, Pause, SkipForward, SkipBack } from 'lucide-react';
 
 export interface SequenceStep {
   from: string;
   to: string;
   label: string;
-  explain: string; // what the doggie says
+  explain: string; // plain-language explanation of this step
   code: string;    // code snippet highlighted at this step
   lang?: string;
 }
@@ -40,7 +40,7 @@ const ALGORITHMS: AlgorithmDoc[] = [
       {
         from: 'Frame', to: 'ColorMask',
         label: 'sample pixels',
-        explain: 'Woof! First I look at every pixel and ask: is this really fire-colored? Reds too pink or too dark get thrown out.',
+        explain: 'First I look at every pixel and ask: is this really fire-colored? Reds too pink or too dark get thrown out.',
         code: `const isFire =
   r > 200 && g >= 100 && g <= 200 && b < 100 &&
   r > g + 40 && g > b + 20;
@@ -65,7 +65,7 @@ const variance = varianceOf(history);`,
       {
         from: 'ColorMask', to: 'Rejecter',
         label: 'check bbox',
-        explain: 'If the "fire" sits inside a TV or phone bounding box from COCO-SSD, it is definitely a screen. Bark!',
+        explain: 'If the "fire" sits inside a TV or phone bounding box from COCO-SSD, it is definitely a screen.',
         code: `if (insideBBoxOf(['tv','laptop','cell phone'], region)) {
   return { fire: false, reason: 'screen' };
 }`,
@@ -168,7 +168,7 @@ const distressScore = 100 * hits.reduce((s,i) => s + scores[i], 0);`,
       {
         from: 'Filter', to: 'Alert',
         label: 'emit event',
-        explain: 'If the score crosses 60, that is critical — 35 is elevated. Woof!',
+        explain: 'If the score crosses 60, that is critical — 35 is elevated.',
         code: `if (distressScore >= 60) emit({ level: 'critical', distressScore });
 else if (distressScore >= 35) emit({ level: 'elevated', distressScore });`,
       },
@@ -236,15 +236,15 @@ export default function ExpertMode({ open, onClose }: { open: boolean; onClose: 
       >
         <header className="flex items-center justify-between p-5 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-3xl animate-bounce">
-              🐕
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+              <Workflow className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                 Expert Mode <Sparkles className="w-5 h-5 text-primary" />
               </h2>
               <p className="text-base text-muted-foreground">
-                Woof! Pick an algorithm — I'll walk you through it step by step.
+                Pick a part of the system to see, step by step, how it decides.
               </p>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function ExpertMode({ open, onClose }: { open: boolean; onClose: 
               className="w-full text-left bg-secondary/40 hover:bg-secondary/70 border border-border hover:border-primary/50 rounded-xl p-4 transition-all group"
             >
               <div className="flex items-start gap-3">
-                <Dog className="w-6 h-6 text-primary shrink-0 mt-1 group-hover:scale-110 transition-transform" />
+                <Workflow className="w-6 h-6 text-primary shrink-0 mt-1 group-hover:scale-110 transition-transform" />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-xl font-semibold text-foreground">{algo.name}</h3>
@@ -490,7 +490,7 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 );
               })}
 
-              {/* Doggie mascot at the current arrow */}
+              {/* Pulsing marker on the current arrow */}
               <g
                 style={{
                   transition: 'transform 700ms cubic-bezier(0.4,0,0.2,1)',
@@ -498,7 +498,7 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 }}
               >
                 <circle
-                  r={22}
+                  r={14}
                   cx={20}
                   cy={20}
                   fill="rgba(240,171,252,0.25)"
@@ -508,31 +508,22 @@ function SequenceDiagram({ algo, onClose }: { algo: AlgorithmDoc; onClose: () =>
                 >
                   <animate
                     attributeName="r"
-                    values="20;24;20"
+                    values="12;16;12"
                     dur="1.4s"
                     repeatCount="indefinite"
                   />
                 </circle>
-                <text
-                  x={20}
-                  y={28}
-                  textAnchor="middle"
-                  fontSize={26}
-                >
-                  🐕
-                </text>
               </g>
             </svg>
           </div>
 
-          {/* Doggie speech + code snippet */}
+          {/* Plain explanation + code snippet */}
           <div className="space-y-3">
             <div
               className="relative rounded-xl border border-fuchsia-400/40 bg-slate-950/70 p-4 animate-fade-in"
               key={`explain-${step}`}
             >
               <div className="flex items-start gap-3">
-                <div className="text-3xl shrink-0 animate-bounce">🐕</div>
                 <div>
                   <div
                     className="text-xs font-mono uppercase tracking-wider mb-1"
