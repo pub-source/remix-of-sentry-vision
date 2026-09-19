@@ -510,3 +510,36 @@ export const isEmergencySpeech = (transcript: string) =>
 
 /** Total number of phrases in the library — shown in the UI/diagnostics. */
 export const SAFETY_LEXICON_SIZE = SAFETY_LEXICON.length;
+
+/**
+ * Wake words: the safety-only subset. Everyday awareness chatter ("be careful",
+ * "someone is at the door") never wakes the system — only urgent, safety
+ * phrases such as help, help me, police, call the police, tulong, pulis,
+ * tumawag kayo ng pulis do.
+ */
+export const SAFETY_WAKE_WORDS: SafetyPhrase[] = SAFETY_LEXICON.filter(
+  p => p.severity === 'critical' || p.severity === 'high',
+);
+
+export const SAFETY_WAKE_WORD_COUNT = SAFETY_WAKE_WORDS.length;
+
+/** Match a transcript against the safety-only wake-word subset. */
+export function matchWakeWord(transcript: string): SafetyMatch {
+  const match = matchSafetyPhrase(transcript);
+  if (!match.matched) return NO_MATCH;
+  const urgent = match.all.filter(p => p.severity === 'critical' || p.severity === 'high');
+  if (urgent.length === 0) return NO_MATCH;
+  const rank: Record<SafetySeverity, number> = { critical: 3, high: 2, medium: 1 };
+  const best = urgent.reduce((a, b) =>
+    rank[b.severity] > rank[a.severity] || (rank[b.severity] === rank[a.severity] && b.confidence > a.confidence)
+      ? b : a);
+  return {
+    matched: true,
+    phrase: best.phrase,
+    category: best.category,
+    severity: best.severity,
+    lang: best.lang,
+    confidence: best.confidence,
+    all: urgent,
+  };
+}
