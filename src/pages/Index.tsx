@@ -29,7 +29,7 @@ import type { DetectionEvent } from '@/types/multicam';
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
 import { stopAll as stopAllCameras, stopCamera } from '@/lib/multiCamServer';
-import { matchSafetyPhrase } from '@/lib/safetyLexicon';
+import { matchWakeWord } from '@/lib/safetyLexicon';
 import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
 
 
@@ -402,7 +402,7 @@ export default function Index() {
     // and awareness library. Only words in one of those two lists are treated
     // as recognised speech — everything else stays plain transcription.
     const household = checkForWakeWord(combinedText);
-    const safety = matchSafetyPhrase(combinedText);
+    const safety = matchWakeWord(combinedText);
     const match = household.matched
       ? household
       : safety.matched
@@ -546,8 +546,10 @@ export default function Index() {
       if (obj.label === 'person' && obj.confidence > 0.7) {
         addAlert('Person detected', 'medium', cameraId);
       }
+      // Everyday objects (chair, books, plants…) are information only —
+      // they are logged quietly and never raise a red alert.
       if (priorityObjects.includes(obj.label) && obj.label !== 'person') {
-        addAlert(`Priority: ${obj.label} detected`, 'high', cameraId);
+        addAlert(`Seen: ${obj.label}`, 'low', cameraId);
       }
     });
   }, [updateCamera, addAlert, priorityObjects]);
