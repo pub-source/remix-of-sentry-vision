@@ -14,3 +14,6 @@
 
 ## Open (needs your PC)
 - Verify on the packaged Windows app: CCTV audio chunks, Whisper transcripts in English and Tagalog, GPU diagnostics.
+
+## In progress
+- [ ] Revise Expert Mode into real algorithm and hybrid-algorithm dashboard tutorials with code and explanations.
