@@ -312,7 +312,7 @@ export default function FusedDetectionView({
   }, []);
 
   return (
-    <div ref={containerRef} className="relative bg-card rounded-md overflow-hidden border border-border panel-glow group flex flex-col">
+    <div id="tour-fused-view" ref={containerRef} className="relative bg-card rounded-md overflow-hidden border border-border panel-glow group flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
         <span className="text-[12px] font-semibold text-primary uppercase tracking-wider">
@@ -338,6 +338,7 @@ export default function FusedDetectionView({
       {/* Live CCTV transcription with a plain-language reason when silent. */}
       {(
         <div
+          id="tour-live-transcription"
           className="absolute left-2 top-8 z-10 max-w-[70%] rounded-md border border-border bg-background/85 px-2.5 py-1.5"
           role="status"
           aria-live="polite"
