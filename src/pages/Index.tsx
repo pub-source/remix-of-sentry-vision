@@ -11,7 +11,7 @@ import DetectionFeedback from '@/components/dashboard/DetectionFeedback';
 import PerformanceMonitor from '@/components/dashboard/PerformanceMonitor';
 
 import TutorialOverlay, { type TutorialStep } from '@/components/dashboard/TutorialOverlay';
-import ExpertMode from '@/components/dashboard/ExpertMode';
+import ExpertMode, { type AlgorithmId } from '@/components/dashboard/ExpertMode';
 
 import { useCamera } from '@/hooks/useCamera';
 import { useAudioAnalysis } from '@/hooks/useAudioAnalysis';
@@ -55,6 +55,81 @@ const LOW_VALUE_ALERTS = /^(Speech detected|Person detected|High noise level|Cla
 
 /** Survives route changes so the camera/detection session is not restarted. */
 const monitoringSession = { running: false };
+
+const ALGORITHM_TOURS: Record<AlgorithmId, TutorialStep[]> = {
+  vision: [
+    {
+      selector: '#tour-fused-view', placement: 'bottom', title: 'Visual saliency',
+      body: 'Each camera frame is changed to grayscale. Sobel edges or frame-to-frame motion reveal the parts that deserve attention.',
+      implementation: 'src/lib/saliency.ts',
+      code: `const saliency = computeSaliency(frame, previousFrame, 'sobel', 40);\nconst score = computeSaliencyScore(saliency);`,
+    },
+    {
+      selector: '#tour-fused-view', placement: 'bottom', title: 'Object detection',
+      body: 'COCO-SSD with MobileNet v2 identifies people and common objects. A confidence threshold removes uncertain boxes.',
+      implementation: 'src/lib/detectionEngine.ts',
+      code: `const predictions = await model.detect(frame, 20, minimumConfidence);`,
+    },
+  ],
+  fire: [
+    {
+      selector: '#tour-fire-analysis', placement: 'top', title: 'Fire and smoke analysis',
+      body: 'The system combines fire-colored pixels, movement over recent frames, smoke color, and visibility. TV, phone, laptop, poster, and static-red false alarms are rejected.',
+      implementation: 'src/lib/fireDetection.ts',
+      code: `confidence = fireColor + flicker + smoke + lowVisibility;\nif (insideScreen || staticRedObject) rejectCandidate();`,
+    },
+  ],
+  face: [
+    {
+      selector: '#tour-face-distress', placement: 'top', title: 'Facial distress',
+      body: 'TinyFaceDetector finds the nearest face. Expression scores are weighted for safety and averaged across five samples to prevent flickering alerts.',
+      implementation: 'src/hooks/useFaceDistress.ts',
+      code: `distress = sad + 1.4*fearful + 0.8*angry + 0.7*disgusted;\nscore = average(lastFiveSamples);`,
+    },
+  ],
+  speech: [
+    {
+      selector: '#tour-live-transcription', placement: 'bottom', title: 'CCTV speech transcription',
+      body: 'Sound comes from the CCTV RTSP stream. FFmpeg creates 16 kHz mono WAV chunks, then local Whisper returns the complete English or Tagalog sentence.',
+      implementation: 'local-server/msds/camera.py · local-server/msds/whisper_engine.py',
+      code: `RTSP audio → FFmpeg WAV chunks → Whisper sentence`,
+    },
+    {
+      selector: '#tour-live-transcription', placement: 'bottom', title: 'Safety phrase matching',
+      body: 'The complete sentence stays visible. Separately, the safety library checks phrases such as “help me”, “call police”, “tulong”, and “tumawag kayo ng pulis” for alert logic.',
+      implementation: 'src/lib/safetyLexicon.ts',
+      code: `const safetyMatch = matchWakeWord(fullTranscript);`,
+    },
+  ],
+  audio: [
+    {
+      selector: '#tour-audio-distress', placement: 'top', title: 'Sound distress',
+      body: 'YAMNet examines short sound windows and scores safety sounds such as screaming, crying, shouting, and wailing while suppressing ordinary sounds.',
+      implementation: 'src/hooks/useYamnet.ts',
+      code: `distress = weightedSafetySounds - 0.5 * ordinarySounds;`,
+    },
+  ],
+  hybrid: [
+    {
+      selector: '#tour-fused-view', placement: 'bottom', title: '1. Observe every signal',
+      body: 'The hybrid system watches visual saliency and objects while listening for sound distress and English or Tagalog safety speech. It also checks faces, fire, smoke, and visibility.',
+      implementation: 'src/hooks/useCameraPipeline.ts',
+      code: `vision + objects + sound + speech + face + fire + smoke`,
+    },
+    {
+      selector: '#tour-saliency-score', placement: 'top', title: '2. Combine attention',
+      body: 'The main attention score combines visual saliency, audio activity, and object confidence. Other critical detectors can independently raise a safety event.',
+      implementation: 'src/pages/Index.tsx',
+      code: `attention = 0.40*visual + 0.30*audio + 0.30*objects;`,
+    },
+    {
+      selector: '#tour-alert-log', placement: 'left', title: '3. Record the result',
+      body: 'Only meaningful safety events become alerts. The system applies cooldowns, records the source and time, and shows the result in the event log.',
+      implementation: 'src/pages/Index.tsx · src/components/dashboard/AlertLog.tsx',
+      code: `if (safetyEvent && cooldownReady) addAlert(event);`,
+    },
+  ],
+};
 
 
 export default function Index() {
@@ -180,6 +255,7 @@ export default function Index() {
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showExpert, setShowExpert] = useState(false);
+  const [activeTutorialSteps, setActiveTutorialSteps] = useState<TutorialStep[]>(tutorialSteps);
   const [saliencyMode, setSaliencyMode] = useState<SaliencyMode>('sobel');
   const [threshold, setThreshold] = useState(15);
   const [showBoundingBoxes, setShowBoundingBoxes] = useState(true);
@@ -236,6 +312,20 @@ export default function Index() {
   const { slots: camSlots, updateSlot: updateCamSlot } = useCameraSlots();
   const [selectedCam, setSelectedCam] = useState(1);
   const [camListOpen, setCamListOpen] = useState(true);
+
+  const openAlgorithmTutorial = useCallback((algorithmId: AlgorithmId) => {
+    const steps = ALGORITHM_TOURS[algorithmId];
+    setShowExpert(false);
+    setSelectedCam(1);
+    if (steps.some(step => step.selector.startsWith('#tour-') && step.selector !== '#tour-fused-view' && step.selector !== '#tour-live-transcription')) {
+      setSidebarOpen(true);
+    }
+    setActiveTutorialSteps(steps);
+    window.setTimeout(() => {
+      document.querySelector(steps[0]?.selector ?? '#tour-cams')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setShowTutorial(true);
+    }, 180);
+  }, []);
 
   // Once monitoring is live or a camera is connected, stop every idle hint animation app-wide.
   useEffect(() => { setHintsSuppressed(running || ipCam.connected); return () => setHintsSuppressed(false); }, [running, ipCam.connected]);
@@ -1123,7 +1213,7 @@ export default function Index() {
           </div>
 
           {/* Saliency score — result only, no per-component breakdown */}
-          <div className="bg-card rounded-md border border-primary/30 panel-glow p-3">
+          <div id="tour-saliency-score" className="bg-card rounded-md border border-primary/30 panel-glow p-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[13px] font-semibold text-primary uppercase tracking-wider">
                 Saliency Score
@@ -1146,7 +1236,7 @@ export default function Index() {
 
             {/* Fire, then Sound + Facial distress side by side */}
             <div className="mt-3 space-y-2">
-              <div className={`rounded p-2.5 border ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
+              <div id="tour-fire-analysis" className={`rounded p-2.5 border ${fireStatus.detected ? 'border-destructive/60 bg-destructive/10' : 'border-border bg-secondary/20'}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5">
                     <Flame className={`w-4 h-4 ${fireStatus.detected ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
@@ -1174,7 +1264,7 @@ export default function Index() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-                <div className={`rounded p-2.5 border ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+                <div id="tour-audio-distress" className={`rounded p-2.5 border ${yamnet.distressScore >= 60 ? 'border-destructive/60 bg-destructive/10' : yamnet.distressScore >= 30 ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13px] font-semibold text-foreground">Sound Distress</span>
                     <span className="text-[14px] font-bold tabular-nums text-foreground">{yamnet.distressScore}%</span>
@@ -1194,7 +1284,7 @@ export default function Index() {
                   )}
                 </div>
 
-                <div className={`rounded p-2.5 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
+                <div id="tour-face-distress" className={`rounded p-2.5 border ${faceDistress.distress.distressLevel === 'severe' ? 'border-destructive/60 bg-destructive/10' : faceDistress.distress.distressLevel === 'mild' ? 'border-warning/60 bg-warning/10' : 'border-border bg-secondary/20'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13px] font-semibold text-foreground">Facial Distress</span>
                     <span className="text-[14px] font-bold tabular-nums text-foreground">{faceDistress.distress.distressScore}%</span>
@@ -1322,7 +1412,9 @@ export default function Index() {
 
           <AttentionGauge score={attentionScore} />
 
-          <AlertLog alerts={alerts} visible={showAlerts} snapshots={snapshots} />
+          <div id="tour-alert-log">
+            <AlertLog alerts={alerts} visible={showAlerts} snapshots={snapshots} />
+          </div>
 
           <ControlsPanel
             running={running}
@@ -1400,16 +1492,19 @@ export default function Index() {
       </div>
 
       <TutorialOverlay
-        steps={tutorialSteps}
+        steps={activeTutorialSteps}
         open={showTutorial}
-        onClose={() => setShowTutorial(false)}
+        onClose={() => {
+          setShowTutorial(false);
+          setActiveTutorialSteps(tutorialSteps);
+        }}
         onFinish={() => {
           const key = user ? `msds-tutorial-done-${user.id}` : 'msds-tutorial-done-guest';
           try { localStorage.setItem(key, '1'); } catch { /* noop */ }
         }}
       />
 
-      <ExpertMode open={showExpert} onClose={() => setShowExpert(false)} />
+      <ExpertMode open={showExpert} onClose={() => setShowExpert(false)} onSelectAlgorithm={openAlgorithmTutorial} />
     </div>
   );
 }

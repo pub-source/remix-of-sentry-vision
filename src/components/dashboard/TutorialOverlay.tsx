@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { speak, stopSpeaking } from '@/lib/speech';
+import { Button } from '@/components/ui/button';
 
 export interface TutorialStep {
   /** CSS selector resolved at step activation */
@@ -10,6 +11,8 @@ export interface TutorialStep {
   body: string;
   narration?: string;
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  implementation?: string;
+  code?: string;
 }
 
 interface Props {
@@ -75,7 +78,7 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
   const cardStyle = useMemo<React.CSSProperties>(() => {
     if (!rect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
     const cardW = 340;
-    const cardH = 180;
+    const cardH = step?.code ? 330 : 220;
     const pad = 16;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -145,7 +148,7 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
 
       {/* Narration card */}
       <div
-        className="absolute bg-card border border-primary/40 rounded-xl shadow-2xl p-4 pointer-events-auto animate-scale-in"
+        className="absolute max-h-[calc(100vh-16px)] overflow-y-auto bg-card border border-primary/40 rounded-lg shadow-2xl p-4 pointer-events-auto animate-scale-in"
         style={cardStyle}
         onClick={e => e.stopPropagation()}
       >
@@ -167,6 +170,17 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
               <span className="text-[9px] font-mono text-muted-foreground">{idx + 1}/{steps.length}</span>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">{step.body}</p>
+            {step.implementation && (
+              <div className="mt-2 rounded-md border border-border bg-secondary/40 px-2.5 py-2">
+                <span className="block text-[9px] font-semibold uppercase text-muted-foreground">Implemented in</span>
+                <code className="mt-0.5 block break-all text-[10px] text-primary">{step.implementation}</code>
+              </div>
+            )}
+            {step.code && (
+              <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-secondary p-2.5 text-[10px] leading-relaxed text-foreground">
+                <code>{step.code}</code>
+              </pre>
+            )}
           </div>
         </div>
 
@@ -185,42 +199,55 @@ export default function TutorialOverlay({ steps, open, onClose, onFinish }: Prop
         {/* Actions */}
         <div className="mt-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={finish}
-              className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+              className="h-8 px-2 text-[10px] font-mono text-muted-foreground"
             >
               Skip tour
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setMuted(m => !m)}
-              className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+              className="h-8 px-2 text-[10px] font-mono text-muted-foreground"
               title={muted ? 'Unmute narration' : 'Mute narration'}
             >
               {muted ? 'Unmute' : 'Mute'}
-            </button>
+            </Button>
           </div>
           <div className="flex items-center gap-1.5">
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setIdx(i => Math.max(0, i - 1))}
               disabled={idx === 0}
-              className="text-[10px] font-mono px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground transition-colors"
+              className="h-8 text-[10px] font-mono"
             >
               Back
-            </button>
+            </Button>
             {idx < steps.length - 1 ? (
-              <button
+              <Button
+                type="button"
+                size="sm"
                 onClick={() => setIdx(i => Math.min(steps.length - 1, i + 1))}
-                className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="h-8 text-[10px] font-mono"
               >
                 Next
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
+                type="button"
+                size="sm"
                 onClick={finish}
-                className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="h-8 text-[10px] font-mono"
               >
                 Finish
-              </button>
+              </Button>
             )}
           </div>
         </div>
