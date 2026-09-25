@@ -226,7 +226,7 @@ export default function CameraFeed({
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
         <span className="text-[10px] font-mono text-primary uppercase tracking-wider">
-          CAM 1 — Raw Feed
+          CAM {camera.id} — Raw Feed
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-muted-foreground">

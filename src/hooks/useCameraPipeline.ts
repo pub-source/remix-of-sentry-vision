@@ -21,6 +21,7 @@ const emptyRuntime = (cameraId: string): CameraRuntime => ({
   fps: 0,
   latencyMs: 0,
   saliencyScore: 0,
+  attentionScore: 0,
   objects: [],
   humanCount: 0,
   fire: { detected: false, confidence: 0 },
@@ -232,6 +233,15 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
         const sal = computeSaliency(frame, prevFrameRef.current, 'sobel', 40);
         prevFrameRef.current = frame;
         const saliencyScore = computeSaliencyScore(sal);
+        const objectScore = objects.length > 0
+          ? Math.max(...objects.map(object => object.confidence * 100))
+          : 0;
+        const audioScore = runtimeRef.current.audioDistress.detected
+          ? runtimeRef.current.audioDistress.confidence * 100
+          : 0;
+        const attentionScore = Math.min(100, Math.round(
+          0.5 * saliencyScore + 0.3 * objectScore + 0.2 * audioScore,
+        ));
 
         // Fire + smoke (own detector state -> own temporal smoothing)
         const fire = detectFire(frame, fireStateRef.current, objects);
@@ -243,6 +253,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
           objects,
           humanCount,
           saliencyScore,
+          attentionScore,
           fire: {
             detected: fire.fireDetected && fire.confidence >= settings.fireThreshold,
             confidence: fire.confidence,
@@ -259,6 +270,7 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
         if (fire.fireDetected && fire.confidence >= settings.fireThreshold) emit('fire', 'Fire detected', fire.confidence);
         if (fire.smokeEmergency) emit('smoke', 'Smoke / low visibility', fire.smokeRatio);
         if (saliencyScore > 70) emit('saliency', `High saliency (${saliencyScore})`, saliencyScore / 100, false);
+        if (attentionScore > 70) emit('saliency', `High attention (${attentionScore})`, attentionScore / 100, false);
       } catch {
         /* keep this camera alive */
       } finally {

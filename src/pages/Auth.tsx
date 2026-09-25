@@ -3,7 +3,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Shield, UserPlus, QrCode, LogIn, ArrowLeft, Mail, Lock, User, Phone, Camera, Send, KeyRound, Eye, EyeOff, CheckCircle2, Loader2 } from 'lucide-react';
+import { Shield, UserPlus, QrCode, LogIn, ArrowLeft, Mail, Lock, User, Phone, Camera, Send, KeyRound, Eye, EyeOff, CheckCircle2, Loader2, Video, BellRing, House } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import householdBackground from '@/assets/household-bg.jpg';
 
 type AuthMode = 'choose' | 'create' | 'join-qr' | 'join-name' | 'join-submitted' | 'login' | 'forgot';
 
@@ -293,56 +295,72 @@ export default function Auth() {
   if (mode === 'choose') {
     return (
       <PageWrapper>
-        <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-foreground">Get Started</h2>
-            <p className="text-xs text-muted-foreground">Choose how you'd like to begin</p>
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          <div className="relative min-h-48 overflow-hidden border-b border-border px-6 py-7 sm:min-h-56 sm:px-8">
+            <img
+              src={householdBackground}
+              alt="Bright indoor room protected by home cameras"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-background/70" />
+            <div className="relative max-w-sm space-y-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-background/80 px-3 py-1 text-sm font-semibold text-primary">
+                <Video className="h-4 w-4" /> Indoor safety, always in view
+              </span>
+              <h2 className="text-3xl font-bold text-foreground">Welcome to a safer home</h2>
+              <p className="text-base leading-relaxed text-foreground/80">
+                Connect your household and cameras so MSDS can watch for urgent moments and keep everyone informed.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <button
-              onClick={() => { clearState(); setMode('create'); }}
-              className="w-full flex items-center gap-4 p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:border-primary/30 transition-all group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <UserPlus className="w-5 h-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                  Create Account
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Set up a new household as admin
-                </p>
-              </div>
-            </button>
+          <div className="space-y-5 p-5 sm:p-7">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Video className="h-4 w-4 text-primary" /> Live cameras</div>
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><BellRing className="h-4 w-4 text-primary" /> Safety alerts</div>
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><House className="h-4 w-4 text-primary" /> Household access</div>
+            </div>
 
-            <button
-              onClick={() => { clearState(); setMode('join-qr'); }}
-              className="w-full flex items-center gap-4 p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:border-accent/30 transition-all group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                <QrCode className="w-5 h-5 text-accent" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-foreground group-hover:text-accent transition-colors">
-                  Scan QR Code to Join
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Join an existing household with invite code
-                </p>
-              </div>
-            </button>
-          </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { clearState(); setMode('create'); }}
+                className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-4 text-left"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                </span>
+                <span>
+                  <span className="block text-base font-semibold text-foreground">Create a household</span>
+                  <span className="mt-1 block text-sm font-normal text-muted-foreground">Start a protected space for your family.</span>
+                </span>
+              </Button>
 
-          <div className="border-t border-border pt-4">
-            <button
-              onClick={() => { clearState(); setMode('login'); }}
-              className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              Already have an account? Sign in
-            </button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { clearState(); setMode('join-qr'); }}
+                className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-4 text-left"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-accent/10">
+                  <QrCode className="h-5 w-5 text-accent" />
+                </span>
+                <span>
+                  <span className="block text-base font-semibold text-foreground">Join your household</span>
+                  <span className="mt-1 block text-sm font-normal text-muted-foreground">Use the invite code shared by your family.</span>
+                </span>
+              </Button>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <Button type="button" variant="ghost" onClick={() => navigate('/')} className="justify-start gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to welcome
+              </Button>
+              <Button type="button" onClick={() => { clearState(); setMode('login'); }} className="gap-2">
+                <LogIn className="h-4 w-4" /> Sign in
+              </Button>
+            </div>
           </div>
         </div>
       </PageWrapper>
@@ -704,8 +722,8 @@ function validatePasswordStrength(pw: string): string | null {
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-lg space-y-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-3xl space-y-6">
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
             <Shield className="w-9 h-9 text-primary" />

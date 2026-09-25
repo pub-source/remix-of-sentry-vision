@@ -1,6 +1,8 @@
 # MSDS roadmap
 
 ## Done
+- [x] CAM 2–4 have independent attention/saliency displays, safety alerts, speaker output, and push-to-talk controls
+- [x] Get Started redesigned around indoor CCTV safety with adaptive layout and a Back to welcome action
 - [x] Massive Tagalog + English safety/awareness phrase library used for transcription recognition (`src/lib/safetyLexicon.ts`, mirrored keywords in `local-server/msds/config.py`)
 - [x] Stop Monitoring disconnects CAM 1–4 on the local service
 - [x] Live CCTV transcript replaces the previous one and clears after 5 s (merging helper removed)
