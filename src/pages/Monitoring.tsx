@@ -113,9 +113,8 @@ export default function Monitoring() {
           ) : (
             <div className={`grid gap-4 ${focused ? 'grid-cols-1' : gridClass}`}>
               {visible.map(slot => {
-                const base = slotCamera(slot);
-                // Camera 1 streams only — its detection is off so the computer stays fast.
-                const camera = slot.index === 1 ? { ...base, aiEnabled: false } : base;
+                // Follow the AI On/Off choice made when connecting each camera.
+                const camera = slotCamera(slot);
                 return (
                   <CameraTile
                     key={slot.index}
