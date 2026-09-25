@@ -1243,18 +1243,18 @@ export default function Index() {
                 Saliency Score
               </span>
               <div className="flex items-center gap-3">
-                <span className={`text-2xl font-bold tabular-nums ${displayedAttentionScore > 70 ? 'text-destructive' : displayedAttentionScore > 40 ? 'text-warning' : 'text-success'}`}>
-                  {displayedAttentionScore}%
+                <span className={`text-2xl font-bold tabular-nums ${displayedSaliencyScore > 70 ? 'text-destructive' : displayedSaliencyScore > 40 ? 'text-warning' : 'text-success'}`}>
+                  {displayedSaliencyScore}%
                 </span>
-                <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${displayedAttentionScore > 70 ? 'bg-destructive/20 text-destructive' : displayedAttentionScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
-                  {displayedAttentionScore > 70 ? 'ALERT' : displayedAttentionScore > 40 ? 'ELEVATED' : 'NORMAL'}
+                <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${displayedSaliencyScore > 70 ? 'bg-destructive/20 text-destructive' : displayedSaliencyScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
+                  {displayedSaliencyScore > 70 ? 'ALERT' : displayedSaliencyScore > 40 ? 'ELEVATED' : 'NORMAL'}
                 </span>
               </div>
             </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
-                className={`h-full rounded transition-all ${displayedAttentionScore > 70 ? 'bg-destructive' : displayedAttentionScore > 40 ? 'bg-warning' : 'bg-success'}`}
-                style={{ width: `${displayedAttentionScore}%` }}
+                className={`h-full rounded transition-all ${displayedSaliencyScore > 70 ? 'bg-destructive' : displayedSaliencyScore > 40 ? 'bg-warning' : 'bg-success'}`}
+                style={{ width: `${displayedSaliencyScore}%` }}
               />
             </div>
 
