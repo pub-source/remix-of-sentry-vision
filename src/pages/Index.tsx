@@ -1253,7 +1253,7 @@ export default function Index() {
             </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
-                className={`h-full rounded transition-all ${attentionScore > 70 ? 'bg-destructive' : attentionScore > 40 ? 'bg-warning' : 'bg-success'}`}
+                className={`h-full rounded transition-all ${displayedAttentionScore > 70 ? 'bg-destructive' : displayedAttentionScore > 40 ? 'bg-warning' : 'bg-success'}`}
                 style={{ width: `${displayedAttentionScore}%` }}
               />
             </div>
