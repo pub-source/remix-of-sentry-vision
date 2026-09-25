@@ -24,7 +24,7 @@ import { announce } from '@/lib/voiceGuide';
 import { useCctvSpeech } from '@/hooks/useCctvSpeech';
 import { AI_RATES, perfMonitor, now as perfNow } from '@/lib/performance';
 import { sendAlertEmail } from '@/lib/alertEmail';
-import type { DetectionEvent } from '@/types/multicam';
+import type { CameraRuntime, DetectionEvent } from '@/types/multicam';
 
 import { useCctvTalk } from '@/hooks/useCctvTalk';
 import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraSlots';
@@ -271,6 +271,7 @@ export default function Index() {
   const [errors] = useState<string[]>([]);
   const [attentionScore, setAttentionScore] = useState(0);
   const [globalSaliencyScore, setGlobalSaliencyScore] = useState(0);
+  const [slotMetrics, setSlotMetrics] = useState<Record<number, Pick<CameraRuntime, 'attentionScore' | 'saliencyScore'>>>({});
 
   const [sourceCanvas, setSourceCanvas] = useState<HTMLCanvasElement | null>(null);
   const [cam2SourceCanvas, setCam2SourceCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -462,6 +463,7 @@ export default function Index() {
     const severity: Alert['severity'] =
       evt.type === 'fire' || evt.type === 'smoke' ? 'critical'
       : evt.type === 'face-distress' || evt.type === 'audio-distress' ? 'high'
+      : evt.type === 'saliency' ? 'high'
       : 'medium';
     if (severity === 'medium' && evt.type !== 'human') return; // keep the log readable
     const camIndex = Number(evt.cameraId.replace('slot-', '')) || 1;
@@ -473,6 +475,27 @@ export default function Index() {
       details: { Location: evt.location || undefined, Detection: evt.label },
     });
   }, [addAlert]);
+
+  const handleSlotMetrics = useCallback((cameraIndex: number, runtime: CameraRuntime) => {
+    setSlotMetrics(previous => {
+      const current = previous[cameraIndex];
+      if (current?.attentionScore === runtime.attentionScore && current.saliencyScore === runtime.saliencyScore) return previous;
+      return {
+        ...previous,
+        [cameraIndex]: {
+          attentionScore: runtime.attentionScore,
+          saliencyScore: runtime.saliencyScore,
+        },
+      };
+    });
+  }, []);
+
+  const displayedAttentionScore = selectedCam === 1
+    ? attentionScore
+    : slotMetrics[selectedCam]?.attentionScore ?? 0;
+  const displayedSaliencyScore = selectedCam === 1
+    ? globalSaliencyScore
+    : slotMetrics[selectedCam]?.saliencyScore ?? 0;
 
 
   const lastMatchedPhraseRef = useRef<string>('');
@@ -1139,6 +1162,7 @@ export default function Index() {
                     monitoring={running}
                     visible={selectedCam === slot.index}
                     onEvent={handleSlotEvent}
+                    onMetrics={handleSlotMetrics}
                   />
                 ))}
               </div>
@@ -1219,18 +1243,18 @@ export default function Index() {
                 Saliency Score
               </span>
               <div className="flex items-center gap-3">
-                <span className={`text-2xl font-bold tabular-nums ${attentionScore > 70 ? 'text-destructive' : attentionScore > 40 ? 'text-warning' : 'text-success'}`}>
-                  {attentionScore}%
+                <span className={`text-2xl font-bold tabular-nums ${displayedAttentionScore > 70 ? 'text-destructive' : displayedAttentionScore > 40 ? 'text-warning' : 'text-success'}`}>
+                  {displayedAttentionScore}%
                 </span>
-                <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${attentionScore > 70 ? 'bg-destructive/20 text-destructive' : attentionScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
-                  {attentionScore > 70 ? 'ALERT' : attentionScore > 40 ? 'ELEVATED' : 'NORMAL'}
+                <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${displayedAttentionScore > 70 ? 'bg-destructive/20 text-destructive' : displayedAttentionScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
+                  {displayedAttentionScore > 70 ? 'ALERT' : displayedAttentionScore > 40 ? 'ELEVATED' : 'NORMAL'}
                 </span>
               </div>
             </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
                 className={`h-full rounded transition-all ${attentionScore > 70 ? 'bg-destructive' : attentionScore > 40 ? 'bg-warning' : 'bg-success'}`}
-                style={{ width: `${attentionScore}%` }}
+                style={{ width: `${displayedAttentionScore}%` }}
               />
             </div>
 
@@ -1410,7 +1434,7 @@ export default function Index() {
             </p>
           </div>
 
-          <AttentionGauge score={attentionScore} />
+          <AttentionGauge score={displayedAttentionScore} />
 
           <div id="tour-alert-log">
             <AlertLog alerts={alerts} visible={showAlerts} snapshots={snapshots} />

@@ -67,6 +67,8 @@ export interface CameraRuntime {
   fps: number;
   latencyMs: number;
   saliencyScore: number;
+  /** Per-camera multimodal score: visual saliency + objects + CCTV audio distress. */
+  attentionScore: number;
   objects: DetectedObject[];
   humanCount: number;
   fire: { detected: boolean; confidence: number; bbox?: [number, number, number, number] };
