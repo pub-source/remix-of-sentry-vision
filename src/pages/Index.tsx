@@ -1260,7 +1260,6 @@ export default function Index() {
                   + Connect
                 </button>
               </div>
-              </div>
             )}
           </div>}
 
@@ -1277,7 +1276,7 @@ export default function Index() {
                 <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${displayedSaliencyScore > 70 ? 'bg-destructive/20 text-destructive' : displayedSaliencyScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
                   {displayedSaliencyScore > 70 ? 'ALERT' : displayedSaliencyScore > 40 ? 'ELEVATED' : 'NORMAL'}
                 </span>
-           </div>}
+              </div>
             </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
