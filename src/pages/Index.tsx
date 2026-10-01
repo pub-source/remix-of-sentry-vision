@@ -1375,16 +1375,16 @@ export default function Index() {
 
 
           {/* Bottom: Timeline */}
-           {selectedCam !== null && <div className="bg-card rounded-md border border-border panel-glow p-3">
+          {selectedCam !== null && <div className="bg-card rounded-md border border-border panel-glow p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-mono text-primary uppercase tracking-wider">Timeline</span>
               <span className="text-[9px] font-mono text-muted-foreground">{alerts.length} events</span>
-           </div>}
+            </div>
             <div className="flex gap-0.5 overflow-x-auto pb-1 items-end h-8">
               {alerts.slice(0, 80).map(alert => {
                 const hasSnap = alert.snapshotId || snapshots.some(s => Math.abs(s.timestamp.getTime() - alert.timestamp.getTime()) < 5000);
                 return (
-         {selectedCam !== null && <div
+                  <div
                     key={alert.id}
                     onClick={() => {
                       const snap = alert.snapshotId
@@ -1407,7 +1407,7 @@ export default function Index() {
               {alerts.length === 0 && (
                 <span className="text-[9px] font-mono text-muted-foreground">No events recorded</span>
               )}
-         </div>}
+            </div>
             {/* Selected snapshot viewer */}
             {selectedSnapshot && (
               <div className="mt-2 p-2 bg-secondary/50 rounded border border-primary/30 space-y-1">
@@ -1430,7 +1430,7 @@ export default function Index() {
                 <span className="text-[8px] font-mono text-destructive">{selectedSnapshot.reason}</span>
               </div>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* Mobile backdrop */}
@@ -1442,7 +1442,7 @@ export default function Index() {
         )}
 
         {/* Right sidebar — drawer on mobile, fixed panel on lg+ */}
-        <div
+        {selectedCam !== null && <div
           id="tour-sidebar"
           className={`${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 fixed lg:static right-0 top-0 lg:top-auto z-50 lg:z-auto h-full lg:h-auto w-72 lg:w-72 xl:w-80 lg:shrink-0 max-w-[90vw] border-l border-border p-2 space-y-2 overflow-y-auto bg-card lg:bg-transparent transition-transform duration-200 ease-out`}
         >
@@ -1549,7 +1549,7 @@ export default function Index() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       <TutorialOverlay
