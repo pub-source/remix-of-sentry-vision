@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Moon, Sun, Home, LogOut, LogIn, Shield, Clock, Wifi, X, Flame, HelpCircle, Menu, Sparkles } from 'lucide-react';
+import { Moon, Sun, Home, LogOut, LogIn, Shield, Clock, Wifi, X, Flame, HelpCircle, Menu, Sparkles, ArrowLeft, VideoOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CameraFeed from '@/components/dashboard/CameraFeed';
 import FusedDetectionView from '@/components/dashboard/FusedDetectionView';
@@ -31,6 +31,8 @@ import { loadServerHost, serverUrlFor, useCameraSlots } from '@/hooks/useCameraS
 import { stopAll as stopAllCameras, stopCamera } from '@/lib/multiCamServer';
 import { matchWakeWord } from '@/lib/safetyLexicon';
 import CameraSlotSelector, { SlotPipelineView } from '@/components/dashboard/CameraSlotSelector';
+import CameraPreview from '@/components/dashboard/CameraPreview';
+import { Button } from '@/components/ui/button';
 
 
 import AccessibilityPanel from '@/components/dashboard/AccessibilityPanel';
@@ -161,12 +163,12 @@ export default function Index() {
   useEffect(() => {
     if (authLoading) return;
     const key = user ? `msds-tutorial-done-${user.id}` : 'msds-tutorial-done-guest';
-    if (!localStorage.getItem(key)) {
+    if (selectedCam !== null && !localStorage.getItem(key)) {
       // Small delay so panels have mounted and refs exist
       const t = setTimeout(() => setShowTutorial(true), 600);
       return () => clearTimeout(t);
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, selectedCam]);
 
   const tutorialSteps: TutorialStep[] = [
     {
@@ -311,7 +313,7 @@ export default function Index() {
 
   // CAM 1..4 selector for the main frame (display only — never disconnects).
   const { slots: camSlots, updateSlot: updateCamSlot } = useCameraSlots();
-  const [selectedCam, setSelectedCam] = useState(1);
+  const [selectedCam, setSelectedCam] = useState<number | null>(null);
   const [camListOpen, setCamListOpen] = useState(true);
 
   const openAlgorithmTutorial = useCallback((algorithmId: AlgorithmId) => {
@@ -492,10 +494,10 @@ export default function Index() {
 
   const displayedAttentionScore = selectedCam === 1
     ? attentionScore
-    : slotMetrics[selectedCam]?.attentionScore ?? 0;
+    : slotMetrics[selectedCam ?? 1]?.attentionScore ?? 0;
   const displayedSaliencyScore = selectedCam === 1
     ? globalSaliencyScore
-    : slotMetrics[selectedCam]?.saliencyScore ?? 0;
+    : slotMetrics[selectedCam ?? 1]?.saliencyScore ?? 0;
 
 
   const lastMatchedPhraseRef = useRef<string>('');
@@ -1013,6 +1015,8 @@ export default function Index() {
             <Wifi className="w-4 h-4" /> <span className="hidden sm:inline">Cameras</span>
           </button>
 
+          {selectedCam !== null && <Button variant="outline" size="sm" onClick={() => setSelectedCam(null)} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> All cameras</Button>}
+
         </div>
 
         {/* Right: Actions */}
@@ -1045,7 +1049,7 @@ export default function Index() {
 
           <button
 
-            onClick={() => setShowTutorial(true)}
+            onClick={() => { if (selectedCam === null) setSelectedCam(1); setShowTutorial(true); }}
             className="p-2 rounded-lg hover:bg-muted transition-colors"
             title="Replay tutorial"
           >
@@ -1088,11 +1092,44 @@ export default function Index() {
 
 
       {/* Main content */}
-      <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-57px)] min-h-[calc(100vh-57px)]">
+       <div className={`flex flex-col ${selectedCam !== null ? 'lg:flex-row lg:h-[calc(100vh-57px)]' : ''} min-h-[calc(100vh-57px)]`}>
         {/* Left: Specialized camera grid + fusion */}
          <div className="flex-1 min-w-0 p-2 flex flex-col gap-2 lg:overflow-y-auto">
           {/* Live camera view */}
           <div id="tour-cams">
+            {selectedCam === null && (
+              <>
+                <div className="flex items-center justify-between gap-3 mb-3 px-1">
+                  <h2 className="text-xl font-bold">Cameras</h2>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowIpDialog(true)}>Connect</Button>
+                    <Button size="sm" variant={running ? 'destructive' : 'default'} onClick={running ? handleStop : handleStart}>{running ? 'Stop monitoring' : 'Start monitoring'}</Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="overflow-hidden rounded-md border border-border bg-card">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="font-semibold truncate">CAM 1 · {camSlots[0]?.name || 'Camera 1'}</span>
+                      <span className={`text-sm font-semibold ${ipCam.connected || cameras.some(c => c.active) ? 'text-success' : 'text-muted-foreground'}`}>{ipCam.connected || cameras.some(c => c.active) ? 'Live' : 'Offline'}</span>
+                    </div>
+                    <div className="relative">
+                      <CameraPreview source={cam2SourceCanvas || sourceCanvas} />
+                      {!ipCam.connected && !cameras.some(c => c.active) && <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-muted-foreground"><VideoOff className="h-5 w-5" /> Not connected</div>}
+                      <Button variant="ghost" onClick={() => setSelectedCam(1)} className="absolute inset-0 h-full w-full rounded-none bg-transparent hover:bg-background/10 focus-visible:ring-inset" aria-label="Open CAM 1" />
+                    </div>
+                  </div>
+                  {camSlots.filter(slot => slot.index > 1).map(slot => (
+                    <div key={slot.index} className="overflow-hidden rounded-md border border-border bg-card">
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="font-semibold truncate">CAM {slot.index} · {slot.name}</span>
+                        <span className={`text-sm font-semibold ${slot.connected ? 'text-success' : 'text-muted-foreground'}`}>{slot.connected ? 'Live' : 'Offline'}</span>
+                      </div>
+                      <SlotPipelineView slot={slot} monitoring={running} visible previewOnly onOpen={() => setSelectedCam(slot.index)} onEvent={handleSlotEvent} onMetrics={handleSlotMetrics} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             {/* CAM 1 kept hidden as the detection source pipeline */}
             <div className="hidden">
               <CameraFeed
@@ -1117,7 +1154,7 @@ export default function Index() {
             {/* CAM 1..4 selector + main frame. Switching only changes what is
                 shown — CAM 2..4 keep streaming and keep running their own
                 independent saliency + CCTV audio pipelines in the background. */}
-            <div className="flex flex-col lg:flex-row gap-2">
+            {selectedCam !== null && <div className="flex flex-col lg:flex-row gap-2">
               <CameraSlotSelector
                 slots={camSlots}
                 selected={selectedCam}
@@ -1166,7 +1203,7 @@ export default function Index() {
                   />
                 ))}
               </div>
-            </div>
+            </div>}
 
           </div>
 
@@ -1195,7 +1232,7 @@ export default function Index() {
           )}
 
           {/* IP / CCTV camera connect */}
-          <div className="bg-card rounded-md border border-border panel-glow p-3 flex items-center gap-2">
+           {selectedCam !== null && <div className="bg-card rounded-md border border-border panel-glow p-3 flex items-center gap-2">
             <Wifi className="w-4 h-4 text-primary" />
             <span className="text-[10px] font-mono text-foreground flex-1">
               {ipCam.connected
@@ -1232,12 +1269,12 @@ export default function Index() {
                 >
                   + Connect
                 </button>
-              </div>
+           </div>}
             )}
           </div>
 
           {/* Saliency score — result only, no per-component breakdown */}
-          <div id="tour-saliency-score" className="bg-card rounded-md border border-primary/30 panel-glow p-3">
+           {selectedCam !== null && <div id="tour-saliency-score" className="bg-card rounded-md border border-primary/30 panel-glow p-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[13px] font-semibold text-primary uppercase tracking-wider">
                 Saliency Score
@@ -1249,7 +1286,7 @@ export default function Index() {
                 <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${displayedSaliencyScore > 70 ? 'bg-destructive/20 text-destructive' : displayedSaliencyScore > 40 ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
                   {displayedSaliencyScore > 70 ? 'ALERT' : displayedSaliencyScore > 40 ? 'ELEVATED' : 'NORMAL'}
                 </span>
-              </div>
+           </div>}
             </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
@@ -1338,16 +1375,16 @@ export default function Index() {
 
 
           {/* Bottom: Timeline */}
-          <div className="bg-card rounded-md border border-border panel-glow p-3">
+           {selectedCam !== null && <div className="bg-card rounded-md border border-border panel-glow p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-mono text-primary uppercase tracking-wider">Timeline</span>
               <span className="text-[9px] font-mono text-muted-foreground">{alerts.length} events</span>
-            </div>
+           </div>}
             <div className="flex gap-0.5 overflow-x-auto pb-1 items-end h-8">
               {alerts.slice(0, 80).map(alert => {
                 const hasSnap = alert.snapshotId || snapshots.some(s => Math.abs(s.timestamp.getTime() - alert.timestamp.getTime()) < 5000);
                 return (
-                  <div
+         {selectedCam !== null && <div
                     key={alert.id}
                     onClick={() => {
                       const snap = alert.snapshotId
@@ -1370,7 +1407,7 @@ export default function Index() {
               {alerts.length === 0 && (
                 <span className="text-[9px] font-mono text-muted-foreground">No events recorded</span>
               )}
-            </div>
+         </div>}
             {/* Selected snapshot viewer */}
             {selectedSnapshot && (
               <div className="mt-2 p-2 bg-secondary/50 rounded border border-primary/30 space-y-1">
