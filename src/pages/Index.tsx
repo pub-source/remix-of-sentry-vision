@@ -1106,8 +1106,10 @@ export default function Index() {
                     <Button size="sm" variant={running ? 'destructive' : 'default'} onClick={running ? handleStop : handleStart}>{running ? 'Stop monitoring' : 'Start monitoring'}</Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="overflow-hidden rounded-md border border-border bg-card">
+              </>
+            )}
+            <div className={selectedCam === null ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : selectedCam === 1 ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : 'grid grid-cols-1 gap-3'}>
+                  <div className={`overflow-hidden rounded-md border border-border bg-card ${selectedCam !== null ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="font-semibold truncate">CAM 1 · {camSlots[0]?.name || 'Camera 1'}</span>
                       <span className={`text-sm font-semibold ${ipCam.connected || cameras.some(c => c.active) ? 'text-success' : 'text-muted-foreground'}`}>{ipCam.connected || cameras.some(c => c.active) ? 'Live' : 'Offline'}</span>
@@ -1119,17 +1121,15 @@ export default function Index() {
                     </div>
                   </div>
                   {camSlots.filter(slot => slot.index > 1).map(slot => (
-                    <div key={slot.index} className="overflow-hidden rounded-md border border-border bg-card">
+                    <div key={slot.index} className={`overflow-hidden rounded-md border border-border bg-card ${selectedCam !== null && selectedCam !== slot.index ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : ''}`}>
                       <div className="flex items-center justify-between gap-2 px-3 py-2">
                         <span className="font-semibold truncate">CAM {slot.index} · {slot.name}</span>
                         <span className={`text-sm font-semibold ${slot.connected ? 'text-success' : 'text-muted-foreground'}`}>{slot.connected ? 'Live' : 'Offline'}</span>
                       </div>
-                      <SlotPipelineView slot={slot} monitoring={running} visible previewOnly onOpen={() => setSelectedCam(slot.index)} onEvent={handleSlotEvent} onMetrics={handleSlotMetrics} />
+                      <SlotPipelineView slot={slot} monitoring={running} visible previewOnly={selectedCam !== slot.index} onOpen={() => setSelectedCam(slot.index)} onEvent={handleSlotEvent} onMetrics={handleSlotMetrics} />
                     </div>
                   ))}
                 </div>
-              </>
-            )}
             {/* CAM 1 kept hidden as the detection source pipeline */}
             <div className="hidden">
               <CameraFeed
@@ -1192,16 +1192,6 @@ export default function Index() {
                     onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
                   />
                 )}
-                {camSlots.filter(s => s.index > 1).map(slot => (
-                  <SlotPipelineView
-                    key={slot.index}
-                    slot={slot}
-                    monitoring={running}
-                    visible={selectedCam === slot.index}
-                    onEvent={handleSlotEvent}
-                    onMetrics={handleSlotMetrics}
-                  />
-                ))}
               </div>
             </div>}
 
@@ -1269,6 +1259,7 @@ export default function Index() {
                 >
                   + Connect
                 </button>
+              </div>
            </div>}
             )}
           </div>
