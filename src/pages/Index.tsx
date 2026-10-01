@@ -154,6 +154,7 @@ export default function Index() {
     }
     return false;
   });
+  const [selectedCam, setSelectedCam] = useState<number | null>(null);
 
   useEffect(() => {
     localStorage.setItem('safewatch-dark-mode', String(darkMode));
@@ -313,7 +314,6 @@ export default function Index() {
 
   // CAM 1..4 selector for the main frame (display only — never disconnects).
   const { slots: camSlots, updateSlot: updateCamSlot } = useCameraSlots();
-  const [selectedCam, setSelectedCam] = useState<number | null>(null);
   const [camListOpen, setCamListOpen] = useState(true);
 
   const openAlgorithmTutorial = useCallback((algorithmId: AlgorithmId) => {
