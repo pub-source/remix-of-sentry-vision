@@ -1260,9 +1260,9 @@ export default function Index() {
                   + Connect
                 </button>
               </div>
-           </div>}
+              </div>
             )}
-          </div>
+          </div>}
 
           {/* Saliency score — result only, no per-component breakdown */}
            {selectedCam !== null && <div id="tour-saliency-score" className="bg-card rounded-md border border-primary/30 panel-glow p-3">
