@@ -106,8 +106,6 @@ export function SlotPipelineView({
   visible,
   onEvent,
   onMetrics,
-  previewOnly = false,
-  onOpen,
 }: {
   slot: CameraSlot;
   /** Dashboard monitoring switch — stops the AI work when the user presses Stop. */
@@ -115,8 +113,6 @@ export function SlotPipelineView({
   visible: boolean;
   onEvent?: (evt: Omit<DetectionEvent, 'id'>) => void;
   onMetrics?: (cameraIndex: number, runtime: CameraRuntime) => void;
-  previewOnly?: boolean;
-  onOpen?: () => void;
 }) {
   const camera = useMemo(
     () => ({
@@ -155,11 +151,11 @@ export function SlotPipelineView({
       aria-hidden={!visible}
       className={
         visible
-          ? `relative bg-card rounded-md overflow-hidden border border-border panel-glow ${previewOnly ? '[&_.detail-only]:hidden' : ''}`
+          ? 'relative bg-card rounded-md overflow-hidden border border-border panel-glow'
           : 'absolute -left-[9999px] top-0 w-[320px] pointer-events-none opacity-0'
       }
     >
-      <div className="detail-only absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-background/80 to-transparent">
         <span className="text-[12px] font-semibold text-primary uppercase tracking-wider">
           CAM {slot.index} — {slot.name || 'Camera'}
         </span>
@@ -177,11 +173,9 @@ export function SlotPipelineView({
         className="w-full aspect-video object-contain bg-background"
       />
 
-      {previewOnly && <Button type="button" variant="ghost" onClick={onOpen} className="absolute inset-0 z-20 h-full w-full rounded-none bg-transparent hover:bg-background/10 focus-visible:ring-inset" aria-label={`Open CAM ${slot.index}: ${slot.name}`} />}
-
       {/* Live transcription of what this camera hears + why it is silent */}
       {connected && (
-        <div className="detail-only absolute top-8 left-2 z-10 max-w-[70%] rounded-md bg-background/85 border border-border px-2.5 py-1.5">
+        <div className="absolute top-8 left-2 z-10 max-w-[70%] rounded-md bg-background/85 border border-border px-2.5 py-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
             <Mic className="w-3 h-3" /> Live transcription
           </div>
@@ -243,7 +237,7 @@ export function SlotPipelineView({
 
 
       {connected && (
-        <div className="detail-only absolute bottom-0 left-0 right-0 z-10 flex flex-wrap items-center gap-1.5 px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-wrap items-center gap-1.5 px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">
           {badge(runtime.fire.detected, Flame, `Fire ${Math.round(runtime.fire.confidence * 100)}%`)}
           {badge(runtime.humanCount > 0, Users, `${runtime.humanCount} person`)}
           {badge(runtime.faceDistress.detected, Smile, 'Face distress')}
@@ -284,7 +278,7 @@ export function SlotPipelineView({
       )}
 
       {connected && (runtime.fire.detected || runtime.smoke.detected || runtime.faceDistress.detected || runtime.audioDistress.detected || runtime.attentionScore > 70) && (
-        <div className="detail-only absolute right-2 top-8 z-10 flex max-w-[42%] items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/90 px-2 py-1.5 text-[12px] font-semibold text-destructive-foreground">
+        <div className="absolute right-2 top-8 z-10 flex max-w-[42%] items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/90 px-2 py-1.5 text-[12px] font-semibold text-destructive-foreground">
           <BellRing className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             {runtime.fire.detected ? 'Fire detected' : runtime.smoke.detected ? 'Smoke detected' : runtime.audioDistress.detected ? `Safety word: ${runtime.audioDistress.keyword}` : runtime.faceDistress.detected ? 'Facial distress detected' : `High attention: ${runtime.attentionScore}`}
@@ -293,7 +287,7 @@ export function SlotPipelineView({
       )}
 
       {talk.error && (
-        <div className="detail-only absolute bottom-12 right-2 z-10 max-w-[70%] rounded border border-destructive/40 bg-background/95 px-2 py-1 text-[11px] text-destructive">
+        <div className="absolute bottom-12 right-2 z-10 max-w-[70%] rounded border border-destructive/40 bg-background/95 px-2 py-1 text-[11px] text-destructive">
           {talk.error}
         </div>
       )}
