@@ -1277,6 +1277,7 @@ export default function Index() {
                   {displayedSaliencyScore > 70 ? 'ALERT' : displayedSaliencyScore > 40 ? 'ELEVATED' : 'NORMAL'}
                 </span>
               </div>
+            </div>
             <div className="mt-2 h-2 bg-secondary/50 rounded overflow-hidden">
               <div
                 className={`h-full rounded transition-all ${displayedSaliencyScore > 70 ? 'bg-destructive' : displayedSaliencyScore > 40 ? 'bg-warning' : 'bg-success'}`}
@@ -1360,7 +1361,7 @@ export default function Index() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
 
 
           {/* Bottom: Timeline */}
