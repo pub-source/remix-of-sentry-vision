@@ -7,6 +7,7 @@
 - [x] Stop Monitoring disconnects CAM 1–4 on the local service
 - [x] Live CCTV transcript replaces the previous one and clears after 5 s (merging helper removed)
 - [x] Expert Mode teaches the real core and hybrid algorithms with code, narration, and dashboard spotlights
+- [x] Dashboard shows a four-camera preview grid; selecting a card opens its own live view without remounting the other camera players
 
 ## Standing rules (handoff spec)
 - Keep real RTSP/MediaMTX/FFmpeg/Whisper/Electron/GPU logic — no mocks.
