@@ -1104,6 +1104,14 @@ export default function Index() {
                 <Button size="sm" variant={running ? 'destructive' : 'default'} onClick={running ? handleStop : handleStart}>{running ? 'Stop monitoring' : 'Start monitoring'}</Button>
               </div>
             </div>}
+            {selectedCam !== null && <CameraSlotSelector
+              slots={camSlots}
+              selected={selectedCam}
+              onSelect={setSelectedCam}
+              primaryLive={ipCam.connected || cameras.some(c => c.active)}
+              open={camListOpen}
+              onToggleOpen={setCamListOpen}
+            />}
             <div className={selectedCam === null ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : selectedCam === 1 ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : 'grid grid-cols-1 gap-3'}>
                   <div className={`overflow-hidden rounded-md border border-border bg-card ${selectedCam !== null ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between px-3 py-2">
@@ -1147,20 +1155,8 @@ export default function Index() {
               />
             </div>
 
-            {/* CAM 1..4 selector + main frame. Switching only changes what is
-                shown — CAM 2..4 keep streaming and keep running their own
-                independent saliency + CCTV audio pipelines in the background. */}
-            {selectedCam !== null && <div className="flex flex-col lg:flex-row gap-2">
-              <CameraSlotSelector
-                slots={camSlots}
-                selected={selectedCam}
-                onSelect={setSelectedCam}
-                primaryLive={ipCam.connected || cameras.some(c => c.active)}
-                open={camListOpen}
-                onToggleOpen={setCamListOpen}
-              />
-              <div className="flex-1 min-w-0 relative">
-                {selectedCam === 1 && (
+            {/* Keep CAM 2–4 players mounted while switching views. */}
+            {selectedCam === 1 && (
                   <FusedDetectionView
                     sourceCanvas={sourceCanvas}
                     objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
@@ -1187,9 +1183,7 @@ export default function Index() {
                     cctvAudioAvailable={ipCam.connected}
                     onToggleCctvAudio={() => ipCam.setAudioEnabled(!ipCam.audioEnabled)}
                   />
-                )}
-              </div>
-            </div>}
+            )}
 
           </div>
 
