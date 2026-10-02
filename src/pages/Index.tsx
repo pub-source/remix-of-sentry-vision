@@ -1092,22 +1092,18 @@ export default function Index() {
 
 
       {/* Main content */}
-       <div className={`flex flex-col ${selectedCam !== null ? 'lg:flex-row lg:h-[calc(100vh-57px)]' : ''} min-h-[calc(100vh-57px)]`}>
+       <div className={`flex flex-col ${selectedCam !== null ? 'lg:flex-row lg:h-[calc(100vh-57px)]' : ''} min-h-[calc(100vh-57px)] ${selectedCam === null ? 'dark bg-background text-foreground' : ''}`}>
         {/* Left: Specialized camera grid + fusion */}
          <div className="flex-1 min-w-0 p-2 flex flex-col gap-2 lg:overflow-y-auto">
           {/* Live camera view */}
           <div id="tour-cams">
-            {selectedCam === null && (
-              <>
-                <div className="flex items-center justify-between gap-3 mb-3 px-1">
-                  <h2 className="text-xl font-bold">Cameras</h2>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowIpDialog(true)}>Connect</Button>
-                    <Button size="sm" variant={running ? 'destructive' : 'default'} onClick={running ? handleStop : handleStart}>{running ? 'Stop monitoring' : 'Start monitoring'}</Button>
-                  </div>
-                </div>
-              </>
-            )}
+            {selectedCam === null && <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1">
+              <h2 className="text-xl font-bold">Cameras</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowIpDialog(true)}>Connect</Button>
+                <Button size="sm" variant={running ? 'destructive' : 'default'} onClick={running ? handleStop : handleStart}>{running ? 'Stop monitoring' : 'Start monitoring'}</Button>
+              </div>
+            </div>}
             <div className={selectedCam === null ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : selectedCam === 1 ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : 'grid grid-cols-1 gap-3'}>
                   <div className={`overflow-hidden rounded-md border border-border bg-card ${selectedCam !== null ? 'absolute -left-[9999px] w-[320px] pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between px-3 py-2">
@@ -1115,7 +1111,7 @@ export default function Index() {
                       <span className={`text-sm font-semibold ${ipCam.connected || cameras.some(c => c.active) ? 'text-success' : 'text-muted-foreground'}`}>{ipCam.connected || cameras.some(c => c.active) ? 'Live' : 'Offline'}</span>
                     </div>
                     <div className="relative">
-                      <CameraPreview source={cam2SourceCanvas || sourceCanvas} />
+                      <CameraPreview source={sourceCanvas} />
                       {!ipCam.connected && !cameras.some(c => c.active) && <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-muted-foreground"><VideoOff className="h-5 w-5" /> Not connected</div>}
                       <Button variant="ghost" onClick={() => setSelectedCam(1)} className="absolute inset-0 h-full w-full rounded-none bg-transparent hover:bg-background/10 focus-visible:ring-inset" aria-label="Open CAM 1" />
                     </div>
@@ -1166,7 +1162,7 @@ export default function Index() {
               <div className="flex-1 min-w-0 relative">
                 {selectedCam === 1 && (
                   <FusedDetectionView
-                    sourceCanvas={cam2SourceCanvas || sourceCanvas}
+                    sourceCanvas={sourceCanvas}
                     objects={cameras[1].active ? cameras[1].objects : cameras[0].objects}
                     audioFeatures={audioFeatures}
                     attentionScore={attentionScore}
