@@ -169,8 +169,8 @@ class WhisperEngine:
                     "speech_pad_ms": 250,
                 },
                 condition_on_previous_text=False,  # stops repeat/echo hallucinations
-                no_speech_threshold=0.7,
-                log_prob_threshold=-1.2,
+                no_speech_threshold=0.8,
+                log_prob_threshold=-1.6,   # quiet CCTV mics give low-confidence real speech
                 temperature=[0.0, 0.2, 0.4],
                 beam_size=5,
                 initial_prompt="Tagalog at English na usapan sa bahay. Help, tulong, saklolo, sunog.",
@@ -187,9 +187,10 @@ class WhisperEngine:
                 text = (seg.text or "").strip()
                 if not text:
                     continue
-                if getattr(seg, "no_speech_prob", 0.0) > 0.85:
+                is_safety = any(w in text.lower() for w in KEEP_ALWAYS)
+                if not is_safety and getattr(seg, "no_speech_prob", 0.0) > 0.9:
                     continue
-                if getattr(seg, "avg_logprob", 0.0) < -1.4:
+                if not is_safety and getattr(seg, "avg_logprob", 0.0) < -1.8:
                     continue
                 if is_hallucination(text):
                     continue

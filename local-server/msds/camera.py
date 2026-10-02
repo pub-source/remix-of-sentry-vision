@@ -254,12 +254,16 @@ class Camera:
         if not transcript:
             return
 
-        # Overlapping RTSP chunks can return the same final phrase more than
-        # once. Do not publish a duplicate event to the live UI.
+        # Overlapping RTSP chunks can return the same phrase twice in a row.
+        # Only drop it within a short window — saying "help" again later must
+        # still be published and raise the alarm again.
         transcript_key = " ".join(transcript.lower().split()).strip(" .,!?")
         previous_key = " ".join(self.last_transcript.lower().split()).strip(" .,!?")
-        if transcript_key and transcript_key == previous_key:
+        now_ts = time.time()
+        if (transcript_key and transcript_key == previous_key
+                and now_ts - getattr(self, "_last_publish_ts", 0.0) < 6.0):
             return
+        self._last_publish_ts = now_ts
 
         keyword, confidence = match_distress(transcript)
         timestamp = now_iso()
