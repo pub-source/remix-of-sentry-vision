@@ -504,7 +504,9 @@ export default function Index() {
 
   // Low-latency wake word detection — checks both transcript and interim
   useEffect(() => {
-    if (!running) return;
+    // CCTV speech must trigger alarms as soon as the camera is connected,
+    // even before the monitoring switch is turned on.
+    if (!running && !ipCam.connected) return;
     const combinedText = `${listenTranscript} ${listenInterim}`.trim();
     if (!combinedText) {
       setWakeWordDiagnostic('Waiting for CCTV transcript');

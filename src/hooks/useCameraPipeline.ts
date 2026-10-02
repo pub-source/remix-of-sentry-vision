@@ -5,6 +5,7 @@ import { computeSaliency, computeSaliencyScore } from '@/lib/saliency';
 import { createFireState, detectFire } from '@/lib/fireDetection';
 import { describeAudioStatus, getAudioEvents } from '@/lib/multiCamServer';
 import { useFaceDistress } from '@/hooks/useFaceDistress';
+import { matchWakeWord } from '@/lib/safetyLexicon';
 import type {
   CameraConfig, CameraRuntime, DetectionEvent, MultiCamSettings,
 } from '@/types/multicam';
@@ -340,13 +341,17 @@ export function useCameraPipeline({ camera, settings, onEvent }: Options) {
             showTranscript(spoken);
           }
           for (const e of fresh) {
-            if (e.confidence < settings.audioThreshold) continue;
+            // Backend keyword list OR the full Tagalog/English safety library.
+            const safety = matchWakeWord(e.transcript || '');
+            const keyword = safety.matched ? safety.phrase : e.keyword;
+            const confidence = Math.max(e.confidence || 0, safety.matched ? safety.confidence : 0);
+            if (!keyword || confidence < settings.audioThreshold) continue;
             patch({
               audioDistress: {
-                detected: true, keyword: e.keyword, confidence: e.confidence, transcript: e.transcript,
+                detected: true, keyword, confidence, transcript: e.transcript,
               },
             });
-            emit('audio-distress', e.keyword || e.transcript, e.confidence);
+            emit('audio-distress', `Safety word: "${keyword}"`, confidence);
           }
         } else if (
           status?.last_transcript
